@@ -3,8 +3,17 @@ import Link from "next/link";
 import { EmptyState } from "../components/EmptyState";
 import { MarketCard } from "../components/MarketCard";
 import { listMarkets } from "../lib/core-api";
+import { createMiniAppPageMetadata, getMiniAppImagePath } from "../lib/miniapp";
 
 export const dynamic = "force-dynamic";
+
+export const metadata = createMiniAppPageMetadata({
+  title: "Conviction Markets",
+  description: "Real prediction-market signals from the Conviction Markets core API.",
+  imagePath: getMiniAppImagePath("home"),
+  targetPath: "/",
+  buttonTitle: "Open markets",
+});
 
 export default async function HomePage() {
   const markets = await listMarkets();

@@ -63,11 +63,22 @@ export type CopyIntent = {
   requestedQuantity: string;
   executedQuantity: string | null;
   executionPrice: string | null;
+  observedMarketPrice?: string | null;
+  observedMarketPriceSource?: string | null;
+  observedMarketPriceAt?: string | null;
   resultingPositionId: string | null;
   status: string;
+  externalOrderId?: string | null;
   errorMessage: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type CreateCopyIntentInput = {
+  followerId: string;
+  sourcePositionId: string;
+  requestedQuantity: string;
+  sourceSignalId?: string | null;
 };
 
 type ApiSuccess<TData> = {
@@ -218,13 +229,53 @@ export async function listPositionCopyIntents(positionId: string) {
   return response.copyIntents ?? response.copyTrades ?? [];
 }
 
-function coreRequest<TData>(path: string): Promise<TData>;
-function coreRequest<TData>(path: string, options: { allowNotFound: true }): Promise<TData | null>;
-async function coreRequest<TData>(path: string, options: { allowNotFound?: boolean } = {}) {
+export async function createCopyIntent(input: CreateCopyIntentInput) {
+  const response = await coreRequest<
+    { copyTrade?: CopyIntent; copyIntent?: CopyIntent } | CopyIntent
+  >("/copy-trades", {
+    method: "POST",
+    body: input,
+  });
+
+  if ("copyIntent" in response && response.copyIntent) {
+    return response.copyIntent;
+  }
+
+  if ("copyTrade" in response && response.copyTrade) {
+    return response.copyTrade;
+  }
+
+  return response as CopyIntent;
+}
+
+type CoreRequestOptions = {
+  allowNotFound?: boolean;
+  body?: unknown;
+  method?: "GET" | "POST";
+};
+
+function coreRequest<TData>(
+  path: string,
+  options: CoreRequestOptions & { allowNotFound: true },
+): Promise<TData | null>;
+function coreRequest<TData>(
+  path: string,
+  options?: CoreRequestOptions & { allowNotFound?: false },
+): Promise<TData>;
+async function coreRequest<TData>(path: string, options: CoreRequestOptions = {}) {
+  const headers: HeadersInit = {
+    Accept: "application/json",
+  };
+  const hasBody = typeof options.body !== "undefined";
+
+  if (hasBody) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(getCoreApiUrl() + path, {
-    headers: {
-      Accept: "application/json",
-    },
+    method: options.method ?? "GET",
+    headers,
+    body: hasBody ? JSON.stringify(options.body) : undefined,
     cache: "no-store",
   });
 
