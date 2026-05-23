@@ -20,7 +20,7 @@ export function PositionCard({
   const sharePath = "/positions/" + position.id;
 
   return (
-    <article className="card position-card">
+    <article className={"card position-card side-" + position.side.toLowerCase()}>
       <div className="card-kicker">
         <span>{position.side}</span>
         <span className="status-pill">{executionStatusLabel(position.status)}</span>
@@ -55,7 +55,7 @@ export function PositionCard({
       {notice ? <p className="notice">{notice}</p> : null}
       {showCopyIntent ? <CopyIntentButton positionId={position.id} /> : null}
       <a
-        className="text-link"
+        className="secondary-link"
         href={getWarpcastShareUrl({
           path: sharePath,
           text: position.side + " position intent on Conviction Markets",

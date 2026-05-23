@@ -21,7 +21,10 @@ export default async function MarketsPage() {
           ))}
         </section>
       ) : (
-        <EmptyState title="No markets yet" body="Markets have not been synced into the core API." />
+        <EmptyState
+          title="No markets yet"
+          body="Markets have not been synced into the core API, or the core API is not reachable."
+        />
       )}
     </main>
   );

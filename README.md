@@ -47,6 +47,10 @@ The app exposes `/.well-known/farcaster.json` and uses `fc:miniapp` metadata on 
 
 If the core API is unavailable, the app shows an empty or unavailable state instead of fake markets, fake PnL, fake trader stats, or simulated execution.
 
+## Delivery Plan
+
+The Farcaster-first UI, execution-contract, and Telegram follow-up plan is tracked in `docs/farcaster-telegram-ui-execution-plan.md`.
+
 ## Structure
 
 - `src/app` keeps App Router routes and layouts.

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { CoreApiError, createCopyIntent } from "../../../lib/core-api";
 
-const decimalInputPattern = /^(?:0|[1-9]\d*)(?:\.\d{1,8})?$/;
+const positiveDecimalInputPattern = /^(?=.*[1-9])(?:0|[1-9]\d*)(?:\.\d{1,8})?$/;
 
 export async function POST(request: Request) {
   const body = await parseBody(request);
@@ -20,8 +20,8 @@ export async function POST(request: Request) {
     return validationError("Follower, source position, and amount are required.");
   }
 
-  if (!decimalInputPattern.test(requestedQuantity)) {
-    return validationError("Amount must be a positive decimal string with up to 8 decimals.");
+  if (!positiveDecimalInputPattern.test(requestedQuantity)) {
+    return validationError("Amount must be greater than zero with up to 8 decimals.");
   }
 
   try {

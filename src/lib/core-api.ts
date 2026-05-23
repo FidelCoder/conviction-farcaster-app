@@ -108,125 +108,157 @@ export class CoreApiError extends Error {
 }
 
 export async function listMarkets() {
-  const response = await coreRequest<{ markets?: Market[] } | Market[]>("/markets");
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ markets?: Market[] } | Market[]>("/markets");
 
-  return Array.isArray(response) ? response : (response.markets ?? []);
+    return Array.isArray(response) ? response : (response.markets ?? []);
+  }, [] as Market[]);
 }
 
 export async function getMarket(id: string) {
-  const response = await coreRequest<{ market?: Market } | Market>(
-    "/markets/" + encodeURIComponent(id),
-    {
-      allowNotFound: true,
+  return readOrFallback(
+    async () => {
+      const response = await coreRequest<{ market?: Market } | Market>(
+        "/markets/" + encodeURIComponent(id),
+        {
+          allowNotFound: true,
+        },
+      );
+
+      if (!response) {
+        return null;
+      }
+
+      return "market" in response && response.market ? response.market : (response as Market);
     },
+    null as Market | null,
   );
-
-  if (!response) {
-    return null;
-  }
-
-  return "market" in response && response.market ? response.market : (response as Market);
 }
 
 export async function getTraderProfile(id: string) {
-  const response = await coreRequest<
-    { traderProfile?: TraderProfile; trader?: TraderProfile } | TraderProfile
-  >("/trader-profiles/" + encodeURIComponent(id), { allowNotFound: true });
+  return readOrFallback(
+    async () => {
+      const response = await coreRequest<
+        { traderProfile?: TraderProfile; trader?: TraderProfile } | TraderProfile
+      >("/trader-profiles/" + encodeURIComponent(id), { allowNotFound: true });
 
-  if (!response) {
-    return null;
-  }
+      if (!response) {
+        return null;
+      }
 
-  if ("traderProfile" in response && response.traderProfile) {
-    return response.traderProfile;
-  }
+      if ("traderProfile" in response && response.traderProfile) {
+        return response.traderProfile;
+      }
 
-  if ("trader" in response && response.trader) {
-    return response.trader;
-  }
+      if ("trader" in response && response.trader) {
+        return response.trader;
+      }
 
-  return response as TraderProfile;
+      return response as TraderProfile;
+    },
+    null as TraderProfile | null,
+  );
 }
 
 export async function getSignal(id: string) {
-  const response = await coreRequest<{ signal?: TradeSignal } | TradeSignal>(
-    "/signals/" + encodeURIComponent(id),
-    { allowNotFound: true },
+  return readOrFallback(
+    async () => {
+      const response = await coreRequest<{ signal?: TradeSignal } | TradeSignal>(
+        "/signals/" + encodeURIComponent(id),
+        { allowNotFound: true },
+      );
+
+      if (!response) {
+        return null;
+      }
+
+      return "signal" in response && response.signal ? response.signal : (response as TradeSignal);
+    },
+    null as TradeSignal | null,
   );
-
-  if (!response) {
-    return null;
-  }
-
-  return "signal" in response && response.signal ? response.signal : (response as TradeSignal);
 }
 
 export async function listMarketSignals(marketId: string) {
-  const response = await coreRequest<{ signals?: TradeSignal[] } | TradeSignal[]>(
-    "/markets/" + encodeURIComponent(marketId) + "/signals",
-    { allowNotFound: true },
-  );
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ signals?: TradeSignal[] } | TradeSignal[]>(
+      "/markets/" + encodeURIComponent(marketId) + "/signals",
+      { allowNotFound: true },
+    );
 
-  if (!response) {
-    return [];
-  }
+    if (!response) {
+      return [];
+    }
 
-  return Array.isArray(response) ? response : (response.signals ?? []);
+    return Array.isArray(response) ? response : (response.signals ?? []);
+  }, [] as TradeSignal[]);
 }
 
 export async function listTraderSignals(traderId: string) {
-  const response = await coreRequest<{ signals?: TradeSignal[] } | TradeSignal[]>(
-    "/trader-profiles/" + encodeURIComponent(traderId) + "/signals",
-    { allowNotFound: true },
-  );
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ signals?: TradeSignal[] } | TradeSignal[]>(
+      "/trader-profiles/" + encodeURIComponent(traderId) + "/signals",
+      { allowNotFound: true },
+    );
 
-  if (!response) {
-    return [];
-  }
+    if (!response) {
+      return [];
+    }
 
-  return Array.isArray(response) ? response : (response.signals ?? []);
+    return Array.isArray(response) ? response : (response.signals ?? []);
+  }, [] as TradeSignal[]);
 }
 
 export async function getPosition(id: string) {
-  const response = await coreRequest<{ position?: Position } | Position>(
-    "/positions/" + encodeURIComponent(id),
-    { allowNotFound: true },
+  return readOrFallback(
+    async () => {
+      const response = await coreRequest<{ position?: Position } | Position>(
+        "/positions/" + encodeURIComponent(id),
+        { allowNotFound: true },
+      );
+
+      if (!response) {
+        return null;
+      }
+
+      return "position" in response && response.position
+        ? response.position
+        : (response as Position);
+    },
+    null as Position | null,
   );
-
-  if (!response) {
-    return null;
-  }
-
-  return "position" in response && response.position ? response.position : (response as Position);
 }
 
 export async function listTraderPositions(traderId: string) {
-  const response = await coreRequest<{ positions?: Position[] } | Position[]>(
-    "/trader-profiles/" + encodeURIComponent(traderId) + "/positions",
-    { allowNotFound: true },
-  );
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ positions?: Position[] } | Position[]>(
+      "/trader-profiles/" + encodeURIComponent(traderId) + "/positions",
+      { allowNotFound: true },
+    );
 
-  if (!response) {
-    return [];
-  }
+    if (!response) {
+      return [];
+    }
 
-  return Array.isArray(response) ? response : (response.positions ?? []);
+    return Array.isArray(response) ? response : (response.positions ?? []);
+  }, [] as Position[]);
 }
 
 export async function listPositionCopyIntents(positionId: string) {
-  const response = await coreRequest<
-    { copyTrades?: CopyIntent[]; copyIntents?: CopyIntent[] } | CopyIntent[]
-  >("/positions/" + encodeURIComponent(positionId) + "/copy-trades", { allowNotFound: true });
+  return readOrFallback(async () => {
+    const response = await coreRequest<
+      { copyTrades?: CopyIntent[]; copyIntents?: CopyIntent[] } | CopyIntent[]
+    >("/positions/" + encodeURIComponent(positionId) + "/copy-trades", { allowNotFound: true });
 
-  if (!response) {
-    return [];
-  }
+    if (!response) {
+      return [];
+    }
 
-  if (Array.isArray(response)) {
-    return response;
-  }
+    if (Array.isArray(response)) {
+      return response;
+    }
 
-  return response.copyIntents ?? response.copyTrades ?? [];
+    return response.copyIntents ?? response.copyTrades ?? [];
+  }, [] as CopyIntent[]);
 }
 
 export async function createCopyIntent(input: CreateCopyIntentInput) {
@@ -272,12 +304,21 @@ async function coreRequest<TData>(path: string, options: CoreRequestOptions = {}
     headers["Content-Type"] = "application/json";
   }
 
-  const response = await fetch(getCoreApiUrl() + path, {
-    method: options.method ?? "GET",
-    headers,
-    body: hasBody ? JSON.stringify(options.body) : undefined,
-    cache: "no-store",
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(getCoreApiUrl() + path, {
+      method: options.method ?? "GET",
+      headers,
+      body: hasBody ? JSON.stringify(options.body) : undefined,
+      cache: "no-store",
+    });
+  } catch {
+    throw new CoreApiError("Core API is not reachable.", {
+      code: "CORE_API_UNAVAILABLE",
+      statusCode: 502,
+    });
+  }
 
   const body = await parseJson(response);
 
@@ -314,7 +355,14 @@ async function parseJson(response: Response) {
     return null;
   }
 
-  return JSON.parse(text) as unknown;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new CoreApiError("Core API returned invalid JSON.", {
+      code: "CORE_API_INVALID_RESPONSE",
+      statusCode: response.status,
+    });
+  }
 }
 
 function getCoreApiUrl() {
@@ -323,6 +371,25 @@ function getCoreApiUrl() {
     process.env.NEXT_PUBLIC_API_BASE_URL ??
     "http://localhost:3000"
   ).replace(/\/$/, "");
+}
+
+async function readOrFallback<TData>(operation: () => Promise<TData>, fallback: TData) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (isRecoverableReadError(error)) {
+      return fallback;
+    }
+
+    throw error;
+  }
+}
+
+function isRecoverableReadError(error: unknown) {
+  return (
+    error instanceof CoreApiError &&
+    (error.code === "CORE_API_UNAVAILABLE" || error.code === "CORE_API_INVALID_RESPONSE")
+  );
 }
 
 function isApiSuccess<TData>(body: unknown): body is ApiSuccess<TData> {

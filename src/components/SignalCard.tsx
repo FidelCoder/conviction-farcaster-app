@@ -18,7 +18,7 @@ export function SignalCard({
   const sharePath = "/signals/" + signal.id;
 
   return (
-    <article className="card signal-card">
+    <article className={"card signal-card side-" + signal.side.toLowerCase()}>
       <div className="card-kicker">
         <span>{signal.source}</span>
         <span className="status-pill">{signalStatusLabel()}</span>
@@ -54,7 +54,7 @@ export function SignalCard({
         </div>
       </dl>
       <a
-        className="text-link"
+        className="secondary-link"
         href={getWarpcastShareUrl({
           path: sharePath,
           text: signal.side + " signal on Conviction Markets",

@@ -5,6 +5,8 @@ import { FormEvent, useState } from "react";
 import type { CopyIntent } from "../lib/core-api";
 import { executionStatusLabel } from "../lib/display";
 
+const positiveDecimalPattern = /^(?=.*[1-9])(?:0|[1-9]\d*)(?:\.\d{1,8})?$/;
+
 type SubmitState =
   | { status: "idle"; message: string; copyIntent?: never }
   | { status: "submitting"; message: string; copyIntent?: never }
@@ -28,6 +30,23 @@ export function CopyIntentButton({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    const trimmedFollowerId = followerId.trim();
+    const trimmedAmount = amount.trim();
+
+    if (!trimmedFollowerId) {
+      setSubmitState({ status: "error", message: "Follower user ID is required." });
+      return;
+    }
+
+    if (!positiveDecimalPattern.test(trimmedAmount)) {
+      setSubmitState({
+        status: "error",
+        message: "Amount must be greater than zero with up to 8 decimals.",
+      });
+      return;
+    }
+
     setSubmitState({ status: "submitting", message: "Submitting copy intent..." });
 
     try {
@@ -37,9 +56,9 @@ export function CopyIntentButton({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          followerId,
+          followerId: trimmedFollowerId,
           sourcePositionId: positionId,
-          requestedQuantity: amount,
+          requestedQuantity: trimmedAmount,
           sourceSignalId: sourceSignalId ?? null,
         }),
       });
@@ -73,6 +92,7 @@ export function CopyIntentButton({
           autoComplete="off"
           name="followerId"
           onChange={(event) => setFollowerId(event.target.value)}
+          placeholder="real-user-id"
           required
           type="text"
           value={followerId}
@@ -84,7 +104,8 @@ export function CopyIntentButton({
           inputMode="decimal"
           name="amount"
           onChange={(event) => setAmount(event.target.value)}
-          pattern="^(?:0|[1-9]\d*)(?:\.\d{1,8})?$"
+          pattern="^(?=.*[1-9])(?:0|[1-9]\d*)(?:\.\d{1,8})?$"
+          placeholder="5.00000000"
           required
           type="text"
           value={amount}
@@ -94,7 +115,10 @@ export function CopyIntentButton({
         {isSubmitting ? "Submitting..." : "Submit copy intent"}
       </button>
       {submitState.message ? (
-        <p className={submitState.status === "error" ? "form-message error" : "form-message"}>
+        <p
+          aria-live="polite"
+          className={submitState.status === "error" ? "form-message error" : "form-message"}
+        >
           {submitState.message}
           {submitState.status === "submitted" && submitState.copyIntent.status !== "EXECUTED"
             ? " Execution not yet enabled."
