@@ -1,13 +1,27 @@
 import Link from "next/link";
 
-import type { TradeSignal } from "../lib/core-api";
+import type { Market, TraderProfile, TradeSignal } from "../lib/core-api";
+import { formatDate, signalStatusLabel } from "../lib/display";
+import { getWarpcastShareUrl } from "../lib/miniapp";
 
-export function SignalCard({ signal }: { signal: TradeSignal }) {
+export function SignalCard({
+  copyCount,
+  market,
+  signal,
+  trader,
+}: {
+  copyCount?: number | null;
+  market?: Market | null;
+  signal: TradeSignal;
+  trader?: TraderProfile | null;
+}) {
+  const sharePath = "/signals/" + signal.id;
+
   return (
-    <article className="card signal-card">
+    <article className={"card signal-card side-" + signal.side.toLowerCase()}>
       <div className="card-kicker">
         <span>{signal.source}</span>
-        <span className="status-pill">{signal.status}</span>
+        <span className="status-pill">{signalStatusLabel()}</span>
       </div>
       <h3>
         <Link href={"/signals/" + signal.id}>{signal.side} signal</Link>
@@ -17,26 +31,39 @@ export function SignalCard({ signal }: { signal: TradeSignal }) {
         <div>
           <dt>Market</dt>
           <dd>
-            <Link href={"/markets/" + signal.marketId}>{signal.marketId}</Link>
+            <Link href={"/markets/" + signal.marketId}>{market?.title ?? signal.marketId}</Link>
           </dd>
         </div>
         <div>
           <dt>Trader</dt>
           <dd>
-            <Link href={"/traders/" + signal.traderProfileId}>{signal.traderProfileId}</Link>
+            <Link href={"/traders/" + signal.traderProfileId}>
+              {trader?.handle ?? signal.traderProfileId}
+            </Link>
           </dd>
         </div>
+        {typeof copyCount === "number" ? (
+          <div>
+            <dt>Copy count</dt>
+            <dd>{copyCount}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>Created</dt>
           <dd>{formatDate(signal.createdAt)}</dd>
         </div>
       </dl>
+      <a
+        className="secondary-link"
+        href={getWarpcastShareUrl({
+          path: sharePath,
+          text: signal.side + " signal on Conviction Markets",
+        })}
+        rel="noreferrer"
+        target="_blank"
+      >
+        Share on Farcaster
+      </a>
     </article>
-  );
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(
-    new Date(value),
   );
 }

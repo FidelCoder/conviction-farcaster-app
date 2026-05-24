@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { MiniAppReady } from "../components/MiniAppReady";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,9 +19,11 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
             Conviction Markets
           </Link>
           <nav aria-label="Primary navigation">
+            <Link href="/margin">Margin</Link>
             <Link href="/markets">Markets</Link>
           </nav>
         </header>
+        <MiniAppReady />
         {children}
       </body>
     </html>
