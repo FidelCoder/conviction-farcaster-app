@@ -16,6 +16,29 @@ export type Market = {
   syncedAt?: string | null;
 };
 
+export type ExecutionCapabilityChain = {
+  chainId: number;
+  chainName: string;
+  ecosystem: "EVM";
+  network: "mainnet" | "testnet";
+  spotExecutionEnabled: boolean;
+  marginExecutionEnabled: boolean;
+  contractRequiredForMargin: boolean;
+  plannedAdapters: string[];
+};
+
+export type ExecutionCapabilities = {
+  evmOnly: boolean;
+  architecture: string;
+  spotExecutionEnabled: boolean;
+  marginExecutionEnabled: boolean;
+  leverageEnabled: boolean;
+  leverageRequiresContracts: boolean;
+  activeAdapters: string[];
+  recommendation: string;
+  chains: ExecutionCapabilityChain[];
+};
+
 export type TraderProfile = {
   id: string;
   userId: string;
@@ -48,6 +71,13 @@ export type Position = {
   observedMarketPrice?: string | null;
   observedMarketPriceSource?: string | null;
   observedMarketPriceAt?: string | null;
+  chainId?: number | null;
+  walletAddress?: string | null;
+  executionMode?: "SPOT" | "MARGIN";
+  leverageMultiplier?: string | null;
+  executionAdapterId?: string | null;
+  chainTransactionHash?: string | null;
+  idempotencyKey?: string | null;
   status: string;
   openedAt: string | null;
   closedAt: string | null;
@@ -66,6 +96,13 @@ export type CopyIntent = {
   observedMarketPrice?: string | null;
   observedMarketPriceSource?: string | null;
   observedMarketPriceAt?: string | null;
+  chainId?: number | null;
+  walletAddress?: string | null;
+  executionMode?: "SPOT" | "MARGIN";
+  leverageMultiplier?: string | null;
+  executionAdapterId?: string | null;
+  chainTransactionHash?: string | null;
+  idempotencyKey?: string | null;
   resultingPositionId: string | null;
   status: string;
   externalOrderId?: string | null;
@@ -133,6 +170,22 @@ export async function getMarket(id: string) {
     },
     null as Market | null,
   );
+}
+
+export async function getExecutionCapabilities() {
+  return readOrFallback(async () => {
+    const response = await coreRequest<
+      { execution?: ExecutionCapabilities } | ExecutionCapabilities
+    >("/execution/capabilities", { allowNotFound: true });
+
+    if (!response) {
+      return unavailableExecutionCapabilities;
+    }
+
+    return "execution" in response && response.execution
+      ? response.execution
+      : (response as ExecutionCapabilities);
+  }, unavailableExecutionCapabilities);
 }
 
 export async function getTraderProfile(id: string) {
@@ -284,6 +337,19 @@ type CoreRequestOptions = {
   allowNotFound?: boolean;
   body?: unknown;
   method?: "GET" | "POST";
+};
+
+const unavailableExecutionCapabilities: ExecutionCapabilities = {
+  evmOnly: true,
+  architecture: "INTENT_FIRST_SPOT_ADAPTERS_BEFORE_MARGIN",
+  spotExecutionEnabled: false,
+  marginExecutionEnabled: false,
+  leverageEnabled: false,
+  leverageRequiresContracts: true,
+  activeAdapters: [],
+  recommendation:
+    "Core API execution capabilities are unavailable. Keep margin execution disabled until contracts and adapters are live.",
+  chains: [],
 };
 
 function coreRequest<TData>(

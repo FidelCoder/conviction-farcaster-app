@@ -19,6 +19,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
             Conviction Markets
           </Link>
           <nav aria-label="Primary navigation">
+            <Link href="/margin">Margin</Link>
             <Link href="/markets">Markets</Link>
           </nav>
         </header>

@@ -27,7 +27,8 @@ Set `NEXT_PUBLIC_APP_URL` to the public URL Farcaster clients can scrape. For lo
 
 ## Routes
 
-- `/` shows real synced market data from the core API.
+- `/` opens the Farcaster margin desk with real synced market data from the core API.
+- `/margin` opens the dedicated margin desk.
 - `/markets` lists synced markets.
 - `/markets/[marketId]` shows one market and its signals.
 - `/traders/[traderId]` shows a trader profile when the core API exposes it, plus signals and positions.
@@ -46,6 +47,12 @@ The app exposes `/.well-known/farcaster.json` and uses `fc:miniapp` metadata on 
 - Copy intent success copy says `Copy intent submitted`; it only says `Executed` if the core API returns `EXECUTED`.
 
 If the core API is unavailable, the app shows an empty or unavailable state instead of fake markets, fake PnL, fake trader stats, or simulated execution.
+
+## Margin Layer
+
+The margin desk follows a prime-broker style model for prediction markets: user margin, vault capital, direct market execution, custody, liquidation health, and forced close before resolution. It reads `GET /execution/capabilities` from the core API and keeps the submit path disabled until margin contracts, vault liquidity, liquidation rules, and execution adapters are live.
+
+The UI may calculate indicative notional, borrowed capital, and liquidation guard values only from the user's entered margin and a real stored market price returned by the core API. It does not submit synthetic leveraged fills and it does not create fake PnL or fake execution records.
 
 ## Delivery Plan
 

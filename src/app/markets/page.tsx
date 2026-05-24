@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { EmptyState } from "../../components/EmptyState";
 import { MarketCard } from "../../components/MarketCard";
 import { listMarkets } from "../../lib/core-api";
@@ -9,9 +11,14 @@ export default async function MarketsPage() {
 
   return (
     <main className="page-shell">
-      <section className="page-heading compact">
-        <p className="eyebrow">Markets</p>
-        <h1>Synced markets</h1>
+      <section className="page-heading compact split-heading">
+        <div>
+          <p className="eyebrow">Markets</p>
+          <h1>Synced markets</h1>
+        </div>
+        <Link className="primary-link" href="/margin">
+          Open margin desk
+        </Link>
       </section>
 
       {markets.length > 0 ? (

@@ -1,22 +1,23 @@
 import Link from "next/link";
 
 import { EmptyState } from "../components/EmptyState";
+import { MarginDesk } from "../components/MarginDesk";
 import { MarketCard } from "../components/MarketCard";
-import { listMarkets } from "../lib/core-api";
+import { getExecutionCapabilities, listMarkets } from "../lib/core-api";
 import { createMiniAppPageMetadata, getMiniAppImagePath } from "../lib/miniapp";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = createMiniAppPageMetadata({
   title: "Conviction Markets",
-  description: "Real prediction-market signals from the Conviction Markets core API.",
+  description: "Farcaster margin layer for real Conviction Markets data.",
   imagePath: getMiniAppImagePath("home"),
   targetPath: "/",
-  buttonTitle: "Open markets",
+  buttonTitle: "Open margin desk",
 });
 
 export default async function HomePage() {
-  const markets = await listMarkets();
+  const [markets, execution] = await Promise.all([listMarkets(), getExecutionCapabilities()]);
   const featuredMarkets = markets.slice(0, 6);
   const activeMarkets = markets.filter((market) => market.status.toLowerCase() === "active").length;
   const pricedMarkets = markets.filter(
@@ -25,23 +26,11 @@ export default async function HomePage() {
   const latestSync = getLatestSyncTime(markets);
 
   return (
-    <main className="page-shell">
-      <section className="home-board">
-        <div className="home-board-copy">
-          <p className="eyebrow">Farcaster Mini App</p>
-          <h1>Conviction Markets</h1>
-          <p>Real prediction-market signals, positions, and copy intents from the core API.</p>
-          <div className="action-row">
-            <Link className="primary-link" href="/markets">
-              Browse markets
-            </Link>
-            <span className="status-note">
-              {latestSync ? "Latest sync " + latestSync : "Waiting for provider sync"}
-            </span>
-          </div>
-        </div>
+    <main className="page-shell wide">
+      <MarginDesk execution={execution} markets={markets} />
 
-        <dl className="market-summary">
+      <section className="market-overview-band" aria-label="Market sync overview">
+        <dl className="market-summary horizontal">
           <div>
             <dt>Markets</dt>
             <dd>{markets.length}</dd>
@@ -53,6 +42,10 @@ export default async function HomePage() {
           <div>
             <dt>Priced</dt>
             <dd>{pricedMarkets}</dd>
+          </div>
+          <div>
+            <dt>Latest sync</dt>
+            <dd>{latestSync ?? "Pending"}</dd>
           </div>
         </dl>
       </section>

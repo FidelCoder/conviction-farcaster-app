@@ -63,11 +63,16 @@ export function MarketCard({ market }: { market: Market }) {
         ) : null}
       </dl>
 
-      {market.externalUrl ? (
-        <a className="text-link" href={market.externalUrl} rel="noreferrer" target="_blank">
-          View source market
-        </a>
-      ) : null}
+      <div className="card-actions">
+        <Link className="secondary-link" href={"/markets/" + market.id}>
+          Trade view
+        </Link>
+        {market.externalUrl ? (
+          <a className="text-link" href={market.externalUrl} rel="noreferrer" target="_blank">
+            Source market
+          </a>
+        ) : null}
+      </div>
     </article>
   );
 }

@@ -1,7 +1,7 @@
 import { EmptyState } from "../../../components/EmptyState";
-import { MarketCard } from "../../../components/MarketCard";
+import { MarginDesk } from "../../../components/MarginDesk";
 import { SignalCard } from "../../../components/SignalCard";
-import { getMarket, listMarketSignals } from "../../../lib/core-api";
+import { getExecutionCapabilities, getMarket, listMarketSignals } from "../../../lib/core-api";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,11 @@ type MarketPageProps = {
 
 export default async function MarketPage({ params }: MarketPageProps) {
   const { marketId } = await params;
-  const [market, signals] = await Promise.all([getMarket(marketId), listMarketSignals(marketId)]);
+  const [market, signals, execution] = await Promise.all([
+    getMarket(marketId),
+    listMarketSignals(marketId),
+    getExecutionCapabilities(),
+  ]);
 
   if (!market) {
     return (
@@ -25,8 +29,8 @@ export default async function MarketPage({ params }: MarketPageProps) {
   }
 
   return (
-    <main className="page-shell">
-      <MarketCard market={market} />
+    <main className="page-shell wide">
+      <MarginDesk execution={execution} markets={[market]} />
 
       <section className="section-heading">
         <div>
