@@ -44,6 +44,7 @@ The app exposes `/.well-known/farcaster.json` and uses `fc:miniapp` metadata on 
 - Signal pages show trader, market, side, thesis, created time, and a `Signal only` status.
 - Position pages show execution status from the core API and a copy count from real copy-intent records.
 - Copy intents are submitted through `/api/copy-intents`, which forwards to `POST /copy-trades` on the core API.
+- Margin intents are submitted through `/api/margin-intents`, which forwards to `POST /positions` with `executionMode=MARGIN` and then calls `POST /execution/positions/:positionId/start`.
 - Copy intent success copy says `Copy intent submitted`; it only says `Executed` if the core API returns `EXECUTED`.
 
 If the core API is unavailable, the app shows an empty or unavailable state instead of fake markets, fake PnL, fake trader stats, or simulated execution.
@@ -52,7 +53,7 @@ If the core API is unavailable, the app shows an empty or unavailable state inst
 
 The margin desk follows a prime-broker style model for prediction markets: user margin, vault capital, direct market execution, custody, liquidation health, and forced close before resolution. It reads `GET /execution/capabilities` from the core API and keeps the submit path disabled until margin contracts, vault liquidity, liquidation rules, and execution adapters are live.
 
-The UI may calculate indicative notional, borrowed capital, and liquidation guard values only from the user's entered margin and a real stored market price returned by the core API. It does not submit synthetic leveraged fills and it does not create fake PnL or fake execution records.
+The UI may calculate indicative notional, borrowed capital, and liquidation guard values only from the user's entered margin and a real stored market price returned by the core API. Submitting the ticket records a real pending margin intent and execution attempt in the core API. It does not submit synthetic leveraged fills and it does not create fake PnL or fake execution records.
 
 ## Delivery Plan
 

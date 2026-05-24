@@ -1,15 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
-import type { ExecutionCapabilities, Market } from "../lib/core-api";
+import type { ExecutionAttempt, ExecutionCapabilities, Market, Position } from "../lib/core-api";
 import { formatDate } from "../lib/display";
 
 const leverageOptions = [1, 2, 3, 5, 10] as const;
 const marginHealthThreshold = 45;
+const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
 
 type Side = "YES" | "NO";
+
+type MarginSubmitState =
+  | { status: "idle"; message: string }
+  | { status: "submitting"; message: string }
+  | { status: "submitted"; message: string; position: Position; executionAttempt: ExecutionAttempt }
+  | { status: "error"; message: string };
+
+type MarginIntentResponse =
+  | {
+      ok: true;
+      data: {
+        position: Position;
+        executionAttempt: ExecutionAttempt;
+      };
+    }
+  | {
+      ok: false;
+      error: {
+        code: string;
+        message: string;
+      };
+    };
 
 type MarginDeskProps = {
   execution: ExecutionCapabilities;
@@ -21,9 +44,16 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
     markets.find((market) => Boolean(getPriceSnapshot(market))) ?? markets[0];
   const [selectedMarketId, setSelectedMarketId] = useState(firstPricedMarket?.id ?? "");
   const [side, setSide] = useState<Side>("YES");
+  const [userId, setUserId] = useState("");
+  const [walletAddress, setWalletAddress] = useState("");
+  const [quantity, setQuantity] = useState("");
   const [marginAmount, setMarginAmount] = useState("");
   const [leverage, setLeverage] = useState<(typeof leverageOptions)[number]>(3);
   const [chainId, setChainId] = useState(() => String(execution.chains[0]?.chainId ?? ""));
+  const [submitState, setSubmitState] = useState<MarginSubmitState>({
+    status: "idle",
+    message: "",
+  });
   const selectedMarket =
     markets.find((market) => market.id === selectedMarketId) ?? firstPricedMarket;
   const selectedChain = execution.chains.find((chain) => String(chain.chainId) === chainId);
@@ -32,12 +62,79 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
     [leverage, marginAmount, selectedMarket, side],
   );
   const isMarginLive = execution.marginExecutionEnabled && execution.leverageEnabled;
-  const submitDisabledReason = getSubmitDisabledReason({
-    execution,
+  const submitBlockReason = getSubmitBlockReason({
+    chainId,
+    leverage,
     marginAmount,
-    preview,
+    quantity,
     selectedMarket,
+    userId,
+    walletAddress,
   });
+  const isSubmitting = submitState.status === "submitting";
+  const ticketMessage = getTicketMessage({
+    execution,
+    preview,
+    submitBlockReason,
+    submitState,
+  });
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedMarket || submitBlockReason) {
+      setSubmitState({
+        status: "error",
+        message: submitBlockReason ?? "Select a real market before submitting.",
+      });
+      return;
+    }
+
+    setSubmitState({
+      status: "submitting",
+      message: "Submitting margin intent...",
+    });
+
+    try {
+      const response = await fetch("/api/margin-intents", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: userId.trim(),
+          marketId: selectedMarket.id,
+          side,
+          quantity: quantity.trim(),
+          chainId: Number(chainId),
+          walletAddress: walletAddress.trim(),
+          leverageMultiplier: String(leverage),
+          marginCollateral: marginAmount.trim(),
+        }),
+      });
+      const body = (await response.json()) as MarginIntentResponse;
+
+      if (!response.ok || !body.ok) {
+        setSubmitState({
+          status: "error",
+          message: body.ok ? "Margin intent failed." : body.error.message,
+        });
+        return;
+      }
+
+      setSubmitState({
+        status: "submitted",
+        message: buildSubmittedMessage(body.data.executionAttempt),
+        position: body.data.position,
+        executionAttempt: body.data.executionAttempt,
+      });
+    } catch {
+      setSubmitState({
+        status: "error",
+        message: "Core API did not accept the margin intent.",
+      });
+    }
+  }
 
   return (
     <section className="margin-desk" aria-label="Margin trading desk">
@@ -93,7 +190,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
           )}
         </aside>
 
-        <div className="trade-ticket" aria-label="Margin trade ticket">
+        <form className="trade-ticket" aria-label="Margin trade ticket" onSubmit={handleSubmit}>
           <div className="ticket-topline">
             <span>Trade ticket</span>
             <strong>{selectedMarket?.source ?? "Core API"}</strong>
@@ -106,6 +203,17 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                 <p>{selectedMarket.description ?? "No market description returned by core API."}</p>
                 <Link href={"/markets/" + selectedMarket.id}>Open market page</Link>
               </div>
+
+              <label className="ticket-field">
+                <span>User ID</span>
+                <input
+                  autoComplete="off"
+                  onChange={(event) => setUserId(event.target.value)}
+                  placeholder="real-core-user-id"
+                  type="text"
+                  value={userId}
+                />
+              </label>
 
               <div className="segmented-control" aria-label="Trade side">
                 <button
@@ -125,11 +233,22 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
               </div>
 
               <label className="ticket-field">
+                <span>Requested market size</span>
+                <input
+                  inputMode="decimal"
+                  onChange={(event) => setQuantity(event.target.value)}
+                  placeholder="Outcome share size"
+                  type="text"
+                  value={quantity}
+                />
+              </label>
+
+              <label className="ticket-field">
                 <span>Margin deposit</span>
                 <input
                   inputMode="decimal"
                   onChange={(event) => setMarginAmount(event.target.value)}
-                  placeholder="USDC amount"
+                  placeholder="USDC collateral"
                   type="text"
                   value={marginAmount}
                 />
@@ -164,6 +283,17 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                 </select>
               </label>
 
+              <label className="ticket-field">
+                <span>Wallet</span>
+                <input
+                  autoComplete="off"
+                  onChange={(event) => setWalletAddress(event.target.value)}
+                  placeholder="0x..."
+                  type="text"
+                  value={walletAddress}
+                />
+              </label>
+
               <dl className="ticket-metrics">
                 <div>
                   <dt>Reference price</dt>
@@ -191,10 +321,20 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                 </div>
               </dl>
 
-              <button className="ticket-submit" disabled type="button">
-                {isMarginLive ? "Connect Farcaster wallet" : "Margin contracts not live"}
+              <button
+                className="ticket-submit"
+                disabled={isSubmitting || Boolean(submitBlockReason)}
+                type="submit"
+              >
+                {isSubmitting ? "Submitting..." : "Submit margin intent"}
               </button>
-              <p className="ticket-message">{submitDisabledReason}</p>
+              <p
+                className={
+                  submitState.status === "error" ? "ticket-message error" : "ticket-message"
+                }
+              >
+                {ticketMessage}
+              </p>
             </>
           ) : (
             <div className="desk-empty">
@@ -204,7 +344,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
               </span>
             </div>
           )}
-        </div>
+        </form>
 
         <aside className="risk-console" aria-label="Risk and execution status">
           <div>
@@ -275,36 +415,91 @@ function buildMarginPreview(
   };
 }
 
-function getSubmitDisabledReason({
-  execution,
+function getSubmitBlockReason({
+  chainId,
+  leverage,
   marginAmount,
-  preview,
+  quantity,
   selectedMarket,
+  userId,
+  walletAddress,
 }: {
-  execution: ExecutionCapabilities;
+  chainId: string;
+  leverage: number;
   marginAmount: string;
-  preview: ReturnType<typeof buildMarginPreview>;
+  quantity: string;
   selectedMarket: Market | undefined;
+  userId: string;
+  walletAddress: string;
 }) {
   if (!selectedMarket) {
     return "Select a real synced market first.";
   }
 
-  if (!getPriceSnapshot(selectedMarket)) {
-    return "This market has no stored price snapshot, so leveraged sizing stays unavailable.";
+  if (!userId.trim()) {
+    return "Enter a real core user ID.";
+  }
+
+  if (!parsePositiveNumber(quantity)) {
+    return "Enter a requested market size greater than zero.";
   }
 
   if (parsePositiveNumber(marginAmount) === null) {
     return "Enter a real USDC margin amount to preview notional and borrowed capital.";
   }
 
+  if (leverage <= 1) {
+    return "Choose leverage above 1x for a margin intent.";
+  }
+
+  if (!chainId) {
+    return "Select an execution chain from core capabilities.";
+  }
+
+  if (!evmAddressPattern.test(walletAddress.trim())) {
+    return "Enter a valid EVM wallet address.";
+  }
+
+  return null;
+}
+
+function getTicketMessage({
+  execution,
+  preview,
+  submitBlockReason,
+  submitState,
+}: {
+  execution: ExecutionCapabilities;
+  preview: ReturnType<typeof buildMarginPreview>;
+  submitBlockReason: string | null;
+  submitState: MarginSubmitState;
+}) {
+  if (submitState.message) {
+    return submitState.message;
+  }
+
+  if (submitBlockReason) {
+    return submitBlockReason;
+  }
+
   if (!execution.marginExecutionEnabled || !execution.leverageEnabled) {
-    return "Execution remains disabled until core API reports live margin contracts, vault liquidity, liquidation, and adapters.";
+    return "Submitting records a real margin intent and execution attempt. Execution will stay blocked until core reports live contracts, vault liquidity, liquidation, and adapters.";
   }
 
   return (
     preview.referencePriceLabel + " is a reference only. A real wallet flow is still required."
   );
+}
+
+function buildSubmittedMessage(executionAttempt: ExecutionAttempt) {
+  if (executionAttempt.status === "BLOCKED") {
+    return (
+      "Margin intent recorded. Execution attempt blocked: " +
+      (executionAttempt.failureMessage ?? "adapter or contracts are not active.")
+    );
+  }
+
+  return "Margin intent recorded. Execution attempt status: " + executionAttempt.status + ".";
 }
 
 function getPriceSnapshot(market: Market) {
@@ -354,7 +549,7 @@ function getSideReferencePrice(yesProbability: number, side: Side) {
 function parsePositiveNumber(value: string) {
   const trimmed = value.trim();
 
-  if (!/^(?=.*[1-9])(?:0|[1-9]d*)(?:.d{1,8})?$/.test(trimmed)) {
+  if (!/^(?=.*[1-9])(?:0|[1-9]\d*)(?:\.\d{1,8})?$/.test(trimmed)) {
     return null;
   }
 
