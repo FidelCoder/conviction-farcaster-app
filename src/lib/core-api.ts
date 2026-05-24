@@ -33,7 +33,9 @@ export type ExecutionCapabilities = {
   spotExecutionEnabled: boolean;
   marginExecutionEnabled: boolean;
   leverageEnabled: boolean;
+  marginIntentsEnabled?: boolean;
   leverageRequiresContracts: boolean;
+  maxPendingMarginLeverage?: number;
   activeAdapters: string[];
   recommendation: string;
   chains: ExecutionCapabilityChain[];
@@ -75,6 +77,9 @@ export type Position = {
   walletAddress?: string | null;
   executionMode?: "SPOT" | "MARGIN";
   leverageMultiplier?: string | null;
+  marginCollateral?: string | null;
+  notionalAmount?: string | null;
+  borrowedAmount?: string | null;
   executionAdapterId?: string | null;
   chainTransactionHash?: string | null;
   idempotencyKey?: string | null;
@@ -100,6 +105,9 @@ export type CopyIntent = {
   walletAddress?: string | null;
   executionMode?: "SPOT" | "MARGIN";
   leverageMultiplier?: string | null;
+  marginCollateral?: string | null;
+  notionalAmount?: string | null;
+  borrowedAmount?: string | null;
   executionAdapterId?: string | null;
   chainTransactionHash?: string | null;
   idempotencyKey?: string | null;
@@ -109,6 +117,44 @@ export type CopyIntent = {
   errorMessage: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ExecutionAttempt = {
+  id: string;
+  targetType: "POSITION" | "COPY_TRADE";
+  positionId: string | null;
+  copyTradeId: string | null;
+  adapterId: string;
+  executionMode: "SPOT" | "MARGIN";
+  chainId: number | null;
+  walletAddress: string | null;
+  requestedQuantity: string | null;
+  leverageMultiplier: string | null;
+  marginCollateral: string | null;
+  notionalAmount: string | null;
+  borrowedAmount: string | null;
+  observedMarketPrice: string | null;
+  status: string;
+  failureCode: string | null;
+  failureMessage: string | null;
+  externalOrderId: string | null;
+  chainTransactionHash: string | null;
+  requestPayload: unknown;
+  responsePayload: unknown;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateMarginPositionInput = {
+  userId: string;
+  marketId: string;
+  side: "YES" | "NO";
+  quantity: string;
+  chainId: number;
+  walletAddress: string;
+  leverageMultiplier: string;
+  marginCollateral: string;
+  idempotencyKey?: string | null;
 };
 
 export type CreateCopyIntentInput = {
@@ -314,6 +360,29 @@ export async function listPositionCopyIntents(positionId: string) {
   }, [] as CopyIntent[]);
 }
 
+export async function createMarginPositionIntent(input: CreateMarginPositionInput) {
+  const response = await coreRequest<{ position?: Position } | Position>("/positions", {
+    method: "POST",
+    body: {
+      ...input,
+      executionMode: "MARGIN",
+    },
+  });
+
+  return "position" in response && response.position ? response.position : (response as Position);
+}
+
+export async function startPositionExecution(positionId: string) {
+  const response = await coreRequest<{ executionAttempt?: ExecutionAttempt } | ExecutionAttempt>(
+    "/execution/positions/" + encodeURIComponent(positionId) + "/start",
+    { method: "POST" },
+  );
+
+  return "executionAttempt" in response && response.executionAttempt
+    ? response.executionAttempt
+    : (response as ExecutionAttempt);
+}
+
 export async function createCopyIntent(input: CreateCopyIntentInput) {
   const response = await coreRequest<
     { copyTrade?: CopyIntent; copyIntent?: CopyIntent } | CopyIntent
@@ -345,7 +414,9 @@ const unavailableExecutionCapabilities: ExecutionCapabilities = {
   spotExecutionEnabled: false,
   marginExecutionEnabled: false,
   leverageEnabled: false,
+  marginIntentsEnabled: false,
   leverageRequiresContracts: true,
+  maxPendingMarginLeverage: 10,
   activeAdapters: [],
   recommendation:
     "Core API execution capabilities are unavailable. Keep margin execution disabled until contracts and adapters are live.",
