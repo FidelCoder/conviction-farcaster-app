@@ -47,6 +47,8 @@ The app exposes `/.well-known/farcaster.json` and uses `fc:miniapp` metadata on 
 - Margin intents are submitted through `/api/margin-intents`, which forwards to `POST /positions` with `executionMode=MARGIN` and then calls `POST /execution/positions/:positionId/start`.
 - Copy intent success copy says `Copy intent submitted`; it only says `Executed` if the core API returns `EXECUTED`.
 
+Farcaster identity is created from the Mini App context. The client reads the SDK context, sends the real fid/username/display name to `/api/farcaster-session`, and that route creates or fetches a real `FARCASTER` social account in the core API. The margin ticket uses the returned core `user.id`; users do not paste backend IDs in the Mini App flow.
+
 If the core API is unavailable, the app shows an empty or unavailable state instead of fake markets, fake PnL, fake trader stats, or simulated execution.
 
 ## Margin Layer

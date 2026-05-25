@@ -745,6 +745,38 @@ nav a:hover {
   font-weight: 900;
 }
 
+.session-panel {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 0.75rem;
+}
+
+.session-panel.ready {
+  border-color: rgba(8, 116, 82, 0.34);
+  background: var(--green-soft);
+}
+
+.session-panel span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.session-panel strong {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.session-panel p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .segmented-control,
 .leverage-row {
   display: grid;

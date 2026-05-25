@@ -50,6 +50,37 @@ export type TraderProfile = {
   updatedAt?: string;
 };
 
+export type CoreUser = {
+  id: string;
+  displayName: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SocialAccount = {
+  id: string;
+  userId: string;
+  platform: "TELEGRAM" | "FARCASTER";
+  platformUserId: string;
+  username: string | null;
+  profileUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UserSession = {
+  user: CoreUser;
+  socialAccount: SocialAccount;
+  traderProfile: TraderProfile | null;
+};
+
+export type CreateFarcasterSessionInput = {
+  fid: number;
+  username?: string | null;
+  displayName?: string | null;
+  pfpUrl?: string | null;
+};
+
 export type TradeSignal = {
   id: string;
   traderProfileId: string;
@@ -216,6 +247,21 @@ export async function getMarket(id: string) {
     },
     null as Market | null,
   );
+}
+
+export async function createFarcasterSession(input: CreateFarcasterSessionInput) {
+  return coreRequest<UserSession>("/social-accounts", {
+    method: "POST",
+    body: {
+      platform: "FARCASTER",
+      platformUserId: String(input.fid),
+      username: input.username ?? null,
+      displayName: input.displayName ?? input.username ?? "Farcaster " + input.fid,
+      profileUrl: input.username
+        ? "https://warpcast.com/" + input.username
+        : (input.pfpUrl ?? null),
+    },
+  });
 }
 
 export async function getExecutionCapabilities() {
