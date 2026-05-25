@@ -8,7 +8,7 @@ import {
   startPositionExecution,
 } from "../../../lib/core-api";
 
-const positiveDecimalPattern = /^(?=.*[1-9])(?:0|[1-9]d*)(?:.d{1,8})?$/;
+const positiveDecimalPattern = /^(?=.*[1-9])(?:0|[1-9]\d*)(?:\.\d{1,8})?$/;
 const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
 
 export async function POST(request: Request) {
