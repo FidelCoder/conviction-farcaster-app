@@ -745,7 +745,8 @@ nav a:hover {
   font-weight: 900;
 }
 
-.session-panel {
+.session-panel,
+.wallet-panel {
   display: grid;
   gap: 0.25rem;
   border: 1px solid var(--line);
@@ -754,27 +755,47 @@ nav a:hover {
   padding: 0.75rem;
 }
 
-.session-panel.ready {
+.session-panel.ready,
+.wallet-panel.ready {
   border-color: rgba(8, 116, 82, 0.34);
   background: var(--green-soft);
 }
 
-.session-panel span {
+.session-panel span,
+.wallet-panel span {
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 900;
   text-transform: uppercase;
 }
 
-.session-panel strong {
+.session-panel strong,
+.wallet-panel strong {
   color: var(--ink);
   overflow-wrap: anywhere;
 }
 
-.session-panel p {
+.session-panel p,
+.wallet-panel p {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
+}
+
+.wallet-panel button {
+  width: fit-content;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--green);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+  padding: 0.55rem 0.7rem;
+}
+
+.wallet-panel button:hover {
+  background: var(--green-soft);
 }
 
 .segmented-control,

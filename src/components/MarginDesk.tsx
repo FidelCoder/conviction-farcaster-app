@@ -70,6 +70,17 @@ type FarcasterContext = {
   };
 };
 
+type WalletState =
+  | { status: "loading"; message: string }
+  | { status: "available"; message: string; provider: EthereumProvider }
+  | { status: "ready"; message: string; address: string; chainId: number | null }
+  | { status: "unavailable"; message: string }
+  | { status: "error"; message: string };
+
+type EthereumProvider = {
+  request(args: { method: string; params?: unknown }): Promise<unknown>;
+};
+
 type MarginDeskProps = {
   execution: ExecutionCapabilities;
   markets: Market[];
@@ -85,6 +96,10 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
     message: "Connecting Farcaster account...",
   });
   const [walletAddress, setWalletAddress] = useState("");
+  const [walletState, setWalletState] = useState<WalletState>({
+    status: "loading",
+    message: "Detecting Farcaster wallet...",
+  });
   const [quantity, setQuantity] = useState("");
   const [marginAmount, setMarginAmount] = useState("");
   const [leverage, setLeverage] = useState<(typeof leverageOptions)[number]>(3);
@@ -107,8 +122,10 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
     marginAmount,
     quantity,
     selectedMarket,
+    selectedChainId: chainId,
     sessionState,
     walletAddress,
+    walletState,
   });
   const isSubmitting = submitState.status === "submitting";
   const ticketMessage = getTicketMessage({
@@ -198,6 +215,115 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function detectWallet() {
+      try {
+        const { sdk } = await import("@farcaster/miniapp-sdk");
+        const isInMiniApp = await sdk.isInMiniApp();
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (!isInMiniApp) {
+          setWalletState({
+            status: "unavailable",
+            message: "Open this page as a Farcaster Mini App to use a connected EVM wallet.",
+          });
+          return;
+        }
+
+        const provider = (await sdk.wallet.getEthereumProvider()) as EthereumProvider | undefined;
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (!provider) {
+          setWalletState({
+            status: "unavailable",
+            message: "No EVM wallet provider is available in this Farcaster client.",
+          });
+          return;
+        }
+
+        const accounts = normalizeAccounts(await provider.request({ method: "eth_accounts" }));
+        const chain = normalizeChainId(await provider.request({ method: "eth_chainId" }));
+
+        if (accounts[0]) {
+          const address = accounts[0];
+
+          setWalletAddress(address);
+          setWalletState({
+            status: "ready",
+            message: buildWalletMessage(address, chain),
+            address,
+            chainId: chain,
+          });
+          alignSelectedChain(chain, execution.chains, setChainId);
+          return;
+        }
+
+        setWalletState({
+          status: "available",
+          message: "Connect an EVM wallet from Farcaster to submit a margin intent.",
+          provider,
+        });
+      } catch {
+        if (isMounted) {
+          setWalletState({
+            status: "error",
+            message: "Unable to read the Farcaster EVM wallet provider.",
+          });
+        }
+      }
+    }
+
+    void detectWallet();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [execution.chains]);
+
+  async function connectWallet() {
+    if (walletState.status !== "available") {
+      return;
+    }
+
+    try {
+      const accounts = normalizeAccounts(
+        await walletState.provider.request({ method: "eth_requestAccounts" }),
+      );
+      const chain = normalizeChainId(await walletState.provider.request({ method: "eth_chainId" }));
+      const address = accounts[0];
+
+      if (!address) {
+        setWalletState({
+          status: "error",
+          message: "Farcaster wallet did not return an EVM account.",
+        });
+        return;
+      }
+
+      setWalletAddress(address);
+      setWalletState({
+        status: "ready",
+        message: buildWalletMessage(address, chain),
+        address,
+        chainId: chain,
+      });
+      alignSelectedChain(chain, execution.chains, setChainId);
+    } catch {
+      setWalletState({
+        status: "error",
+        message: "Wallet connection was not approved.",
+      });
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -412,16 +538,26 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                 </select>
               </label>
 
-              <label className="ticket-field">
-                <span>Wallet</span>
-                <input
-                  autoComplete="off"
-                  onChange={(event) => setWalletAddress(event.target.value)}
-                  placeholder="0x..."
-                  type="text"
-                  value={walletAddress}
-                />
-              </label>
+              <div
+                className={walletState.status === "ready" ? "wallet-panel ready" : "wallet-panel"}
+              >
+                <div>
+                  <span>Wallet</span>
+                  <strong>
+                    {walletState.status === "ready"
+                      ? truncateAddress(walletState.address)
+                      : walletState.status === "loading"
+                        ? "Detecting..."
+                        : "Not connected"}
+                  </strong>
+                </div>
+                <p>{walletState.message}</p>
+                {walletState.status === "available" ? (
+                  <button onClick={connectWallet} type="button">
+                    Connect wallet
+                  </button>
+                ) : null}
+              </div>
 
               <dl className="ticket-metrics">
                 <div>
@@ -549,17 +685,21 @@ function getSubmitBlockReason({
   leverage,
   marginAmount,
   quantity,
+  selectedChainId,
   selectedMarket,
   sessionState,
   walletAddress,
+  walletState,
 }: {
   chainId: string;
   leverage: number;
   marginAmount: string;
   quantity: string;
+  selectedChainId: string;
   selectedMarket: Market | undefined;
   sessionState: FarcasterSessionState;
   walletAddress: string;
+  walletState: WalletState;
 }) {
   if (!selectedMarket) {
     return "Select a real synced market first.";
@@ -585,8 +725,28 @@ function getSubmitBlockReason({
     return "Select an execution chain from core capabilities.";
   }
 
+  if (walletState.status !== "ready") {
+    return walletState.message;
+  }
+
   if (!evmAddressPattern.test(walletAddress.trim())) {
-    return "Enter a valid EVM wallet address.";
+    return "Connect a valid EVM wallet.";
+  }
+
+  if (walletAddress.trim().toLowerCase() !== walletState.address.toLowerCase()) {
+    return "Connected wallet changed. Reconnect the Farcaster wallet before submitting.";
+  }
+
+  if (
+    walletState.chainId !== null &&
+    selectedChainId &&
+    String(walletState.chainId) !== selectedChainId
+  ) {
+    return (
+      "Connected wallet is on chain " +
+      walletState.chainId +
+      "; select that chain or switch wallets before submitting."
+    );
   }
 
   return null;
@@ -739,4 +899,50 @@ function getSessionLabel(session: UserSession) {
   return session.socialAccount.username
     ? "@" + session.socialAccount.username
     : "fid " + session.socialAccount.platformUserId;
+}
+
+function normalizeAccounts(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [] as string[];
+  }
+
+  return value.filter(
+    (entry): entry is string => typeof entry === "string" && evmAddressPattern.test(entry),
+  );
+}
+
+function normalizeChainId(value: unknown) {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = value.startsWith("0x") ? Number.parseInt(value, 16) : Number(value);
+
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  return null;
+}
+
+function buildWalletMessage(address: string, chainId: number | null) {
+  return truncateAddress(address) + (chainId ? " on chain " + chainId : " connected");
+}
+
+function alignSelectedChain(
+  chainId: number | null,
+  chains: ExecutionCapabilities["chains"],
+  setChainId: (chainId: string) => void,
+) {
+  if (!chainId) {
+    return;
+  }
+
+  if (chains.some((chain) => chain.chainId === chainId)) {
+    setChainId(String(chainId));
+  }
+}
+
+function truncateAddress(address: string) {
+  return address.slice(0, 6) + "..." + address.slice(-4);
 }
