@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 
 import type { CopyIntent } from "../lib/core-api";
 import { executionStatusLabel } from "../lib/display";
+import { getFarcasterSessionLabel, useFarcasterSession } from "../hooks/useFarcasterSession";
 
 const positiveDecimalPattern = /^(?=.*[1-9])(?:0|[1-9]\d*)(?:\.\d{1,8})?$/;
 
@@ -20,22 +21,22 @@ export function CopyIntentButton({
   positionId: string;
   sourceSignalId?: string | null;
 }) {
-  const [followerId, setFollowerId] = useState("");
+  const sessionState = useFarcasterSession();
   const [amount, setAmount] = useState("");
   const [submitState, setSubmitState] = useState<SubmitState>({
     status: "idle",
     message: "",
   });
   const isSubmitting = submitState.status === "submitting";
+  const sessionBlockReason = sessionState.status === "ready" ? null : sessionState.message;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const trimmedFollowerId = followerId.trim();
     const trimmedAmount = amount.trim();
 
-    if (!trimmedFollowerId) {
-      setSubmitState({ status: "error", message: "Follower user ID is required." });
+    if (sessionState.status !== "ready") {
+      setSubmitState({ status: "error", message: sessionState.message });
       return;
     }
 
@@ -56,7 +57,7 @@ export function CopyIntentButton({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          followerId: trimmedFollowerId,
+          followerId: sessionState.session.user.id,
           sourcePositionId: positionId,
           requestedQuantity: trimmedAmount,
           sourceSignalId: sourceSignalId ?? null,
@@ -86,18 +87,17 @@ export function CopyIntentButton({
 
   return (
     <form className="copy-intent-form" onSubmit={handleSubmit}>
-      <label>
-        <span>Follower user ID</span>
-        <input
-          autoComplete="off"
-          name="followerId"
-          onChange={(event) => setFollowerId(event.target.value)}
-          placeholder="real-user-id"
-          required
-          type="text"
-          value={followerId}
-        />
-      </label>
+      <div className={sessionState.status === "ready" ? "session-panel ready" : "session-panel"}>
+        <span>Copying as</span>
+        <strong>
+          {sessionState.status === "ready"
+            ? getFarcasterSessionLabel(sessionState.session)
+            : sessionState.status === "loading"
+              ? "Connecting..."
+              : "Not connected"}
+        </strong>
+        <p>{sessionState.message}</p>
+      </div>
       <label>
         <span>Amount</span>
         <input
@@ -111,15 +111,19 @@ export function CopyIntentButton({
           value={amount}
         />
       </label>
-      <button className="primary-action" disabled={isSubmitting} type="submit">
+      <button
+        className="primary-action"
+        disabled={isSubmitting || Boolean(sessionBlockReason)}
+        type="submit"
+      >
         {isSubmitting ? "Submitting..." : "Submit copy intent"}
       </button>
-      {submitState.message ? (
+      {submitState.message || sessionBlockReason ? (
         <p
           aria-live="polite"
           className={submitState.status === "error" ? "form-message error" : "form-message"}
         >
-          {submitState.message}
+          {submitState.message || sessionBlockReason}
           {submitState.status === "submitted" && submitState.copyIntent.status !== "EXECUTED"
             ? " Execution not yet enabled."
             : null}

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 
 import { EmptyState } from "../../../components/EmptyState";
+import { PositionCard } from "../../../components/PositionCard";
 import { SignalCard } from "../../../components/SignalCard";
-import { getMarket, getSignal, getTraderProfile } from "../../../lib/core-api";
+import { getMarket, getSignal, getTraderProfile, listTraderPositions } from "../../../lib/core-api";
 import { createMiniAppPageMetadata, getMiniAppImagePath } from "../../../lib/miniapp";
 
 export const dynamic = "force-dynamic";
@@ -39,14 +40,44 @@ export default async function SignalPage({ params }: SignalPageProps) {
     );
   }
 
-  const [market, trader] = await Promise.all([
+  const [market, trader, traderPositions] = await Promise.all([
     getMarket(signal.marketId),
     getTraderProfile(signal.traderProfileId),
+    listTraderPositions(signal.traderProfileId),
   ]);
+  const sourcePositions = traderPositions.filter(
+    (position) => position.marketId === signal.marketId,
+  );
 
   return (
     <main className="page-shell">
       <SignalCard market={market} signal={signal} trader={trader} />
+
+      <section className="section-heading">
+        <div>
+          <p className="eyebrow">Copy flow</p>
+          <h2>Copy real position intents</h2>
+        </div>
+      </section>
+
+      {sourcePositions.length > 0 ? (
+        <section className="card-grid">
+          {sourcePositions.map((position) => (
+            <PositionCard
+              key={position.id}
+              market={market}
+              position={position}
+              showCopyIntent
+              sourceSignalId={signal.id}
+            />
+          ))}
+        </section>
+      ) : (
+        <EmptyState
+          title="No copyable position yet"
+          body="This signal is thesis only. Copy intents require a real source position from the trader on the same market."
+        />
+      )}
     </main>
   );
 }

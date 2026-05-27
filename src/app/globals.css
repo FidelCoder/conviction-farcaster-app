@@ -640,7 +640,8 @@ nav a:hover {
   overflow-wrap: anywhere;
 }
 
-.card-actions {
+.card-actions,
+.inline-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
