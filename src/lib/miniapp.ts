@@ -22,10 +22,9 @@ export function getAppName() {
 }
 
 export function getAppUrl() {
-  return (process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? DEFAULT_APP_URL).replace(
-    /\/$/,
-    "",
-  );
+  return (process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? DEFAULT_APP_URL)
+    .trim()
+    .replace(/\/$/, "");
 }
 
 export function getAbsoluteAppUrl(path = "/") {
