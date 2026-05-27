@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 
 import type { Market, TradeSignal } from "../lib/core-api";
+import { getWarpcastShareUrl } from "../lib/miniapp";
 import { getFarcasterSessionLabel, useFarcasterSession } from "../hooks/useFarcasterSession";
 
 type Side = "YES" | "NO";
@@ -230,9 +231,22 @@ export function SignalComposer({ markets }: SignalComposerProps) {
         </p>
 
         {submitState.status === "submitted" ? (
-          <Link className="text-link" href={"/signals/" + submitState.signal.id}>
-            Open signal
-          </Link>
+          <div className="inline-actions">
+            <Link className="text-link" href={"/signals/" + submitState.signal.id}>
+              Open signal
+            </Link>
+            <a
+              className="text-link"
+              href={getWarpcastShareUrl({
+                path: "/signals/" + submitState.signal.id,
+                text: submitState.signal.side + " signal on Conviction Markets",
+              })}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Share signal
+            </a>
+          </div>
         ) : null}
       </form>
     </section>

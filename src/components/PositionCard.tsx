@@ -10,11 +10,13 @@ export function PositionCard({
   market,
   position,
   showCopyIntent = false,
+  sourceSignalId = null,
 }: {
   copyCount?: number;
   market?: Market | null;
   position: Position;
   showCopyIntent?: boolean;
+  sourceSignalId?: string | null;
 }) {
   const notice = executionStatusNotice(position.status);
   const sharePath = "/positions/" + position.id;
@@ -53,7 +55,9 @@ export function PositionCard({
         ) : null}
       </dl>
       {notice ? <p className="notice">{notice}</p> : null}
-      {showCopyIntent ? <CopyIntentButton positionId={position.id} /> : null}
+      {showCopyIntent ? (
+        <CopyIntentButton positionId={position.id} sourceSignalId={sourceSignalId} />
+      ) : null}
       <a
         className="secondary-link"
         href={getWarpcastShareUrl({
