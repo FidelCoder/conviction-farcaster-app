@@ -2,7 +2,12 @@ import { EmptyState } from "../../../components/EmptyState";
 import { PositionCard } from "../../../components/PositionCard";
 import { SignalCard } from "../../../components/SignalCard";
 import { TraderCard } from "../../../components/TraderCard";
-import { getTraderProfile, listTraderPositions, listTraderSignals } from "../../../lib/core-api";
+import {
+  getTraderProfile,
+  getTraderStats,
+  listTraderPositions,
+  listTraderSignals,
+} from "../../../lib/core-api";
 
 export const dynamic = "force-dynamic";
 
@@ -12,15 +17,16 @@ type TraderPageProps = {
 
 export default async function TraderPage({ params }: TraderPageProps) {
   const { traderId } = await params;
-  const [trader, signals, positions] = await Promise.all([
+  const [trader, stats, signals, positions] = await Promise.all([
     getTraderProfile(traderId),
+    getTraderStats(traderId),
     listTraderSignals(traderId),
     listTraderPositions(traderId),
   ]);
 
   return (
     <main className="page-shell">
-      <TraderCard trader={trader} traderId={traderId} />
+      <TraderCard stats={stats} trader={trader} traderId={traderId} />
 
       <section className="section-heading">
         <div>

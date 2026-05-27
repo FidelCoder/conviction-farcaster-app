@@ -30,6 +30,7 @@ Set `NEXT_PUBLIC_APP_URL` to the public URL Farcaster clients can scrape. For lo
 - `/` opens the Farcaster margin desk with real synced market data from the core API.
 - `/margin` opens the dedicated margin desk.
 - `/markets` lists synced markets.
+- `/leaderboard` lists real trader stats returned by the core API.
 - `/markets/[marketId]` shows one market and its signals.
 - `/traders/[traderId]` shows a trader profile when the core API exposes it, plus signals and positions.
 - `/signals/[signalId]` shows one signal.
@@ -43,6 +44,7 @@ The app exposes `/.well-known/farcaster.json` and uses `fc:miniapp` metadata on 
 
 - Signal pages show trader, market, side, thesis, created time, and a `Signal only` status.
 - Position pages show execution status from the core API and a copy count from real copy-intent records.
+- The leaderboard reads `GET /leaderboard` and only displays stats calculated from stored core API records.
 - Signals are submitted through `/api/signals`, which forwards to `POST /signals` on the core API with `source=FARCASTER`.
 - Copy intents are submitted through `/api/copy-intents`, which forwards to `POST /copy-trades` on the core API.
 - Margin intents are submitted through `/api/margin-intents`, which forwards to `POST /positions` with `executionMode=MARGIN` and then calls `POST /execution/positions/:positionId/start`.

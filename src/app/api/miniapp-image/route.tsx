@@ -54,6 +54,16 @@ export async function GET(request: Request) {
       });
     }
 
+    if (type === "leaderboard") {
+      return renderCard({
+        eyebrow: "Leaderboard",
+        title: "Real trader activity",
+        body: "Ranks come from signals and copy intents stored by the core API.",
+        muted: "No fake win rate, PnL, balances, or execution claims.",
+        accent: "#276f86",
+      });
+    }
+
     if (type === "position" && id) {
       const position = await getPosition(id);
 

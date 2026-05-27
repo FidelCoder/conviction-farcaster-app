@@ -50,6 +50,22 @@ export type TraderProfile = {
   updatedAt?: string;
 };
 
+export type TraderStats = {
+  traderProfileId: string;
+  userId: string;
+  handle: string;
+  numberOfSignals: number;
+  numberOfCopyIntents: number;
+  copiedVolume: string;
+  executedCopyIntentCount: number;
+  executedCopiedVolume: string | null;
+  realizedPnl: string | null;
+};
+
+export type LeaderboardEntry = TraderStats & {
+  rank: number;
+};
+
 export type CoreUser = {
   id: string;
   displayName: string | null;
@@ -331,6 +347,39 @@ export async function getTraderProfile(id: string) {
       return response as TraderProfile;
     },
     null as TraderProfile | null,
+  );
+}
+
+export async function listLeaderboard(limit = 25) {
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ leaderboard?: LeaderboardEntry[] } | LeaderboardEntry[]>(
+      "/leaderboard?limit=" + encodeURIComponent(String(limit)),
+      { allowNotFound: true },
+    );
+
+    if (!response) {
+      return [];
+    }
+
+    return Array.isArray(response) ? response : (response.leaderboard ?? []);
+  }, [] as LeaderboardEntry[]);
+}
+
+export async function getTraderStats(traderId: string) {
+  return readOrFallback(
+    async () => {
+      const response = await coreRequest<{ stats?: TraderStats } | TraderStats>(
+        "/trader-profiles/" + encodeURIComponent(traderId) + "/stats",
+        { allowNotFound: true },
+      );
+
+      if (!response) {
+        return null;
+      }
+
+      return "stats" in response && response.stats ? response.stats : (response as TraderStats);
+    },
+    null as TraderStats | null,
   );
 }
 
