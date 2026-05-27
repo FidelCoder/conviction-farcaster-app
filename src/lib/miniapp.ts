@@ -42,7 +42,10 @@ export function getMiniAppSplashImageUrl() {
   return getAbsoluteAppUrl("/api/miniapp-icon?size=splash");
 }
 
-export function getMiniAppImagePath(type: "home" | "signal" | "position", id?: string) {
+export function getMiniAppImagePath(
+  type: "home" | "signal" | "position" | "leaderboard",
+  id?: string,
+) {
   const params = new URLSearchParams({ type });
 
   if (id) {
