@@ -640,7 +640,9 @@ export function getCoreApiUrl() {
     process.env.CORE_API_URL ??
     process.env.NEXT_PUBLIC_API_BASE_URL ??
     "http://localhost:3000"
-  ).replace(/\/$/, "");
+  )
+    .trim()
+    .replace(/\/$/, "");
 }
 
 async function readOrFallback<TData>(operation: () => Promise<TData>, fallback: TData) {
@@ -658,7 +660,9 @@ async function readOrFallback<TData>(operation: () => Promise<TData>, fallback: 
 function isRecoverableReadError(error: unknown) {
   return (
     error instanceof CoreApiError &&
-    (error.code === "CORE_API_UNAVAILABLE" || error.code === "CORE_API_INVALID_RESPONSE")
+    (error.code === "CORE_API_UNAVAILABLE" ||
+      error.code === "CORE_API_INVALID_RESPONSE" ||
+      error.statusCode >= 500)
   );
 }
 
