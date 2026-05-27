@@ -22,6 +22,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
             <Link href="/margin">Margin</Link>
             <Link href="/markets">Markets</Link>
             <Link href="/leaderboard">Leaderboard</Link>
+            <Link href="/beta-readiness">Beta</Link>
           </nav>
         </header>
         <MiniAppReady />

@@ -76,6 +76,25 @@ export function createMiniAppEmbed(options: {
   } satisfies MiniAppEmbed;
 }
 
+export function createLegacyFrameEmbed(options: {
+  imagePath: string;
+  targetPath: string;
+  buttonTitle: string;
+}) {
+  const embed = createMiniAppEmbed(options);
+
+  return {
+    ...embed,
+    button: {
+      ...embed.button,
+      action: {
+        ...embed.button.action,
+        type: "launch_frame",
+      },
+    },
+  };
+}
+
 export function createMiniAppPageMetadata(options: {
   title: string;
   description: string;
@@ -84,6 +103,16 @@ export function createMiniAppPageMetadata(options: {
   buttonTitle: string;
 }) {
   const imageUrl = getAbsoluteAppUrl(options.imagePath);
+  const miniAppEmbed = createMiniAppEmbed({
+    imagePath: options.imagePath,
+    targetPath: options.targetPath,
+    buttonTitle: options.buttonTitle,
+  });
+  const legacyFrameEmbed = createLegacyFrameEmbed({
+    imagePath: options.imagePath,
+    targetPath: options.targetPath,
+    buttonTitle: options.buttonTitle,
+  });
 
   return {
     title: options.title,
@@ -100,13 +129,8 @@ export function createMiniAppPageMetadata(options: {
       ],
     },
     other: {
-      "fc:miniapp": JSON.stringify(
-        createMiniAppEmbed({
-          imagePath: options.imagePath,
-          targetPath: options.targetPath,
-          buttonTitle: options.buttonTitle,
-        }),
-      ),
+      "fc:miniapp": JSON.stringify(miniAppEmbed),
+      "fc:frame": JSON.stringify(legacyFrameEmbed),
     },
   };
 }
