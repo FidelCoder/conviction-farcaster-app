@@ -43,11 +43,12 @@ The app exposes `/.well-known/farcaster.json` and uses `fc:miniapp` metadata on 
 
 - Signal pages show trader, market, side, thesis, created time, and a `Signal only` status.
 - Position pages show execution status from the core API and a copy count from real copy-intent records.
+- Signals are submitted through `/api/signals`, which forwards to `POST /signals` on the core API with `source=FARCASTER`.
 - Copy intents are submitted through `/api/copy-intents`, which forwards to `POST /copy-trades` on the core API.
 - Margin intents are submitted through `/api/margin-intents`, which forwards to `POST /positions` with `executionMode=MARGIN` and then calls `POST /execution/positions/:positionId/start`.
 - Copy intent success copy says `Copy intent submitted`; it only says `Executed` if the core API returns `EXECUTED`.
 
-Farcaster identity is created from the Mini App context. The client reads the SDK context, sends the real fid/username/display name to `/api/farcaster-session`, and that route creates or fetches a real `FARCASTER` social account in the core API. The margin ticket uses the returned core `user.id`; users do not paste backend IDs in the Mini App flow. The margin ticket reads Farcaster's EVM provider for the connected wallet address and chain before recording an intent.
+Farcaster identity is created from the Mini App context. The session route also ensures a real trader profile exists for signal creation. The client reads the SDK context, sends the real fid/username/display name to `/api/farcaster-session`, and that route creates or fetches a real `FARCASTER` social account in the core API. The margin ticket uses the returned core `user.id`; users do not paste backend IDs in the Mini App flow. The margin ticket reads Farcaster's EVM provider for the connected wallet address and chain before recording an intent.
 
 If the core API is unavailable, the app shows an empty or unavailable state instead of fake markets, fake PnL, fake trader stats, or simulated execution.
 

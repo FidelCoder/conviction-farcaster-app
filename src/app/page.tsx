@@ -3,6 +3,7 @@ import Link from "next/link";
 import { EmptyState } from "../components/EmptyState";
 import { MarginDesk } from "../components/MarginDesk";
 import { MarketCard } from "../components/MarketCard";
+import { SignalComposer } from "../components/SignalComposer";
 import { getExecutionCapabilities, listMarkets } from "../lib/core-api";
 import { createMiniAppPageMetadata, getMiniAppImagePath } from "../lib/miniapp";
 
@@ -28,6 +29,7 @@ export default async function HomePage() {
   return (
     <main className="page-shell wide">
       <MarginDesk execution={execution} markets={markets} />
+      <SignalComposer markets={markets} />
 
       <section className="market-overview-band" aria-label="Market sync overview">
         <dl className="market-summary horizontal">

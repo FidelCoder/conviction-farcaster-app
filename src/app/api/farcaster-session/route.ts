@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { CoreApiError, createFarcasterSession } from "../../../lib/core-api";
+import { CoreApiError, createFarcasterSession, upsertTraderProfile } from "../../../lib/core-api";
 
 type FarcasterSessionBody = {
   fid?: unknown;
@@ -29,8 +29,18 @@ export async function POST(request: Request) {
       displayName: optionalString(body.displayName),
       pfpUrl: optionalString(body.pfpUrl),
     });
+    const traderProfile =
+      session.traderProfile ??
+      (await upsertTraderProfile({
+        userId: session.user.id,
+        handle: buildStableTraderHandle(fid),
+        bio: null,
+      }));
 
-    return NextResponse.json({ ok: true, data: { session } }, { status: 201 });
+    return NextResponse.json(
+      { ok: true, data: { session: { ...session, traderProfile } } },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof CoreApiError) {
       return NextResponse.json(
@@ -105,4 +115,8 @@ function optionalString(value: unknown) {
 
 function isRecord(value: unknown): value is FarcasterSessionBody {
   return typeof value === "object" && value !== null;
+}
+
+function buildStableTraderHandle(fid: number) {
+  return "fc-" + String(fid).slice(0, 29);
 }

@@ -81,6 +81,12 @@ export type CreateFarcasterSessionInput = {
   pfpUrl?: string | null;
 };
 
+export type UpsertTraderProfileInput = {
+  userId: string;
+  handle: string;
+  bio?: string | null;
+};
+
 export type TradeSignal = {
   id: string;
   traderProfileId: string;
@@ -195,6 +201,15 @@ export type CreateCopyIntentInput = {
   sourceSignalId?: string | null;
 };
 
+export type CreateTradeSignalInput = {
+  traderProfileId: string;
+  marketId: string;
+  side: "YES" | "NO";
+  thesis: string;
+  convictionLevel?: number | null;
+  source: "TELEGRAM" | "FARCASTER" | "WEB";
+};
+
 type ApiSuccess<TData> = {
   ok: true;
   data: TData;
@@ -280,6 +295,20 @@ export async function getExecutionCapabilities() {
   }, unavailableExecutionCapabilities);
 }
 
+export async function upsertTraderProfile(input: UpsertTraderProfileInput) {
+  const response = await coreRequest<{ traderProfile?: TraderProfile } | TraderProfile>(
+    "/trader-profiles",
+    {
+      method: "POST",
+      body: input,
+    },
+  );
+
+  return "traderProfile" in response && response.traderProfile
+    ? response.traderProfile
+    : (response as TraderProfile);
+}
+
 export async function getTraderProfile(id: string) {
   return readOrFallback(
     async () => {
@@ -303,6 +332,15 @@ export async function getTraderProfile(id: string) {
     },
     null as TraderProfile | null,
   );
+}
+
+export async function createTradeSignal(input: CreateTradeSignalInput) {
+  const response = await coreRequest<{ signal?: TradeSignal } | TradeSignal>("/signals", {
+    method: "POST",
+    body: input,
+  });
+
+  return "signal" in response && response.signal ? response.signal : (response as TradeSignal);
 }
 
 export async function getSignal(id: string) {
