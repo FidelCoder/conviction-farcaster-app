@@ -635,7 +635,7 @@ async function parseJson(response: Response) {
   }
 }
 
-function getCoreApiUrl() {
+export function getCoreApiUrl() {
   return (
     process.env.CORE_API_URL ??
     process.env.NEXT_PUBLIC_API_BASE_URL ??

@@ -1186,3 +1186,44 @@ nav a:hover {
   font-weight: 900;
   overflow-wrap: anywhere;
 }
+
+.readiness-list {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.readiness-check {
+  display: grid;
+  gap: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 1rem;
+  box-shadow: 0 14px 38px rgba(21, 26, 24, 0.06);
+}
+
+.readiness-check h2 {
+  margin: 0.18rem 0 0;
+  font-size: 1.05rem;
+}
+
+.readiness-check p {
+  margin: 0;
+}
+
+.readiness-check.pass {
+  border-left: 4px solid var(--green);
+}
+
+.readiness-check.warn {
+  border-left: 4px solid var(--amber);
+}
+
+.readiness-check.fail {
+  border-left: 4px solid var(--red);
+}
+
+.readiness-config {
+  margin-top: 1rem;
+}
