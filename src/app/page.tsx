@@ -20,42 +20,15 @@ export const metadata = createMiniAppPageMetadata({
 export default async function HomePage() {
   const [markets, execution] = await Promise.all([listMarkets(), getExecutionCapabilities()]);
   const featuredMarkets = markets.slice(0, 6);
-  const activeMarkets = markets.filter((market) => market.status.toLowerCase() === "active").length;
-  const pricedMarkets = markets.filter(
-    (market) => market.lastTradePrice ?? market.bestBid ?? market.bestAsk,
-  ).length;
-  const latestSync = getLatestSyncTime(markets);
-
   return (
     <main className="page-shell wide">
       <MarginDesk execution={execution} markets={markets} />
       <SignalComposer markets={markets} />
 
-      <section className="market-overview-band" aria-label="Market sync overview">
-        <dl className="market-summary horizontal">
-          <div>
-            <dt>Markets</dt>
-            <dd>{markets.length}</dd>
-          </div>
-          <div>
-            <dt>Active</dt>
-            <dd>{activeMarkets}</dd>
-          </div>
-          <div>
-            <dt>Priced</dt>
-            <dd>{pricedMarkets}</dd>
-          </div>
-          <div>
-            <dt>Latest sync</dt>
-            <dd>{latestSync ?? "Pending"}</dd>
-          </div>
-        </dl>
-      </section>
-
       <section className="section-heading">
         <div>
-          <p className="eyebrow">Markets</p>
-          <h2>Synced markets</h2>
+          <p className="eyebrow">Market board</p>
+          <h2>Live synced markets</h2>
         </div>
         <Link className="text-link" href="/markets">
           View all
@@ -76,23 +49,4 @@ export default async function HomePage() {
       )}
     </main>
   );
-}
-
-function getLatestSyncTime(markets: Awaited<ReturnType<typeof listMarkets>>) {
-  const timestamps = markets
-    .map((market) => market.syncedAt)
-    .filter((value): value is string => Boolean(value))
-    .map((value) => new Date(value).getTime())
-    .filter((value) => Number.isFinite(value));
-
-  if (timestamps.length === 0) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(Math.max(...timestamps)));
 }

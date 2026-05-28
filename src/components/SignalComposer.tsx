@@ -129,14 +129,21 @@ export function SignalComposer({ markets }: SignalComposerProps) {
     <section className="signal-composer" aria-label="Create signal">
       <div className="signal-composer-copy">
         <p className="eyebrow">Signal desk</p>
-        <h2>Create a real market signal</h2>
+        <h2>Publish the thesis behind the trade.</h2>
         <p>
-          Signals are published intent and thesis records. They do not execute trades, create
-          positions, calculate PnL, or simulate balances.
+          Signals are real Farcaster-sourced records tied to synced markets. They stay separate
+          from execution until the core API confirms a live adapter.
         </p>
       </div>
 
       <form className="signal-form" onSubmit={handleSubmit}>
+        <div className="signal-form-header">
+          <div>
+            <span>Signal ticket</span>
+            <strong>{selectedMarketPriceLabel ?? "Awaiting price"}</strong>
+          </div>
+          <small>{markets.length} synced markets</small>
+        </div>
         <div className={sessionState.status === "ready" ? "session-panel ready" : "session-panel"}>
           <span>Farcaster trader</span>
           <strong>
@@ -172,8 +179,9 @@ export function SignalComposer({ markets }: SignalComposerProps) {
 
         {selectedMarket ? (
           <div className="signal-market-summary">
+            <span>{selectedMarket.category ?? selectedMarket.source}</span>
             <strong>{selectedMarket.title}</strong>
-            <span>{selectedMarketPriceLabel ?? "No stored price"}</span>
+            <small>{selectedMarketPriceLabel ?? "No stored price"}</small>
           </div>
         ) : null}
 
@@ -199,7 +207,7 @@ export function SignalComposer({ markets }: SignalComposerProps) {
           <textarea
             maxLength={5000}
             onChange={(event) => setThesis(event.target.value)}
-            placeholder="Write the actual reason for this signal."
+            placeholder="What do you believe the market is missing?"
             value={thesis}
           />
         </label>
@@ -227,7 +235,7 @@ export function SignalComposer({ markets }: SignalComposerProps) {
         <p className={submitState.status === "error" ? "ticket-message error" : "ticket-message"}>
           {submitState.message ||
             submitBlockReason ||
-            "Signal will be saved to core API as FARCASTER source."}
+            "Saved as a real Farcaster signal. No execution or PnL is implied."}
         </p>
 
         {submitState.status === "submitted" ? (
