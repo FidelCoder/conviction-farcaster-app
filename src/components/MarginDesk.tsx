@@ -77,6 +77,12 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
   const selectedMarket =
     markets.find((market) => market.id === selectedMarketId) ?? firstPricedMarket;
   const selectedChain = execution.chains.find((chain) => String(chain.chainId) === chainId);
+  const selectedSnapshot = selectedMarket ? getPriceSnapshot(selectedMarket) : null;
+  const activeMarketCount = markets.filter(
+    (market) => market.status.toLowerCase() === "active",
+  ).length;
+  const pricedMarketCount = markets.filter((market) => Boolean(getPriceSnapshot(market))).length;
+  const marketRailItems = markets.slice(0, 16);
   const preview = useMemo(
     () => buildMarginPreview(selectedMarket, side, marginAmount, leverage),
     [leverage, marginAmount, selectedMarket, side],
@@ -275,30 +281,48 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
   return (
     <section className="margin-desk" aria-label="Margin trading desk">
       <div className="margin-desk-header">
-        <div>
-          <p className="eyebrow">Farcaster margin layer</p>
-          <h1>Leveraged probability trades, built as real intents first.</h1>
+        <div className="desk-title">
+          <p className="eyebrow">Farcaster market beta</p>
+          <h1>Trade conviction on real prediction markets.</h1>
           <p>
-            A Conviction-native margin desk for synced markets: deposited collateral, vault capital,
-            execution custody, liquidation health, and forced close windows. No fake fills, no fake
-            PnL, no simulated markets.
+            Browse synced Polymarket books, publish Farcaster-native signals, and record EVM margin
+            intents without pretending execution is live.
           </p>
         </div>
-        <div className={isMarginLive ? "live-badge ready" : "live-badge pending"}>
-          <span>{isMarginLive ? "Margin live" : "Margin pending"}</span>
-          <strong>{execution.evmOnly ? "EVM" : "Cross-chain"}</strong>
+        <div className="desk-status-stack" aria-label="Market beta status">
+          <div className={isMarginLive ? "live-badge ready" : "live-badge pending"}>
+            <span>{isMarginLive ? "Execution live" : "Intent mode"}</span>
+            <strong>{execution.evmOnly ? "EVM" : "Multichain"}</strong>
+          </div>
+          <dl className="desk-stat-grid">
+            <div>
+              <dt>Markets</dt>
+              <dd>{markets.length}</dd>
+            </div>
+            <div>
+              <dt>Active</dt>
+              <dd>{activeMarketCount}</dd>
+            </div>
+            <div>
+              <dt>Priced</dt>
+              <dd>{pricedMarketCount}</dd>
+            </div>
+          </dl>
         </div>
       </div>
 
       <div className="margin-workspace">
         <aside className="market-rail" aria-label="Synced markets">
           <div className="rail-heading">
-            <span>Markets</span>
+            <div>
+              <span>Market tape</span>
+              <small>Real synced books</small>
+            </div>
             <strong>{markets.length}</strong>
           </div>
           {markets.length > 0 ? (
             <div className="market-rail-list">
-              {markets.slice(0, 12).map((market) => {
+              {marketRailItems.map((market) => {
                 const snapshot = getPriceSnapshot(market);
                 const isSelected = market.id === selectedMarket?.id;
 
@@ -310,7 +334,10 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                     onClick={() => setSelectedMarketId(market.id)}
                     type="button"
                   >
-                    <span>{market.title}</span>
+                    <span className="rail-market-copy">
+                      <span>{market.title}</span>
+                      <small>{market.category ?? market.source}</small>
+                    </span>
                     <strong>
                       {snapshot ? formatProbability(snapshot.probability) : "No price"}
                     </strong>
@@ -335,8 +362,39 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
           {selectedMarket ? (
             <>
               <div className="selected-market-copy">
-                <h2>{selectedMarket.title}</h2>
-                <p>{selectedMarket.description ?? "No market description returned by core API."}</p>
+                <div className="selected-market-title-row">
+                  <div>
+                    <span className="market-source-line">
+                      {selectedMarket.category ?? selectedMarket.source}
+                    </span>
+                    <h2>{selectedMarket.title}</h2>
+                  </div>
+                  <div className="selected-price-pill">
+                    <span>{selectedSnapshot?.source ?? "Reference"}</span>
+                    <strong>
+                      {selectedSnapshot ? formatProbability(selectedSnapshot.probability) : "No price"}
+                    </strong>
+                  </div>
+                </div>
+                <p>{getDescriptionPreview(selectedMarket.description)}</p>
+                <dl className="selected-price-grid">
+                  <div>
+                    <dt>Last</dt>
+                    <dd>{formatStoredMarketPrice(selectedMarket.lastTradePrice)}</dd>
+                  </div>
+                  <div>
+                    <dt>Bid</dt>
+                    <dd>{formatStoredMarketPrice(selectedMarket.bestBid)}</dd>
+                  </div>
+                  <div>
+                    <dt>Ask</dt>
+                    <dd>{formatStoredMarketPrice(selectedMarket.bestAsk)}</dd>
+                  </div>
+                  <div>
+                    <dt>Close</dt>
+                    <dd>{getForcedCloseLabel(selectedMarket)}</dd>
+                  </div>
+                </dl>
                 <Link href={"/markets/" + selectedMarket.id}>Open market page</Link>
               </div>
 
@@ -499,11 +557,11 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
 
         <aside className="risk-console" aria-label="Risk and execution status">
           <div>
-            <p className="eyebrow">Risk model</p>
-            <h2>Prime-broker style, not synthetic perps.</h2>
+            <p className="eyebrow">Execution guardrails</p>
+            <h2>Intent-first until the margin stack is live.</h2>
             <p>
-              The margin layer needs real vault liquidity, execution adapters, custody, health
-              checks, liquidation, and auto-close contracts before any leveraged order can execute.
+              The beta can collect real user intent and thesis records. Fills, PnL, and leveraged
+              execution stay off until contracts, vault liquidity, adapters, and liquidations are live.
             </p>
           </div>
 
@@ -527,10 +585,10 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
           </dl>
 
           <div className="process-rail" aria-label="Execution flow">
-            <span>Deposit margin</span>
-            <span>Borrow vault USDC</span>
-            <span>Execute market order</span>
-            <span>Monitor health</span>
+            <span>Choose real market</span>
+            <span>Record margin intent</span>
+            <span>Block execution safely</span>
+            <span>Enable adapters later</span>
             <span>Close before resolution</span>
           </div>
         </aside>
@@ -737,6 +795,22 @@ function parsePositiveNumber(value: string) {
   const parsed = Number(trimmed);
 
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function getDescriptionPreview(description: string | null) {
+  if (!description) {
+    return "No market description returned by core API.";
+  }
+
+  const normalized = description.replace(/\s+/g, " ").trim();
+
+  return normalized.length > 260 ? normalized.slice(0, 257).trimEnd() + "..." : normalized;
+}
+
+function formatStoredMarketPrice(value: string | null | undefined) {
+  const parsed = parseProbability(value);
+
+  return parsed === null ? "No price" : formatProbability(parsed);
 }
 
 function getForcedCloseLabel(market: Market) {
