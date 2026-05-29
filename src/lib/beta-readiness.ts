@@ -1,5 +1,10 @@
 import { getCoreApiUrl, getExecutionCapabilities, listLeaderboard, listMarkets } from "./core-api";
-import { getAbsoluteAppUrl, getAppUrl, getFarcasterAccountAssociation } from "./miniapp";
+import {
+  getAbsoluteAppUrl,
+  getAppUrl,
+  getFarcasterAccountAssociationState,
+  isMiniAppNoindexEnabled,
+} from "./miniapp";
 
 export type BetaReadinessCheck = {
   detail: string;
@@ -13,8 +18,11 @@ export type FarcasterBetaReadiness = {
   manifestUrl: string;
   checkedAt: string;
   coreReachable: boolean;
+  manifestReachable: boolean;
   hostedManifestConfigured: boolean;
   accountAssociationConfigured: boolean;
+  accountAssociationValid: boolean;
+  accountAssociationError: string | null;
   noindex: boolean;
   marketsCount: number;
   leaderboardEntries: number;
@@ -24,20 +32,29 @@ export type FarcasterBetaReadiness = {
   checks: BetaReadinessCheck[];
 };
 
+type ManifestHealth = {
+  detail: string;
+  reachable: boolean;
+};
+
 export async function getFarcasterBetaReadiness(): Promise<FarcasterBetaReadiness> {
-  const [coreHealth, markets, execution, leaderboard] = await Promise.all([
+  const appUrl = getAppUrl();
+  const manifestUrl = getAbsoluteAppUrl("/.well-known/farcaster.json");
+  const [coreHealth, markets, execution, leaderboard, manifestHealth] = await Promise.all([
     checkCoreHealth(),
     listMarkets(),
     getExecutionCapabilities(),
     listLeaderboard(10),
+    checkManifestEndpoint(manifestUrl, appUrl),
   ]);
-  const appUrl = getAppUrl();
   const coreApiUrl = getCoreApiUrl();
-  const accountAssociationConfigured = Boolean(getFarcasterAccountAssociation());
+  const accountAssociationState = getFarcasterAccountAssociationState();
+  const accountAssociationConfigured = accountAssociationState.status !== "missing";
+  const accountAssociationValid = accountAssociationState.status === "valid";
   const hostedManifestConfigured = Boolean(process.env.FARCASTER_HOSTED_MANIFEST_ID?.trim());
-  const noindex = process.env.FARCASTER_MINIAPP_NOINDEX !== "false";
+  const noindex = isMiniAppNoindexEnabled();
   const usesPublicHttpsAppUrl = appUrl.startsWith("https://");
-  const manifestConfigured = accountAssociationConfigured || hostedManifestConfigured;
+  const manifestConfigured = accountAssociationValid || hostedManifestConfigured;
 
   const checks: BetaReadinessCheck[] = [
     {
@@ -48,11 +65,18 @@ export async function getFarcasterBetaReadiness(): Promise<FarcasterBetaReadines
         : "Set NEXT_PUBLIC_APP_URL to the deployed HTTPS URL before testing in Farcaster clients.",
     },
     {
-      label: "Mini App manifest",
-      status: manifestConfigured ? "pass" : "warn",
-      detail: manifestConfigured
-        ? "A signed account association or hosted manifest redirect is configured."
-        : "Set FARCASTER_ACCOUNT_ASSOCIATION_JSON or FARCASTER_HOSTED_MANIFEST_ID before public beta publishing.",
+      label: "Manifest endpoint",
+      status: manifestHealth.reachable ? "pass" : usesPublicHttpsAppUrl ? "fail" : "warn",
+      detail: manifestHealth.detail,
+    },
+    {
+      label: "Mini App verification",
+      status: manifestConfigured ? "pass" : accountAssociationConfigured ? "fail" : "warn",
+      detail: getMiniAppVerificationDetail({
+        accountAssociationError: accountAssociationState.error,
+        accountAssociationValid,
+        hostedManifestConfigured,
+      }),
     },
     {
       label: "Farcaster indexing",
@@ -89,11 +113,14 @@ export async function getFarcasterBetaReadiness(): Promise<FarcasterBetaReadines
   return {
     appUrl,
     coreApiUrl,
-    manifestUrl: getAbsoluteAppUrl("/.well-known/farcaster.json"),
+    manifestUrl,
     checkedAt: new Date().toISOString(),
     coreReachable: coreHealth,
+    manifestReachable: manifestHealth.reachable,
     hostedManifestConfigured,
     accountAssociationConfigured,
+    accountAssociationValid,
+    accountAssociationError: accountAssociationState.error,
     noindex,
     marketsCount: markets.length,
     leaderboardEntries: leaderboard.length,
@@ -112,4 +139,77 @@ async function checkCoreHealth() {
   } catch {
     return false;
   }
+}
+
+async function checkManifestEndpoint(manifestUrl: string, appUrl: string): Promise<ManifestHealth> {
+  try {
+    const response = await fetch(manifestUrl, { cache: "no-store" });
+
+    if (!response.ok) {
+      return {
+        reachable: false,
+        detail: "Farcaster manifest returned HTTP " + response.status + ".",
+      };
+    }
+
+    const body = (await response.json()) as unknown;
+
+    if (!isRecord(body) || !isRecord(body.miniapp)) {
+      return {
+        reachable: false,
+        detail: "Farcaster manifest is reachable but does not include a miniapp object.",
+      };
+    }
+
+    const homeUrl = body.miniapp.homeUrl;
+
+    if (typeof homeUrl === "string" && normalizeUrl(homeUrl) !== normalizeUrl(appUrl)) {
+      return {
+        reachable: false,
+        detail: "Farcaster manifest homeUrl does not match NEXT_PUBLIC_APP_URL.",
+      };
+    }
+
+    return {
+      reachable: true,
+      detail: "Farcaster manifest is reachable and points at the configured app URL.",
+    };
+  } catch {
+    return {
+      reachable: false,
+      detail: "Farcaster manifest could not be fetched from the configured app URL.",
+    };
+  }
+}
+
+function getMiniAppVerificationDetail({
+  accountAssociationError,
+  accountAssociationValid,
+  hostedManifestConfigured,
+}: {
+  accountAssociationError: string | null;
+  accountAssociationValid: boolean;
+  hostedManifestConfigured: boolean;
+}) {
+  if (hostedManifestConfigured) {
+    return "Hosted Farcaster manifest redirect is configured.";
+  }
+
+  if (accountAssociationValid) {
+    return "Signed account association is configured with header, payload, and signature.";
+  }
+
+  if (accountAssociationError) {
+    return accountAssociationError;
+  }
+
+  return "Set FARCASTER_ACCOUNT_ASSOCIATION_JSON before public beta publishing, or set FARCASTER_HOSTED_MANIFEST_ID to use Farcaster's hosted manifest.";
+}
+
+function normalizeUrl(value: string) {
+  return value.trim().replace(/\/$/, "");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
