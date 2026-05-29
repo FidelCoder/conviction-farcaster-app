@@ -67,6 +67,9 @@ export function MarketCard({ market }: { market: Market }) {
         <Link className="secondary-link" href={"/markets/" + market.id}>
           Trade view
         </Link>
+        <Link className="text-link" href={"/markets/" + market.id + "#signal"}>
+          Create signal
+        </Link>
         {market.externalUrl ? (
           <a className="text-link" href={market.externalUrl} rel="noreferrer" target="_blank">
             Source market

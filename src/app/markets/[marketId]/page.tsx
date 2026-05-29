@@ -1,6 +1,7 @@
 import { EmptyState } from "../../../components/EmptyState";
 import { MarginDesk } from "../../../components/MarginDesk";
 import { SignalCard } from "../../../components/SignalCard";
+import { SignalComposer } from "../../../components/SignalComposer";
 import { getExecutionCapabilities, getMarket, listMarketSignals } from "../../../lib/core-api";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ export default async function MarketPage({ params }: MarketPageProps) {
   return (
     <main className="page-shell wide">
       <MarginDesk execution={execution} markets={[market]} />
+      <SignalComposer anchorId="signal" markets={[market]} />
 
       <section className="section-heading">
         <div>

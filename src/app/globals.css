@@ -555,6 +555,7 @@ nav a:hover {
 }
 
 .signal-composer {
+  scroll-margin-top: 5.5rem;
   display: grid;
   grid-template-columns: minmax(16rem, 0.75fr) minmax(20rem, 1.25fr);
   gap: 1rem;
