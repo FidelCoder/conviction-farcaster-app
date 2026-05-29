@@ -3,8 +3,9 @@
 import { FormEvent, useState } from "react";
 
 import type { CopyIntent } from "../lib/core-api";
-import { executionStatusLabel } from "../lib/display";
-import { getFarcasterSessionLabel, useFarcasterSession } from "../hooks/useFarcasterSession";
+import { executionStatusLabel, executionStatusNotice } from "../lib/display";
+import { useFarcasterSession } from "../hooks/useFarcasterSession";
+import { FarcasterSessionPanel } from "./FarcasterSessionPanel";
 
 const positiveDecimalPattern = /^(?=.*[1-9])(?:0|[1-9]\d*)(?:\.\d{1,8})?$/;
 
@@ -29,6 +30,11 @@ export function CopyIntentButton({
   });
   const isSubmitting = submitState.status === "submitting";
   const sessionBlockReason = sessionState.status === "ready" ? null : sessionState.message;
+  const submitLabel = isSubmitting
+    ? "Submitting..."
+    : sessionState.status === "ready"
+      ? "Submit copy intent"
+      : "Connect Farcaster to copy";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -87,17 +93,7 @@ export function CopyIntentButton({
 
   return (
     <form className="copy-intent-form" onSubmit={handleSubmit}>
-      <div className={sessionState.status === "ready" ? "session-panel ready" : "session-panel"}>
-        <span>Copying as</span>
-        <strong>
-          {sessionState.status === "ready"
-            ? getFarcasterSessionLabel(sessionState.session)
-            : sessionState.status === "loading"
-              ? "Connecting..."
-              : "Not connected"}
-        </strong>
-        <p>{sessionState.message}</p>
-      </div>
+      <FarcasterSessionPanel label="Copying as" sessionState={sessionState} />
       <label>
         <span>Amount</span>
         <input
@@ -116,7 +112,7 @@ export function CopyIntentButton({
         disabled={isSubmitting || Boolean(sessionBlockReason)}
         type="submit"
       >
-        {isSubmitting ? "Submitting..." : "Submit copy intent"}
+        {submitLabel}
       </button>
       {submitState.message || sessionBlockReason ? (
         <p
@@ -124,16 +120,35 @@ export function CopyIntentButton({
           className={submitState.status === "error" ? "form-message error" : "form-message"}
         >
           {submitState.message || sessionBlockReason}
-          {submitState.status === "submitted" && submitState.copyIntent.status !== "EXECUTED"
-            ? " Execution not yet enabled."
-            : null}
-          {submitState.status === "submitted" && submitState.copyIntent.status === "EXECUTED"
-            ? " " + executionStatusLabel(submitState.copyIntent.status) + "."
-            : null}
         </p>
+      ) : null}
+      {submitState.status === "submitted" ? (
+        <div className="intent-confirmation compact" aria-live="polite">
+          <div className="intent-confirmation-topline">
+            <span>Copy intent</span>
+            <strong>{executionStatusLabel(submitState.copyIntent.status)}</strong>
+          </div>
+          <dl>
+            <div>
+              <dt>Amount</dt>
+              <dd>{submitState.copyIntent.requestedQuantity}</dd>
+            </div>
+            <div>
+              <dt>Record</dt>
+              <dd>{formatCompactId(submitState.copyIntent.id)}</dd>
+            </div>
+          </dl>
+          <p>
+            {executionStatusNotice(submitState.copyIntent.status) ?? "Core confirmed execution."}
+          </p>
+        </div>
       ) : null}
     </form>
   );
+}
+
+function formatCompactId(id: string) {
+  return id.length > 12 ? id.slice(0, 6) + "..." + id.slice(-4) : id;
 }
 
 type CopyIntentResponse =

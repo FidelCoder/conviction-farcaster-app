@@ -4,8 +4,10 @@ import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 
 import type { Market, TradeSignal } from "../lib/core-api";
+import { signalStatusLabel } from "../lib/display";
 import { getWarpcastShareUrl } from "../lib/miniapp";
-import { getFarcasterSessionLabel, useFarcasterSession } from "../hooks/useFarcasterSession";
+import { useFarcasterSession } from "../hooks/useFarcasterSession";
+import { FarcasterSessionPanel } from "./FarcasterSessionPanel";
 
 type Side = "YES" | "NO";
 
@@ -131,8 +133,8 @@ export function SignalComposer({ markets }: SignalComposerProps) {
         <p className="eyebrow">Signal desk</p>
         <h2>Publish the thesis behind the trade.</h2>
         <p>
-          Signals are real Farcaster-sourced records tied to synced markets. They stay separate
-          from execution until the core API confirms a live adapter.
+          Signals are real Farcaster-sourced records tied to synced markets. They stay separate from
+          execution until the core API confirms a live adapter.
         </p>
       </div>
 
@@ -144,17 +146,11 @@ export function SignalComposer({ markets }: SignalComposerProps) {
           </div>
           <small>{markets.length} synced markets</small>
         </div>
-        <div className={sessionState.status === "ready" ? "session-panel ready" : "session-panel"}>
-          <span>Farcaster trader</span>
-          <strong>
-            {sessionState.status === "ready"
-              ? getFarcasterSessionLabel(sessionState.session)
-              : sessionState.status === "loading"
-                ? "Connecting..."
-                : "Not connected"}
-          </strong>
-          <p>{getSessionMessage(sessionState)}</p>
-        </div>
+        <FarcasterSessionPanel
+          label="Farcaster trader"
+          readyMessage={getReadySessionMessage(sessionState)}
+          sessionState={sessionState}
+        />
 
         {markets.length > 0 ? (
           <label className="ticket-field">
@@ -239,6 +235,30 @@ export function SignalComposer({ markets }: SignalComposerProps) {
         </p>
 
         {submitState.status === "submitted" ? (
+          <div className="intent-confirmation" aria-live="polite">
+            <div className="intent-confirmation-topline">
+              <span>Signal record</span>
+              <strong>{signalStatusLabel()}</strong>
+            </div>
+            <dl>
+              <div>
+                <dt>Side</dt>
+                <dd>{submitState.signal.side}</dd>
+              </div>
+              <div>
+                <dt>Conviction</dt>
+                <dd>{submitState.signal.convictionLevel ?? "Not set"}</dd>
+              </div>
+              <div>
+                <dt>Record</dt>
+                <dd>{formatCompactId(submitState.signal.id)}</dd>
+              </div>
+            </dl>
+            <p>Core stored the thesis as a signal only. No fill, balance, or PnL was created.</p>
+          </div>
+        ) : null}
+
+        {submitState.status === "submitted" ? (
           <div className="inline-actions">
             <Link className="text-link" href={"/signals/" + submitState.signal.id}>
               Open signal
@@ -300,9 +320,9 @@ function getSubmitBlockReason({
   return null;
 }
 
-function getSessionMessage(sessionState: ReturnType<typeof useFarcasterSession>) {
+function getReadySessionMessage(sessionState: ReturnType<typeof useFarcasterSession>) {
   if (sessionState.status !== "ready") {
-    return sessionState.message;
+    return undefined;
   }
 
   return sessionState.session.traderProfile
@@ -327,4 +347,8 @@ function getMarketPriceLabel(market: Market) {
     maximumFractionDigits: 1,
     style: "percent",
   }).format(parsed <= 1 ? parsed : parsed / 100);
+}
+
+function formatCompactId(id: string) {
+  return id.length > 12 ? id.slice(0, 6) + "..." + id.slice(-4) : id;
 }
