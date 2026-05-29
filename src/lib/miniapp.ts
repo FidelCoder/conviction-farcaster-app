@@ -1,6 +1,18 @@
 const DEFAULT_APP_NAME = "Conviction Markets";
 const DEFAULT_APP_URL = "http://localhost:3001";
 const SPLASH_BACKGROUND_COLOR = "#f7f7f2";
+const MANIFEST_TAGS = ["markets", "signals", "copytrade"] as const;
+
+type FarcasterAccountAssociation = {
+  header: string;
+  payload: string;
+  signature: string;
+};
+
+export type FarcasterAccountAssociationState =
+  | { status: "missing"; association: null; error: null }
+  | { status: "valid"; association: FarcasterAccountAssociation; error: null }
+  | { status: "invalid"; association: null; error: string };
 
 export type MiniAppEmbed = {
   version: "1";
@@ -144,16 +156,38 @@ export function getWarpcastShareUrl(options: { path: string; text: string }) {
 }
 
 export function getFarcasterAccountAssociation() {
-  const rawAssociation = process.env.FARCASTER_ACCOUNT_ASSOCIATION_JSON;
+  const state = getFarcasterAccountAssociationState();
+
+  return state.status === "valid" ? state.association : null;
+}
+
+export function getFarcasterAccountAssociationState(): FarcasterAccountAssociationState {
+  const rawAssociation = process.env.FARCASTER_ACCOUNT_ASSOCIATION_JSON?.trim();
 
   if (!rawAssociation) {
-    return null;
+    return { status: "missing", association: null, error: null };
   }
 
   try {
-    return JSON.parse(rawAssociation) as unknown;
+    const parsed = JSON.parse(rawAssociation) as unknown;
+    const association = parseAccountAssociation(parsed);
+
+    if (!association) {
+      return {
+        status: "invalid",
+        association: null,
+        error:
+          "FARCASTER_ACCOUNT_ASSOCIATION_JSON must include string header, payload, and signature fields.",
+      };
+    }
+
+    return { status: "valid", association, error: null };
   } catch {
-    return null;
+    return {
+      status: "invalid",
+      association: null,
+      error: "FARCASTER_ACCOUNT_ASSOCIATION_JSON must be valid JSON generated for this app domain.",
+    };
   }
 }
 
@@ -169,8 +203,8 @@ export function getMiniAppManifest() {
       subtitle: "Real market signals",
       description: "Share and copy real Conviction Markets signals from synced market data.",
       primaryCategory: "finance",
-      tags: ["markets", "signals", "copytrade"],
-      noindex: process.env.FARCASTER_MINIAPP_NOINDEX !== "false",
+      tags: MANIFEST_TAGS,
+      noindex: isMiniAppNoindexEnabled(),
     },
   };
   const accountAssociation = getFarcasterAccountAssociation();
@@ -180,6 +214,39 @@ export function getMiniAppManifest() {
   }
 
   return manifest;
+}
+
+export function isMiniAppNoindexEnabled() {
+  return process.env.FARCASTER_MINIAPP_NOINDEX !== "false";
+}
+
+function parseAccountAssociation(value: unknown): FarcasterAccountAssociation | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const { header, payload, signature } = value;
+
+  if (
+    typeof header !== "string" ||
+    !header.trim() ||
+    typeof payload !== "string" ||
+    !payload.trim() ||
+    typeof signature !== "string" ||
+    !signature.trim()
+  ) {
+    return null;
+  }
+
+  return {
+    header: header.trim(),
+    payload: payload.trim(),
+    signature: signature.trim(),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function truncateAppName(value: string) {

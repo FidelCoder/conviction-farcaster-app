@@ -72,6 +72,20 @@ export default async function BetaReadinessPage() {
             <dd>{readiness.manifestUrl}</dd>
           </div>
           <div>
+            <dt>Manifest health</dt>
+            <dd>{readiness.manifestReachable ? "Reachable" : "Needs attention"}</dd>
+          </div>
+          <div>
+            <dt>Verification</dt>
+            <dd>
+              {readiness.hostedManifestConfigured
+                ? "Hosted manifest"
+                : readiness.accountAssociationValid
+                  ? "Signed association"
+                  : "Not ready"}
+            </dd>
+          </div>
+          <div>
             <dt>Margin intents</dt>
             <dd>{readiness.marginIntentsEnabled ? "Enabled" : "Disabled"}</dd>
           </div>
