@@ -4,12 +4,9 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import type { ExecutionAttempt, ExecutionCapabilities, Market, Position } from "../lib/core-api";
-import { formatDate } from "../lib/display";
-import {
-  getFarcasterSessionLabel,
-  type FarcasterSessionState,
-  useFarcasterSession,
-} from "../hooks/useFarcasterSession";
+import { executionStatusLabel, formatDate } from "../lib/display";
+import { type FarcasterSessionState, useFarcasterSession } from "../hooks/useFarcasterSession";
+import { FarcasterSessionPanel } from "./FarcasterSessionPanel";
 
 const leverageOptions = [1, 2, 3, 5, 10] as const;
 const marginHealthThreshold = 45;
@@ -372,7 +369,9 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                   <div className="selected-price-pill">
                     <span>{selectedSnapshot?.source ?? "Reference"}</span>
                     <strong>
-                      {selectedSnapshot ? formatProbability(selectedSnapshot.probability) : "No price"}
+                      {selectedSnapshot
+                        ? formatProbability(selectedSnapshot.probability)
+                        : "No price"}
                     </strong>
                   </div>
                 </div>
@@ -398,21 +397,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                 <Link href={"/markets/" + selectedMarket.id}>Open market page</Link>
               </div>
 
-              <div
-                className={
-                  sessionState.status === "ready" ? "session-panel ready" : "session-panel"
-                }
-              >
-                <span>Farcaster account</span>
-                <strong>
-                  {sessionState.status === "ready"
-                    ? getFarcasterSessionLabel(sessionState.session)
-                    : sessionState.status === "loading"
-                      ? "Connecting..."
-                      : "Not connected"}
-                </strong>
-                <p>{sessionState.message}</p>
-              </div>
+              <FarcasterSessionPanel label="Farcaster account" sessionState={sessionState} />
 
               <div className="segmented-control" aria-label="Trade side">
                 <button
@@ -544,6 +529,37 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
               >
                 {ticketMessage}
               </p>
+
+              {submitState.status === "submitted" ? (
+                <div className="intent-confirmation" aria-live="polite">
+                  <div className="intent-confirmation-topline">
+                    <span>Margin intent</span>
+                    <strong>{executionStatusLabel(submitState.position.status)}</strong>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>Position</dt>
+                      <dd>
+                        <Link href={"/positions/" + submitState.position.id}>
+                          {formatCompactId(submitState.position.id)}
+                        </Link>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Attempt</dt>
+                      <dd>{formatCompactId(submitState.executionAttempt.id)}</dd>
+                    </div>
+                    <div>
+                      <dt>Adapter status</dt>
+                      <dd>{executionStatusLabel(submitState.executionAttempt.status)}</dd>
+                    </div>
+                  </dl>
+                  <p>
+                    {submitState.executionAttempt.failureMessage ??
+                      "Execution attempt recorded; contracts and adapters decide the next state."}
+                  </p>
+                </div>
+              ) : null}
             </>
           ) : (
             <div className="desk-empty">
@@ -561,7 +577,8 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
             <h2>Intent-first until the margin stack is live.</h2>
             <p>
               The beta can collect real user intent and thesis records. Fills, PnL, and leveraged
-              execution stay off until contracts, vault liquidity, adapters, and liquidations are live.
+              execution stay off until contracts, vault liquidity, adapters, and liquidations are
+              live.
             </p>
           </div>
 
@@ -877,6 +894,10 @@ function alignSelectedChain(
   if (chains.some((chain) => chain.chainId === chainId)) {
     setChainId(String(chainId));
   }
+}
+
+function formatCompactId(id: string) {
+  return id.length > 12 ? id.slice(0, 6) + "..." + id.slice(-4) : id;
 }
 
 function truncateAddress(address: string) {
