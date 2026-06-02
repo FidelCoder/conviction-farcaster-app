@@ -27,6 +27,65 @@ export type ExecutionCapabilityChain = {
   plannedAdapters: string[];
 };
 
+export type ContractDeployment = {
+  id: string;
+  chainId: number;
+  role: "MARGIN_VAULT" | "EXECUTION_ADAPTER" | "COLLATERAL_TOKEN";
+  address: string;
+  label: string | null;
+  tokenSymbol: string | null;
+  tokenDecimals: number | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ContractTransactionStatus =
+  | "PREPARED"
+  | "SUBMITTED"
+  | "CONFIRMED"
+  | "FAILED"
+  | "CANCELLED";
+
+export type ContractTransaction = {
+  id: string;
+  userId: string | null;
+  positionId: string | null;
+  chainId: number;
+  contractAddress: string;
+  walletAddress: string;
+  transactionHash: string | null;
+  type: "DEPOSIT" | "MARGIN_INTENT" | "CLOSE_INTENT" | "LIQUIDATION";
+  status: ContractTransactionStatus;
+  requestPayload: unknown;
+  responsePayload: unknown;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PreparedMarginIntent = {
+  transaction: ContractTransaction;
+  contractCall: {
+    chainId: number;
+    contractAddress: string;
+    walletAddress: string;
+    functionName: "createMarginIntent";
+    abi: string[];
+    args: readonly unknown[];
+    namedArgs: {
+      collateralToken: string;
+      marketId: string;
+      side: number;
+      collateralAmount: string;
+      leverageBps: string;
+      maxSlippageBps: number;
+      deadline: number;
+      offchainPositionId: string;
+    };
+  };
+  executionNote: string;
+};
+
 export type ExecutionCapabilities = {
   evmOnly: boolean;
   architecture: string;
@@ -37,6 +96,13 @@ export type ExecutionCapabilities = {
   leverageRequiresContracts: boolean;
   maxPendingMarginLeverage?: number;
   activeAdapters: string[];
+  contractLayer?: {
+    status: string;
+    vaultAddress: string | null;
+    executionAdapterAddress: string | null;
+    activeContracts?: ContractDeployment[];
+    notes?: string[];
+  };
   recommendation: string;
   chains: ExecutionCapabilityChain[];
 };
@@ -538,6 +604,38 @@ export async function createMarginPositionIntent(input: CreateMarginPositionInpu
   return "position" in response && response.position ? response.position : (response as Position);
 }
 
+export async function prepareMarginIntentContractCall(input: {
+  positionId: string;
+  maxSlippageBps?: number;
+  deadline?: number;
+}) {
+  return coreRequest<PreparedMarginIntent>("/contracts/margin-intents/prepare", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function updateContractTransaction(
+  transactionId: string,
+  input: {
+    transactionHash?: string;
+    status?: ContractTransactionStatus;
+    responsePayload?: unknown;
+  },
+) {
+  const response = await coreRequest<{ transaction?: ContractTransaction } | ContractTransaction>(
+    "/contracts/transactions/" + encodeURIComponent(transactionId),
+    {
+      method: "PATCH",
+      body: input,
+    },
+  );
+
+  return "transaction" in response && response.transaction
+    ? response.transaction
+    : (response as ContractTransaction);
+}
+
 export async function startPositionExecution(positionId: string) {
   const response = await coreRequest<{ executionAttempt?: ExecutionAttempt } | ExecutionAttempt>(
     "/execution/positions/" + encodeURIComponent(positionId) + "/start",
@@ -571,7 +669,7 @@ export async function createCopyIntent(input: CreateCopyIntentInput) {
 type CoreRequestOptions = {
   allowNotFound?: boolean;
   body?: unknown;
-  method?: "GET" | "POST";
+  method?: "GET" | "PATCH" | "POST";
 };
 
 const unavailableExecutionCapabilities: ExecutionCapabilities = {
