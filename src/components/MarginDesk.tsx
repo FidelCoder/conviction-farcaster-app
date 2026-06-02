@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { encodeFunctionData, parseAbi } from "viem";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import type { ExecutionAttempt, ExecutionCapabilities, Market, Position } from "../lib/core-api";
+import type {
+  ExecutionAttempt,
+  ExecutionCapabilities,
+  Market,
+  Position,
+  PreparedMarginIntent,
+  ContractTransaction,
+} from "../lib/core-api";
 import { executionStatusLabel, formatDate } from "../lib/display";
 import { type FarcasterSessionState, useFarcasterSession } from "../hooks/useFarcasterSession";
 import { FarcasterSessionPanel } from "./FarcasterSessionPanel";
@@ -19,6 +27,28 @@ type MarginSubmitState =
   | { status: "submitting"; message: string }
   | { status: "submitted"; message: string; position: Position; executionAttempt: ExecutionAttempt }
   | { status: "error"; message: string };
+
+type VaultTransactionState =
+  | { status: "idle"; message: string }
+  | { status: "preparing"; message: string }
+  | { status: "prepared"; message: string; prepared: PreparedMarginIntent }
+  | { status: "sending"; message: string; prepared: PreparedMarginIntent }
+  | {
+      status: "submitted";
+      message: string;
+      prepared: PreparedMarginIntent;
+      transaction: ContractTransaction;
+      transactionHash: string;
+    }
+  | { status: "error"; message: string; prepared?: PreparedMarginIntent };
+
+type VaultPrepareResponse =
+  | { ok: true; data: PreparedMarginIntent }
+  | { ok: false; error: { code: string; message: string } };
+
+type VaultTransactionResponse =
+  | { ok: true; data: { transaction: ContractTransaction } }
+  | { ok: false; error: { code: string; message: string } };
 
 type MarginIntentResponse =
   | {
@@ -39,7 +69,13 @@ type MarginIntentResponse =
 type WalletState =
   | { status: "loading"; message: string }
   | { status: "available"; message: string; provider: EthereumProvider }
-  | { status: "ready"; message: string; address: string; chainId: number | null }
+  | {
+      status: "ready";
+      message: string;
+      address: string;
+      chainId: number | null;
+      provider: EthereumProvider;
+    }
   | { status: "unavailable"; message: string }
   | { status: "error"; message: string };
 
@@ -68,6 +104,10 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
   const [leverage, setLeverage] = useState<(typeof leverageOptions)[number]>(3);
   const [chainId, setChainId] = useState(() => String(execution.chains[0]?.chainId ?? ""));
   const [submitState, setSubmitState] = useState<MarginSubmitState>({
+    status: "idle",
+    message: "",
+  });
+  const [vaultState, setVaultState] = useState<VaultTransactionState>({
     status: "idle",
     message: "",
   });
@@ -151,6 +191,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
             message: buildWalletMessage(address, chain),
             address,
             chainId: chain,
+            provider,
           });
           alignSelectedChain(chain, execution.chains, setChainId);
           return;
@@ -204,6 +245,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
         message: buildWalletMessage(address, chain),
         address,
         chainId: chain,
+        provider: walletState.provider,
       });
       alignSelectedChain(chain, execution.chains, setChainId);
     } catch {
@@ -267,10 +309,120 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
         position: body.data.position,
         executionAttempt: body.data.executionAttempt,
       });
+      setVaultState({
+        status: "idle",
+        message: "Prepare a vault transaction when contract config is active in core.",
+      });
     } catch {
       setSubmitState({
         status: "error",
         message: "Core API did not accept the margin intent.",
+      });
+    }
+  }
+
+  async function handlePrepareVaultTransaction() {
+    if (submitState.status !== "submitted") {
+      return;
+    }
+
+    setVaultState({ status: "preparing", message: "Preparing vault transaction..." });
+
+    try {
+      const response = await fetch("/api/contracts/margin-intents/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ positionId: submitState.position.id, maxSlippageBps: 100 }),
+      });
+      const body = (await response.json()) as VaultPrepareResponse;
+
+      if (!response.ok || !body.ok) {
+        setVaultState({
+          status: "error",
+          message: body.ok ? "Vault transaction was not prepared." : body.error.message,
+        });
+        return;
+      }
+
+      setVaultState({
+        status: "prepared",
+        message: body.data.executionNote,
+        prepared: body.data,
+      });
+    } catch {
+      setVaultState({
+        status: "error",
+        message: "Unable to prepare the vault transaction from core.",
+      });
+    }
+  }
+
+  async function handleSubmitVaultTransaction() {
+    if (vaultState.status !== "prepared" || walletState.status !== "ready") {
+      return;
+    }
+
+    setVaultState({
+      status: "sending",
+      message: "Opening wallet transaction...",
+      prepared: vaultState.prepared,
+    });
+
+    try {
+      const data = encodeVaultCall(vaultState.prepared);
+      const transactionHash = normalizeTransactionHash(
+        await walletState.provider.request({
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: walletState.address,
+              to: vaultState.prepared.contractCall.contractAddress,
+              data,
+            },
+          ],
+        }),
+      );
+
+      if (!transactionHash) {
+        setVaultState({
+          status: "error",
+          message: "Wallet did not return a transaction hash.",
+          prepared: vaultState.prepared,
+        });
+        return;
+      }
+
+      const response = await fetch(
+        "/api/contracts/transactions/" + vaultState.prepared.transaction.id,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transactionHash, status: "SUBMITTED" }),
+        },
+      );
+      const body = (await response.json()) as VaultTransactionResponse;
+
+      if (!response.ok || !body.ok) {
+        setVaultState({
+          status: "error",
+          message: body.ok ? "Transaction hash was not recorded." : body.error.message,
+          prepared: vaultState.prepared,
+        });
+        return;
+      }
+
+      setVaultState({
+        status: "submitted",
+        message: "Vault transaction submitted. Execution still requires adapter confirmation.",
+        prepared: vaultState.prepared,
+        transaction: body.data.transaction,
+        transactionHash,
+      });
+    } catch {
+      setVaultState({
+        status: "error",
+        message: "Wallet transaction was not submitted.",
+        prepared: vaultState.prepared,
       });
     }
   }
@@ -558,6 +710,63 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                     {submitState.executionAttempt.failureMessage ??
                       "Execution attempt recorded; contracts and adapters decide the next state."}
                   </p>
+                  <div className="vault-action-panel">
+                    <div>
+                      <span>Vault transaction</span>
+                      <strong>{getVaultStateLabel(vaultState)}</strong>
+                    </div>
+                    <p>{getVaultStateMessage(vaultState)}</p>
+                    {vaultState.status === "prepared" || vaultState.status === "sending" ? (
+                      <dl>
+                        <div>
+                          <dt>Vault</dt>
+                          <dd>
+                            {truncateAddress(vaultState.prepared.contractCall.contractAddress)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Chain</dt>
+                          <dd>{vaultState.prepared.contractCall.chainId}</dd>
+                        </div>
+                        <div>
+                          <dt>Collateral</dt>
+                          <dd>{vaultState.prepared.contractCall.namedArgs.collateralAmount}</dd>
+                        </div>
+                      </dl>
+                    ) : null}
+                    {vaultState.status === "submitted" ? (
+                      <dl>
+                        <div>
+                          <dt>Hash</dt>
+                          <dd>{truncateHash(vaultState.transactionHash)}</dd>
+                        </div>
+                        <div>
+                          <dt>Status</dt>
+                          <dd>{vaultState.transaction.status}</dd>
+                        </div>
+                      </dl>
+                    ) : null}
+                    <div className="vault-action-row">
+                      <button
+                        disabled={
+                          vaultState.status === "preparing" || vaultState.status === "sending"
+                        }
+                        onClick={handlePrepareVaultTransaction}
+                        type="button"
+                      >
+                        {vaultState.status === "preparing" ? "Preparing..." : "Prepare vault call"}
+                      </button>
+                      <button
+                        disabled={
+                          vaultState.status !== "prepared" || walletState.status !== "ready"
+                        }
+                        onClick={handleSubmitVaultTransaction}
+                        type="button"
+                      >
+                        {vaultState.status === "sending" ? "Sending..." : "Submit with wallet"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : null}
             </>
@@ -902,4 +1111,47 @@ function formatCompactId(id: string) {
 
 function truncateAddress(address: string) {
   return address.slice(0, 6) + "..." + address.slice(-4);
+}
+
+function encodeVaultCall(prepared: PreparedMarginIntent) {
+  const args = prepared.contractCall.namedArgs;
+  const abi = parseAbi(prepared.contractCall.abi);
+
+  return encodeFunctionData({
+    abi,
+    functionName: prepared.contractCall.functionName,
+    args: [
+      args.collateralToken as `0x${string}`,
+      args.marketId as `0x${string}`,
+      args.side,
+      BigInt(args.collateralAmount),
+      BigInt(args.leverageBps),
+      BigInt(args.maxSlippageBps),
+      BigInt(args.deadline),
+      args.offchainPositionId as `0x${string}`,
+    ],
+  });
+}
+
+function getVaultStateLabel(state: VaultTransactionState) {
+  if (state.status === "idle") return "Not prepared";
+  if (state.status === "preparing") return "Preparing";
+  if (state.status === "prepared") return "Ready";
+  if (state.status === "sending") return "Wallet open";
+  if (state.status === "submitted") return "Submitted";
+  return "Needs attention";
+}
+
+function getVaultStateMessage(state: VaultTransactionState) {
+  if (state.message) return state.message;
+
+  return "Prepare a vault call after recording a margin intent.";
+}
+
+function normalizeTransactionHash(value: unknown) {
+  return typeof value === "string" && /^0x[a-fA-F0-9]{64}$/.test(value) ? value : null;
+}
+
+function truncateHash(value: string) {
+  return value.slice(0, 10) + "..." + value.slice(-8);
 }
