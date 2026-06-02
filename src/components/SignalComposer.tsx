@@ -33,10 +33,11 @@ type SignalResponse =
     };
 
 type SignalComposerProps = {
+  anchorId?: string;
   markets: Market[];
 };
 
-export function SignalComposer({ markets }: SignalComposerProps) {
+export function SignalComposer({ anchorId = "signal", markets }: SignalComposerProps) {
   const pricedMarket = markets.find((market) => Boolean(getMarketPriceLabel(market))) ?? markets[0];
   const [selectedMarketId, setSelectedMarketId] = useState(pricedMarket?.id ?? "");
   const [side, setSide] = useState<Side>("YES");
@@ -58,6 +59,8 @@ export function SignalComposer({ markets }: SignalComposerProps) {
     () => (selectedMarket ? getMarketPriceLabel(selectedMarket) : null),
     [selectedMarket],
   );
+  const marketCountLabel =
+    markets.length === 1 ? "Focused market" : markets.length + " synced markets";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -128,7 +131,7 @@ export function SignalComposer({ markets }: SignalComposerProps) {
   }
 
   return (
-    <section className="signal-composer" aria-label="Create signal">
+    <section className="signal-composer" id={anchorId} aria-label="Create signal">
       <div className="signal-composer-copy">
         <p className="eyebrow">Signal desk</p>
         <h2>Publish the thesis behind the trade.</h2>
@@ -144,7 +147,7 @@ export function SignalComposer({ markets }: SignalComposerProps) {
             <span>Signal ticket</span>
             <strong>{selectedMarketPriceLabel ?? "Awaiting price"}</strong>
           </div>
-          <small>{markets.length} synced markets</small>
+          <small>{marketCountLabel}</small>
         </div>
         <FarcasterSessionPanel
           label="Farcaster trader"
@@ -152,7 +155,7 @@ export function SignalComposer({ markets }: SignalComposerProps) {
           sessionState={sessionState}
         />
 
-        {markets.length > 0 ? (
+        {markets.length > 1 ? (
           <label className="ticket-field">
             <span>Market</span>
             <select
@@ -166,12 +169,12 @@ export function SignalComposer({ markets }: SignalComposerProps) {
               ))}
             </select>
           </label>
-        ) : (
+        ) : markets.length === 0 ? (
           <div className="desk-empty compact">
             <strong>No synced markets</strong>
             <span>Sync real markets in core before creating a signal.</span>
           </div>
-        )}
+        ) : null}
 
         {selectedMarket ? (
           <div className="signal-market-summary">
