@@ -460,6 +460,21 @@ export async function getPosition(id: string) {
   );
 }
 
+export async function listUserPositions(userId: string) {
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ positions?: Position[] } | Position[]>(
+      "/users/" + encodeURIComponent(userId) + "/positions",
+      { allowNotFound: true },
+    );
+
+    if (!response) {
+      return [];
+    }
+
+    return Array.isArray(response) ? response : (response.positions ?? []);
+  }, [] as Position[]);
+}
+
 export async function listTraderPositions(traderId: string) {
   return readOrFallback(async () => {
     const response = await coreRequest<{ positions?: Position[] } | Position[]>(
@@ -473,6 +488,24 @@ export async function listTraderPositions(traderId: string) {
 
     return Array.isArray(response) ? response : (response.positions ?? []);
   }, [] as Position[]);
+}
+
+export async function listUserCopyIntents(userId: string) {
+  return readOrFallback(async () => {
+    const response = await coreRequest<
+      { copyTrades?: CopyIntent[]; copyIntents?: CopyIntent[] } | CopyIntent[]
+    >("/users/" + encodeURIComponent(userId) + "/copy-trades", { allowNotFound: true });
+
+    if (!response) {
+      return [];
+    }
+
+    if (Array.isArray(response)) {
+      return response;
+    }
+
+    return response.copyIntents ?? response.copyTrades ?? [];
+  }, [] as CopyIntent[]);
 }
 
 export async function listPositionCopyIntents(positionId: string) {

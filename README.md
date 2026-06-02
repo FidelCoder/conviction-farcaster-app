@@ -38,6 +38,7 @@ Keep `FARCASTER_MINIAPP_NOINDEX=true` for private tests. Set it to `false` only 
 - `/margin` opens the dedicated margin desk.
 - `/markets` lists synced markets.
 - `/leaderboard` lists real trader stats returned by the core API.
+- `/me` shows the connected Farcaster user real signals, position intents, and copy intents returned by the core API.
 - `/beta-readiness` shows deployment checks for Farcaster beta testing.
 - `/markets/[marketId]` shows one market and its signals.
 - `/traders/[traderId]` shows a trader profile when the core API exposes it, plus signals and positions.
@@ -58,6 +59,7 @@ The app exposes `/.well-known/farcaster.json` and uses `fc:miniapp` plus `fc:fra
 - Copy intents are submitted through `/api/copy-intents`, which forwards to `POST /copy-trades` on the core API.
 - Margin intents are submitted through `/api/margin-intents`, which forwards to `POST /positions` with `executionMode=MARGIN` and then calls `POST /execution/positions/:positionId/start`.
 - Copy intent success copy says `Copy intent submitted`; it only says `Executed` if the core API returns `EXECUTED`.
+- My Activity reads the connected Farcaster user records from the core API and keeps empty states when no real records exist.
 
 Farcaster identity is created from the Mini App context. The session route also ensures a real trader profile exists for signal creation. The client reads the SDK context, sends the real fid/username/display name to `/api/farcaster-session`, and that route creates or fetches a real `FARCASTER` social account in the core API. The margin ticket uses the returned core `user.id`; users do not paste backend IDs in the Mini App flow. The margin ticket reads Farcaster's EVM provider for the connected wallet address and chain before recording an intent.
 

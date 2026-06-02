@@ -1173,6 +1173,81 @@ nav a:hover {
   color: var(--ink);
 }
 
+.my-activity-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.activity-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.activity-summary-grid div {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 0.9rem;
+  box-shadow: 0 12px 32px rgba(17, 22, 20, 0.06);
+}
+
+.activity-summary-grid span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.activity-summary-grid strong {
+  color: var(--ink);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.activity-section-stack {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.activity-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.compact-heading {
+  margin-bottom: 0;
+}
+
+.compact-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+}
+
+.activity-table {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.activity-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, 0.7fr) minmax(8rem, 1fr) minmax(7rem, 0.8fr);
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 800;
+  padding: 0.75rem;
+}
+
+.activity-row:hover {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
 @media (max-width: 1040px) {
   .margin-workspace {
     grid-template-columns: minmax(0, 1fr) minmax(20rem, 1fr);
@@ -1823,6 +1898,8 @@ body {
 @media (max-width: 520px) {
   .desk-stat-grid,
   .selected-price-grid,
+  .activity-summary-grid,
+  .activity-row,
   .intent-confirmation dl,
   .intent-confirmation.compact dl {
     grid-template-columns: 1fr;
