@@ -2,39 +2,72 @@ import Link from "next/link";
 
 import type { Market } from "../lib/core-api";
 import { formatDate } from "../lib/display";
+import { formatMarketPrice, getMarketDisplayCase, getSourceInitials } from "../lib/market-display";
 
-export function MarketCard({ market }: { market: Market }) {
+export function MarketCard({ market, compact = false }: { market: Market; compact?: boolean }) {
+  const displayCase = getMarketDisplayCase(market);
   const priceRows = [
     { label: "Last", value: market.lastTradePrice },
     { label: "Bid", value: market.bestBid },
     { label: "Ask", value: market.bestAsk },
   ].filter((row): row is { label: string; value: string } => Boolean(row.value));
   const statusClass = "status-" + market.status.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const detailRows = [
+    market.category ? { label: "Category", value: market.category } : null,
+    displayCase.resolutionLabel
+      ? { label: "Resolution", value: displayCase.resolutionLabel }
+      : null,
+    market.syncedAt ? { label: "Synced", value: formatDate(market.syncedAt) } : null,
+  ].filter((row): row is { label: string; value: string } => Boolean(row));
 
   return (
-    <article className={"card market-card " + statusClass}>
-      <div className="card-kicker">
-        <span>{market.source}</span>
-        <span className="status-pill">{market.status}</span>
+    <article
+      className={(
+        "card market-card conviction-card " +
+        statusClass +
+        (compact ? " compact" : "")
+      ).trim()}
+    >
+      <div className="market-card-top">
+        <div className="market-avatar" aria-hidden="true">
+          {getSourceInitials(market.source)}
+        </div>
+        <div className="market-card-heading">
+          <div className="card-kicker">
+            <span>{market.source}</span>
+            <span className="status-pill">{displayCase.label}</span>
+          </div>
+          <h3>
+            <Link href={"/markets/" + market.id}>{market.title}</Link>
+          </h3>
+        </div>
+        <div className="market-price-callout">
+          <span>Price</span>
+          <strong>{displayCase.price ?? "--"}</strong>
+        </div>
       </div>
 
-      <div className="market-card-title">
-        <h3>
-          <Link href={"/markets/" + market.id}>{market.title}</Link>
-        </h3>
-        <span className="market-map-state">
-          {market.yesTokenId && market.noTokenId ? "YES/NO mapped" : "Token mapping pending"}
-        </span>
+      {!compact && market.description ? <p>{market.description}</p> : null}
+
+      <div
+        className="case-meter"
+        aria-label={"Board fit " + displayCase.boardFitScore + " percent"}
+      >
+        <span style={{ width: displayCase.boardFitScore + "%" }} />
       </div>
 
-      {market.description ? <p>{market.description}</p> : null}
+      <ul className="case-list">
+        {displayCase.reasons.slice(0, compact ? 3 : 4).map((reason) => (
+          <li key={reason}>{reason}</li>
+        ))}
+      </ul>
 
       {priceRows.length > 0 ? (
-        <dl className="price-strip">
+        <dl className="price-strip market-price-strip">
           {priceRows.map((row) => (
             <div key={row.label}>
               <dt>{row.label}</dt>
-              <dd>{row.value}</dd>
+              <dd>{formatMarketPrice(row.value)}</dd>
             </div>
           ))}
         </dl>
@@ -42,37 +75,27 @@ export function MarketCard({ market }: { market: Market }) {
         <p className="subtle-note">No live price snapshot stored yet.</p>
       )}
 
-      <dl className="metric-list">
-        {market.category ? (
-          <div>
-            <dt>Category</dt>
-            <dd>{market.category}</dd>
-          </div>
-        ) : null}
-        {market.resolutionDate ? (
-          <div>
-            <dt>Resolution</dt>
-            <dd>{formatDate(market.resolutionDate)}</dd>
-          </div>
-        ) : null}
-        {market.syncedAt ? (
-          <div>
-            <dt>Synced</dt>
-            <dd>{formatDate(market.syncedAt)}</dd>
-          </div>
-        ) : null}
-      </dl>
+      {detailRows.length > 0 ? (
+        <dl className="metric-list market-detail-list">
+          {detailRows.map((row) => (
+            <div key={row.label}>
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
 
-      <div className="card-actions">
+      <div className="card-actions conviction-card-actions">
         <Link className="secondary-link" href={"/markets/" + market.id}>
-          Trade view
+          Open market
         </Link>
         <Link className="text-link" href={"/markets/" + market.id + "#signal"}>
           Create signal
         </Link>
         {market.externalUrl ? (
           <a className="text-link" href={market.externalUrl} rel="noreferrer" target="_blank">
-            Source market
+            Source
           </a>
         ) : null}
       </div>
