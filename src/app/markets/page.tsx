@@ -23,17 +23,17 @@ export default async function MarketsPage() {
   const boardIds = new Set(boardMarkets.map((market) => market.id));
   const monitoringMarkets = rankedMarkets.filter((market) => !boardIds.has(market.id)).slice(0, 12);
   const categories = getCategorySummary(rankedMarkets);
-  const boardTitle = qualifiedMarkets.length > 0 ? "Conviction board" : "Synced market queue";
+  const boardTitle = qualifiedMarkets.length > 0 ? "Conviction board" : "Market queue";
 
   return (
     <main className="page-shell app-layer-shell">
       <section className="app-board-hero" aria-labelledby="markets-title">
         <div className="app-title-lockup">
-          <p className="eyebrow">Farcaster market layer</p>
-          <h1 id="markets-title">Markets with enough signal to act on.</h1>
+          <p className="eyebrow">Market board</p>
+          <h1 id="markets-title">Only the markets worth acting on.</h1>
           <p>
-            Active, mapped, and priced records surface first. The app keeps weaker records in the
-            monitoring queue until the core API has better real metadata.
+            Markets rank higher when they have an active book, a current price, YES/NO mapping, and
+            a clear resolution date. Thin records stay in monitoring.
           </p>
         </div>
         <Link className="app-hero-action" href="/margin">
@@ -41,7 +41,7 @@ export default async function MarketsPage() {
         </Link>
         <dl className="app-board-stats" aria-label="Market board composition">
           <div>
-            <dt>Qualified</dt>
+            <dt>Ready</dt>
             <dd>{boardStats.qualified}</dd>
           </div>
           <div>
@@ -74,9 +74,7 @@ export default async function MarketsPage() {
         <>
           <section className="section-heading conviction-section-heading">
             <div>
-              <p className="eyebrow">
-                {qualifiedMarkets.length > 0 ? "Qualified" : "Provider sync"}
-              </p>
+              <p className="eyebrow">{qualifiedMarkets.length > 0 ? "Ready" : "Watching"}</p>
               <h2>{boardTitle}</h2>
             </div>
             <span>{boardMarkets.length} shown</span>
