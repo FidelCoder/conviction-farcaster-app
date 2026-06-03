@@ -2673,3 +2673,136 @@ nav a:hover,
     text-align: left;
   }
 }
+
+/* Compact app header menu */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  z-index: 60;
+}
+
+.app-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.menu-toggle {
+  display: grid;
+  place-items: center;
+  gap: 0.24rem;
+  width: 2.7rem;
+  height: 2.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.075);
+  color: #ffffff;
+  cursor: pointer;
+  padding: 0;
+}
+
+.menu-toggle span {
+  display: block;
+  width: 1.12rem;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  transform-origin: center;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.menu-toggle:hover,
+.menu-toggle.open {
+  border-color: rgba(106, 39, 255, 0.62);
+  background: var(--violet);
+  box-shadow: 0 14px 34px rgba(106, 39, 255, 0.28);
+}
+
+.menu-toggle.open span:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.menu-toggle.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-toggle.open span:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+.app-nav-panel {
+  position: absolute;
+  top: calc(100% + 0.65rem);
+  right: 0;
+  display: grid;
+  width: min(14rem, calc(100vw - 2rem));
+  gap: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 8px;
+  background: rgba(18, 18, 22, 0.96);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.34);
+  opacity: 0;
+  padding: 0.5rem;
+  pointer-events: none;
+  transform: translateY(-0.35rem);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    visibility 160ms ease;
+  visibility: hidden;
+}
+
+.app-nav-panel.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  visibility: visible;
+}
+
+.app-nav-panel a,
+.app-header .app-nav-panel a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.75rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #f4f1fa;
+  font-weight: 900;
+  padding: 0.7rem 0.8rem;
+}
+
+.app-nav-panel a:hover,
+.app-nav-panel a[aria-current="page"] {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.075);
+  color: #ffffff;
+}
+
+.app-nav-panel a[aria-current="page"]::after {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--orange);
+  content: "";
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    display: flex;
+    align-items: center;
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .brand::before {
+    flex: 0 0 auto;
+  }
+}

@@ -431,11 +431,11 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
     <section className="margin-desk" aria-label="Margin trading desk">
       <div className="margin-desk-header">
         <div className="desk-title">
-          <p className="eyebrow">Farcaster market beta</p>
-          <h1>Trade conviction on real prediction markets.</h1>
+          <p className="eyebrow">Margin desk</p>
+          <h1>Size the thesis before execution.</h1>
           <p>
-            Browse synced Polymarket books, publish Farcaster-native signals, and record EVM margin
-            intents without pretending execution is live.
+            Pick a market, choose YES or NO, set collateral and leverage, then submit an intent. No
+            trade is marked executed until the vault flow confirms it.
           </p>
         </div>
         <div className="desk-status-stack" aria-label="Market beta status">
@@ -461,11 +461,11 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
       </div>
 
       <div className="margin-workspace">
-        <aside className="market-rail" aria-label="Synced markets">
+        <aside className="market-rail" aria-label="Market tape">
           <div className="rail-heading">
             <div>
               <span>Market tape</span>
-              <small>Real synced books</small>
+              <small>Live books only</small>
             </div>
             <strong>{markets.length}</strong>
           </div>
@@ -872,7 +872,7 @@ function getSubmitBlockReason({
   walletState: WalletState;
 }) {
   if (!selectedMarket) {
-    return "Select a real synced market first.";
+    return "Select a market from the board first.";
   }
 
   if (sessionState.status !== "ready") {

@@ -127,7 +127,7 @@ export function MyActivityDashboard() {
       {activity ? (
         <div className="activity-section-stack">
           <ActivitySection
-            emptyBody="Create a signal from a real synced market to see it here."
+            emptyBody="Create a signal from the market board to see it here."
             emptyTitle="No signals yet"
             title="My signals"
           >

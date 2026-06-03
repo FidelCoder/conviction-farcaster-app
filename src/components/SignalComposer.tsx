@@ -304,7 +304,7 @@ function getSubmitBlockReason({
   }
 
   if (!selectedMarket) {
-    return "Select a real synced market first.";
+    return "Select a market from the board first.";
   }
 
   if (!thesis.trim()) {

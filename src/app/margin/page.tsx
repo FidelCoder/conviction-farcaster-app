@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata = createMiniAppPageMetadata({
   title: "Conviction Margin Desk",
-  description: "A Farcaster-first margin layer for real synced prediction markets.",
+  description: "Prediction-market margin desk for conviction trades.",
   imagePath: getMiniAppImagePath("home"),
   targetPath: "/margin",
   buttonTitle: "Open margin desk",

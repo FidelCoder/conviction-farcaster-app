@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata = createMiniAppPageMetadata({
   title: "Conviction Markets",
-  description: "Farcaster margin layer for real Conviction Markets data.",
+  description: "Prediction-market margin desk for conviction trades.",
   imagePath: getMiniAppImagePath("home"),
   targetPath: "/",
   buttonTitle: "Launch app",
@@ -36,10 +36,10 @@ export default async function HomePage() {
 
         <div className="launch-copy">
           <p className="launch-mark">Conviction Markets</p>
-          <h1 id="launch-title">The Farcaster margin layer for prediction markets.</h1>
+          <h1 id="launch-title">Leverage your market conviction.</h1>
           <p>
-            Real synced markets, signal-first positioning, and vault-ready margin intents without
-            fake fills or fake PnL.
+            Choose a market, take a side, write the thesis, and submit an intent. Execution stays
+            pending until the vault and adapter confirm it.
           </p>
 
           <div className="launch-actions">
@@ -54,7 +54,7 @@ export default async function HomePage() {
 
         <aside className="launch-market-panel" aria-label="Current market board preview">
           <div className="launch-panel-topline">
-            <span>Live board</span>
+            <span>Ready board</span>
             <strong>{boardStats.qualified}</strong>
           </div>
           <div className="launch-market-list">
@@ -74,18 +74,18 @@ export default async function HomePage() {
                 );
               })
             ) : (
-              <div className="launch-empty">Markets are waiting for provider sync.</div>
+              <div className="launch-empty">No markets are ready yet.</div>
             )}
           </div>
         </aside>
 
-        <dl className="launch-stats" aria-label="Conviction market readiness">
+        <dl className="launch-stats" aria-label="Market readiness">
           <div>
-            <dt>Synced</dt>
+            <dt>Markets</dt>
             <dd>{boardStats.total}</dd>
           </div>
           <div>
-            <dt>Qualified</dt>
+            <dt>Ready</dt>
             <dd>{boardStats.qualified}</dd>
           </div>
           <div>
