@@ -1,11 +1,7 @@
 import Link from "next/link";
 
 import { getExecutionCapabilities, listMarkets } from "../lib/core-api";
-import {
-  getMarketBoardStats,
-  getMarketDisplayCase,
-  sortMarketsForConvictionBoard,
-} from "../lib/market-display";
+import { getMarketBoardStats } from "../lib/market-display";
 import { createMiniAppPageMetadata, getMiniAppImagePath } from "../lib/miniapp";
 
 export const dynamic = "force-dynamic";
@@ -21,65 +17,33 @@ export const metadata = createMiniAppPageMetadata({
 export default async function HomePage() {
   const [markets, execution] = await Promise.all([listMarkets(), getExecutionCapabilities()]);
   const boardStats = getMarketBoardStats(markets);
-  const launchMarkets = sortMarketsForConvictionBoard(markets).slice(0, 3);
-  const marginMode = execution.marginExecutionEnabled ? "Live execution" : "Intent-only";
+  const executionMode = execution.marginExecutionEnabled ? "Live" : "Intent";
 
   return (
     <main className="launch-shell">
-      <section className="launch-stage" aria-labelledby="launch-title">
-        <div className="launch-grid" aria-hidden="true">
-          <span className="grid-tile tile-violet" />
-          <span className="grid-tile tile-orange" />
-          <span className="grid-tile tile-ink" />
-          <span className="grid-tile tile-violet soft" />
-        </div>
-
+      <section className="launch-stage unified-launch" aria-labelledby="launch-title">
         <div className="launch-copy">
           <p className="launch-mark">Conviction Markets</p>
-          <h1 id="launch-title">Leverage your market conviction.</h1>
-          <p>
-            Choose a market, take a side, write the thesis, and submit an intent. Execution stays
-            pending until the vault and adapter confirm it.
+          <h1 id="launch-title">Trade the thesis.</h1>
+          <p className="launch-brief">
+            Size YES/NO conviction before capital moves. Execution only counts when vaults confirm.
           </p>
 
-          <div className="launch-actions">
-            <Link className="launch-button" href="/markets">
-              Launch app
+          <div className="experience-switch" aria-label="Choose app surface">
+            <Link className="experience-card primary" href="/markets">
+              <span>Mini app</span>
+              <strong>Launch inside Farcaster</strong>
+              <small>Fast board, thesis entry, social copy flow.</small>
             </Link>
-            <Link className="launch-secondary" href="/margin">
-              Open margin desk
+            <Link className="experience-card" href="/margin">
+              <span>Browser desk</span>
+              <strong>Open the margin desk</strong>
+              <small>Wallet status, risk view, vault checks.</small>
             </Link>
           </div>
         </div>
 
-        <aside className="launch-market-panel" aria-label="Current market board preview">
-          <div className="launch-panel-topline">
-            <span>Ready board</span>
-            <strong>{boardStats.qualified}</strong>
-          </div>
-          <div className="launch-market-list">
-            {launchMarkets.length > 0 ? (
-              launchMarkets.map((market) => {
-                const displayCase = getMarketDisplayCase(market);
-
-                return (
-                  <Link
-                    className="launch-market-row"
-                    href={"/markets/" + market.id}
-                    key={market.id}
-                  >
-                    <span>{market.title}</span>
-                    <strong>{displayCase.price ?? "Open"}</strong>
-                  </Link>
-                );
-              })
-            ) : (
-              <div className="launch-empty">No markets are ready yet.</div>
-            )}
-          </div>
-        </aside>
-
-        <dl className="launch-stats" aria-label="Market readiness">
+        <dl className="launch-stats surface-stats" aria-label="Current app state">
           <div>
             <dt>Markets</dt>
             <dd>{boardStats.total}</dd>
@@ -89,8 +53,8 @@ export default async function HomePage() {
             <dd>{boardStats.qualified}</dd>
           </div>
           <div>
-            <dt>Margin</dt>
-            <dd>{marginMode}</dd>
+            <dt>Mode</dt>
+            <dd>{executionMode}</dd>
           </div>
         </dl>
       </section>

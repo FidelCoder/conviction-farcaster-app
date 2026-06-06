@@ -1404,7 +1404,7 @@ nav a:hover {
   margin-top: 1rem;
 }
 
-/* Market beta trading desk polish */
+/* Market trading desk polish */
 :root {
   --bg: #eef2ef;
   --surface: #ffffff;
@@ -3205,5 +3205,499 @@ nav a:hover,
 
   .row-price-pair {
     justify-content: flex-start;
+  }
+}
+
+/* Unified Conviction visual shell */
+:root {
+  --bg: #050507;
+  --surface: rgba(16, 16, 20, 0.82);
+  --surface-muted: rgba(31, 31, 36, 0.78);
+  --ink: #ffffff;
+  --muted: #b8b2c2;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.18);
+  --violet: #855dcd;
+  --violet-soft: rgba(133, 93, 205, 0.22);
+  --orange: #ff4d12;
+  --orange-soft: rgba(255, 77, 18, 0.18);
+  --panel: rgba(10, 10, 13, 0.82);
+  --panel-muted: rgba(24, 24, 29, 0.82);
+  --accent: var(--violet);
+  --accent-soft: var(--violet-soft);
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.site-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #050507;
+}
+
+.site-backdrop::before {
+  position: absolute;
+  inset: -4rem;
+  background: linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    radial-gradient(circle at 21% 78%, rgba(133, 93, 205, 0.9) 0 1px, transparent 2px),
+    radial-gradient(circle at 76% 24%, rgba(255, 77, 18, 0.82) 0 1px, transparent 2px),
+    radial-gradient(circle at 58% 42%, rgba(255, 255, 255, 0.34) 0 1px, transparent 2px),
+    linear-gradient(135deg, rgba(133, 93, 205, 0.2), transparent 31%),
+    linear-gradient(315deg, rgba(255, 77, 18, 0.18), transparent 34%);
+  background-size:
+    34px 34px,
+    34px 34px,
+    148px 148px,
+    172px 172px,
+    214px 214px,
+    auto,
+    auto;
+  content: "";
+  opacity: 0.9;
+}
+
+.site-backdrop::after {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  content: "CM";
+  color: rgba(255, 255, 255, 0.18);
+  font-size: clamp(10rem, 24vw, 21rem);
+  font-weight: 950;
+  line-height: 0.8;
+  opacity: 0.3;
+  transform: translate(-50%, -50%);
+  filter: blur(18px);
+  text-shadow:
+    0 0 66px rgba(133, 93, 205, 0.76),
+    0 0 96px rgba(255, 77, 18, 0.38);
+}
+
+.app-header,
+main,
+.miniapp-ready {
+  position: relative;
+  z-index: 1;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(5, 5, 7, 0.76);
+  backdrop-filter: blur(20px);
+}
+
+.brand::before {
+  background: linear-gradient(
+      90deg,
+      #ffffff 0 28%,
+      transparent 28% 41%,
+      #ffffff 41% 68%,
+      transparent 68%
+    ),
+    var(--violet);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 12px 30px rgba(133, 93, 205, 0.42);
+}
+
+.menu-toggle:hover,
+.menu-toggle.open,
+.cluster-actions a:hover,
+.app-hero-action,
+.launch-button {
+  background: var(--violet);
+}
+
+.menu-toggle:hover,
+.menu-toggle.open {
+  border-color: rgba(133, 93, 205, 0.72);
+  box-shadow: 0 14px 34px rgba(133, 93, 205, 0.3);
+}
+
+.app-nav-panel {
+  background: rgba(10, 10, 13, 0.96);
+  backdrop-filter: blur(18px);
+}
+
+.page-shell,
+.app-layer-shell {
+  width: min(1180px, calc(100% - 1.5rem));
+}
+
+.launch-shell {
+  display: grid;
+  min-height: calc(100vh - 4.4rem);
+  place-items: center;
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.launch-stage.unified-launch {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "copy"
+    "stats";
+  align-content: center;
+  justify-items: center;
+  width: min(980px, 100%);
+  min-height: calc(100vh - 6.2rem);
+  gap: clamp(1.1rem, 3vw, 1.75rem);
+  padding: clamp(1rem, 4vw, 2.25rem);
+  text-align: center;
+}
+
+.launch-stage.unified-launch::before,
+.launch-stage.unified-launch::after {
+  display: none;
+}
+
+.launch-stage.unified-launch .launch-copy {
+  justify-items: center;
+  max-width: 54rem;
+}
+
+.launch-stage.unified-launch .launch-mark {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 0.46rem 0.62rem;
+  backdrop-filter: blur(12px);
+}
+
+.launch-stage.unified-launch .launch-copy h1 {
+  max-width: 12ch;
+  font-size: clamp(3.2rem, 13vw, 7rem);
+}
+
+.launch-brief {
+  max-width: 34rem;
+}
+
+.experience-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  width: min(47rem, 100%);
+  margin-top: 0.25rem;
+}
+
+.experience-card {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 7.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(133, 93, 205, 0.14), transparent 38%),
+    rgba(16, 16, 20, 0.82);
+  color: #ffffff;
+  padding: 0.95rem;
+  text-align: left;
+  backdrop-filter: blur(16px);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.experience-card.primary {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.13), transparent 36%),
+    linear-gradient(145deg, #855dcd, #6a27ff 72%);
+  box-shadow: 0 24px 68px rgba(133, 93, 205, 0.34);
+}
+
+.experience-card:hover,
+.experience-card:focus {
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+  outline: 0;
+  transform: translateY(-1px);
+}
+
+.experience-card span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.72rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.experience-card strong {
+  color: #ffffff;
+  font-size: clamp(1.05rem, 3vw, 1.35rem);
+  line-height: 1.1;
+}
+
+.experience-card small {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.surface-stats {
+  width: min(36rem, 100%);
+}
+
+.surface-stats div,
+.app-board-stats.compact-stats div,
+.category-market-section,
+.market-cluster-card,
+.market-rail,
+.trade-ticket,
+.risk-console,
+.margin-desk-header {
+  background: linear-gradient(135deg, rgba(133, 93, 205, 0.11), transparent 42%),
+    rgba(14, 14, 18, 0.82);
+  border-color: rgba(255, 255, 255, 0.11);
+  backdrop-filter: blur(16px);
+}
+
+.surface-stats div {
+  min-height: 4.35rem;
+  align-content: center;
+}
+
+.surface-stats dd {
+  font-size: clamp(1.35rem, 5vw, 2rem);
+}
+
+.app-board-hero.market-board-hero {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(8, 8, 11, 0.64);
+  backdrop-filter: blur(18px);
+}
+
+.market-board-copy h1 {
+  max-width: 12ch;
+}
+
+.market-board-copy p:not(.eyebrow) {
+  max-width: 27rem;
+}
+
+.app-board-stats.compact-stats {
+  grid-column: 1 / -1;
+}
+
+.app-board-stats.compact-stats div {
+  min-height: 3.75rem;
+}
+
+.market-cluster-card {
+  background: linear-gradient(145deg, rgba(133, 93, 205, 0.24), transparent 40%),
+    linear-gradient(325deg, rgba(255, 77, 18, 0.16), transparent 38%), rgba(17, 17, 21, 0.86);
+}
+
+.cluster-topline strong,
+.category-market-section header > span {
+  background: rgba(255, 77, 18, 0.2);
+}
+
+.cluster-price-row span,
+.row-price-pair strong,
+.wallet-panel,
+.session-panel,
+.ticket-metrics div,
+.selected-price-grid div,
+.risk-list div,
+.intent-confirmation dl div,
+.vault-action-panel dl div {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.category-section-stack {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.category-market-section {
+  align-content: start;
+}
+
+.market-row-link {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.market-row-link:hover {
+  border-color: rgba(133, 93, 205, 0.58);
+  background: rgba(133, 93, 205, 0.16);
+}
+
+.margin-desk-header {
+  border-radius: 8px;
+  padding: clamp(0.9rem, 2.5vw, 1.25rem);
+}
+
+.margin-desk-header h1,
+.risk-console h2 {
+  max-width: 14ch;
+}
+
+.trade-ticket,
+.market-rail,
+.risk-console {
+  box-shadow: 0 22px 64px rgba(0, 0, 0, 0.22);
+}
+
+.ticket-submit,
+.wallet-panel button,
+.session-retry-button,
+.vault-action-row button {
+  border-radius: 8px;
+  background: var(--violet);
+  color: #ffffff;
+}
+
+.segmented-control .active.yes,
+.segmented-control .active.no {
+  background: var(--violet);
+}
+
+.live-badge.pending {
+  border-color: rgba(255, 77, 18, 0.3);
+  background: rgba(255, 77, 18, 0.12);
+}
+
+@media (max-width: 860px) {
+  .app-board-hero.market-board-hero,
+  .experience-switch,
+  .category-section-stack {
+    grid-template-columns: 1fr;
+  }
+
+  .launch-stage.unified-launch .launch-copy h1 {
+    font-size: clamp(3rem, 16vw, 5.6rem);
+  }
+}
+
+@media (max-width: 640px) {
+  .launch-shell {
+    min-height: calc(100vh - 4rem);
+    padding: 0.75rem;
+  }
+
+  .launch-stage.unified-launch {
+    min-height: calc(100vh - 5rem);
+    padding: 0.75rem 0.25rem;
+  }
+
+  .experience-card {
+    min-height: 6.7rem;
+  }
+
+  .surface-stats {
+    gap: 0.45rem;
+  }
+
+  .surface-stats div {
+    padding: 0.58rem 0.5rem;
+  }
+
+  .site-backdrop::after {
+    top: 43%;
+    font-size: 9.5rem;
+  }
+}
+
+/* Orange conviction accents */
+.app-header::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--violet),
+    var(--orange) 48%,
+    #ffffff 48% 52%,
+    var(--orange) 52%,
+    var(--violet)
+  );
+  content: "";
+}
+
+.launch-stage.unified-launch .launch-mark::before {
+  background: var(--orange);
+  box-shadow:
+    inset 0 0 0 5px #ffffff,
+    0 0 22px rgba(255, 77, 18, 0.44);
+}
+
+.experience-card,
+.surface-stats div,
+.app-board-hero.market-board-hero,
+.market-rail,
+.trade-ticket,
+.risk-console,
+.margin-desk-header,
+.category-market-section {
+  border-top-color: rgba(255, 77, 18, 0.36);
+}
+
+.experience-card::before,
+.market-cluster-card::before,
+.category-market-section::before {
+  display: block;
+  width: 2.8rem;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--orange);
+  content: "";
+}
+
+.experience-card.primary::before {
+  background: #ffffff;
+}
+
+.app-hero-action,
+.ticket-submit,
+.wallet-panel button,
+.session-retry-button,
+.vault-action-row button {
+  box-shadow:
+    0 14px 36px rgba(255, 77, 18, 0.14),
+    0 18px 48px rgba(133, 93, 205, 0.22);
+}
+
+/* Edge color blocks */
+body::after {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--orange), var(--orange)) left 0 top 8rem / 1.8rem 4.8rem no-repeat,
+    linear-gradient(var(--orange), var(--orange)) right 0 top 0 / 2.5rem 5.6rem no-repeat,
+    linear-gradient(var(--violet), var(--violet)) left 0 bottom 13rem / 2.3rem 5.6rem no-repeat,
+    linear-gradient(var(--orange), var(--orange)) right 0 bottom 1.5rem / 2.6rem 4.8rem no-repeat;
+  content: "";
+  opacity: 0.94;
+}
+
+@media (max-width: 640px) {
+  body::after {
+    background:
+      linear-gradient(var(--orange), var(--orange)) left 0 top 7.5rem / 1.15rem 3.8rem no-repeat,
+      linear-gradient(var(--orange), var(--orange)) right 0 top 0 / 1.45rem 4.2rem no-repeat,
+      linear-gradient(var(--violet), var(--violet)) left 0 bottom 11.5rem / 1.45rem 4.4rem no-repeat,
+      linear-gradient(var(--orange), var(--orange)) right 0 bottom 1rem / 1.55rem 3.8rem no-repeat;
   }
 }

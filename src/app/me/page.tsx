@@ -16,12 +16,11 @@ export default function MyActivityPage() {
     <main className="page-shell wide">
       <section className="page-heading compact split-heading">
         <div>
-          <p className="eyebrow">Farcaster beta</p>
+          <p className="eyebrow">Activity</p>
           <h1>My activity</h1>
           <p>
-            Review records created from your Farcaster account. This page only shows records
-            returned by the core API; it does not create sample signals, fake fills, balances, or
-            PnL.
+            Review signals, position intents, and copy intents returned by the core API. Execution
+            status stays explicit.
           </p>
         </div>
       </section>

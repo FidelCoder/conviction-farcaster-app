@@ -97,7 +97,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
   const [walletAddress, setWalletAddress] = useState("");
   const [walletState, setWalletState] = useState<WalletState>({
     status: "loading",
-    message: "Detecting Farcaster wallet...",
+    message: "Detecting EVM wallet...",
   });
   const [quantity, setQuantity] = useState("");
   const [marginAmount, setMarginAmount] = useState("");
@@ -157,15 +157,9 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
           return;
         }
 
-        if (!isInMiniApp) {
-          setWalletState({
-            status: "unavailable",
-            message: "Open this page as a Farcaster Mini App to use a connected EVM wallet.",
-          });
-          return;
-        }
-
-        const provider = (await sdk.wallet.getEthereumProvider()) as EthereumProvider | undefined;
+        const provider = isInMiniApp
+          ? ((await sdk.wallet.getEthereumProvider()) as EthereumProvider | undefined)
+          : getBrowserEthereumProvider();
 
         if (!isMounted) {
           return;
@@ -174,7 +168,9 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
         if (!provider) {
           setWalletState({
             status: "unavailable",
-            message: "No EVM wallet provider is available in this Farcaster client.",
+            message: isInMiniApp
+              ? "No EVM wallet provider is available in this Farcaster client."
+              : "No EVM browser wallet was detected.",
           });
           return;
         }
@@ -199,14 +195,14 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
 
         setWalletState({
           status: "available",
-          message: "Connect an EVM wallet from Farcaster to submit a margin intent.",
+          message: "Connect an EVM wallet to submit a margin intent.",
           provider,
         });
       } catch {
         if (isMounted) {
           setWalletState({
             status: "error",
-            message: "Unable to read the Farcaster EVM wallet provider.",
+            message: "Unable to read the EVM wallet provider.",
           });
         }
       }
@@ -234,7 +230,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
       if (!address) {
         setWalletState({
           status: "error",
-          message: "Farcaster wallet did not return an EVM account.",
+          message: "Wallet did not return an EVM account.",
         });
         return;
       }
@@ -438,7 +434,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
             trade is marked executed until the vault flow confirms it.
           </p>
         </div>
-        <div className="desk-status-stack" aria-label="Market beta status">
+        <div className="desk-status-stack" aria-label="Execution status">
           <div className={isMarginLive ? "live-badge ready" : "live-badge pending"}>
             <span>{isMarginLive ? "Execution live" : "Intent mode"}</span>
             <strong>{execution.evmOnly ? "EVM" : "Multichain"}</strong>
@@ -465,7 +461,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
           <div className="rail-heading">
             <div>
               <span>Market tape</span>
-              <small>Live books only</small>
+              <small>Provider data</small>
             </div>
             <strong>{markets.length}</strong>
           </div>
@@ -496,8 +492,8 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
             </div>
           ) : (
             <div className="desk-empty compact">
-              <strong>No synced markets</strong>
-              <span>Sync a real provider in the core API before trading from Farcaster.</span>
+              <strong>No markets available</strong>
+              <span>Connect core to a provider before trading.</span>
             </div>
           )}
         </aside>
@@ -773,9 +769,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
           ) : (
             <div className="desk-empty">
               <strong>No market selected</strong>
-              <span>
-                Markets must come from the core API before a margin intent can be prepared.
-              </span>
+              <span>A core API market is required before a margin intent can be prepared.</span>
             </div>
           )}
         </form>
@@ -785,9 +779,8 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
             <p className="eyebrow">Execution guardrails</p>
             <h2>Intent-first until the margin stack is live.</h2>
             <p>
-              The beta can collect real user intent and thesis records. Fills, PnL, and leveraged
-              execution stay off until contracts, vault liquidity, adapters, and liquidations are
-              live.
+              The desk records real intent and thesis records. Fills, PnL, and leveraged execution
+              stay off until contracts, vault liquidity, adapters, and liquidations are live.
             </p>
           </div>
 
@@ -904,7 +897,7 @@ function getSubmitBlockReason({
   }
 
   if (walletAddress.trim().toLowerCase() !== walletState.address.toLowerCase()) {
-    return "Connected wallet changed. Reconnect the Farcaster wallet before submitting.";
+    return "Connected wallet changed. Reconnect the EVM wallet before submitting.";
   }
 
   if (
@@ -1061,6 +1054,14 @@ function formatUsd(value: number) {
     maximumFractionDigits: 2,
     style: "currency",
   }).format(value);
+}
+
+function getBrowserEthereumProvider(): EthereumProvider | undefined {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  return (window as Window & { ethereum?: EthereumProvider }).ethereum;
 }
 
 function normalizeAccounts(value: unknown) {
