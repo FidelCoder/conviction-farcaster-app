@@ -4,11 +4,11 @@ import { createMiniAppPageMetadata, getMiniAppImagePath } from "../../lib/miniap
 export const dynamic = "force-dynamic";
 
 export const metadata = createMiniAppPageMetadata({
-  title: "Farcaster Beta Readiness",
-  description: "Deployment checks for Conviction Markets Farcaster beta.",
+  title: "Farcaster Readiness",
+  description: "Deployment checks for Conviction Markets on Farcaster.",
   imagePath: getMiniAppImagePath("home"),
   targetPath: "/beta-readiness",
-  buttonTitle: "Check beta readiness",
+  buttonTitle: "Check readiness",
 });
 
 export default async function BetaReadinessPage() {
@@ -19,11 +19,11 @@ export default async function BetaReadinessPage() {
   return (
     <main className="page-shell">
       <section className="page-heading compact">
-        <p className="eyebrow">Farcaster beta</p>
+        <p className="eyebrow">Readiness</p>
         <h1>Readiness checks</h1>
       </section>
 
-      <section className="market-overview-band" aria-label="Beta readiness overview">
+      <section className="market-overview-band" aria-label="Readiness overview">
         <dl className="market-summary horizontal">
           <div>
             <dt>Blocking</dt>

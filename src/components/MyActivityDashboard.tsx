@@ -215,7 +215,7 @@ function ActivitySection({
     <section className="activity-section" aria-label={title}>
       <div className="section-heading compact-heading">
         <div>
-          <p className="eyebrow">Farcaster beta</p>
+          <p className="eyebrow">Activity</p>
           <h2>{title}</h2>
         </div>
         {title === "My signals" ? (

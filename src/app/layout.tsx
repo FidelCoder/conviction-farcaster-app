@@ -14,6 +14,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <html lang="en">
       <body>
+        <div className="site-backdrop" aria-hidden="true" />
         <AppHeader />
         <MiniAppReady />
         {children}

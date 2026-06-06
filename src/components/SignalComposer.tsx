@@ -171,8 +171,8 @@ export function SignalComposer({ anchorId = "signal", markets }: SignalComposerP
           </label>
         ) : markets.length === 0 ? (
           <div className="desk-empty compact">
-            <strong>No synced markets</strong>
-            <span>Sync real markets in core before creating a signal.</span>
+            <strong>No markets available</strong>
+            <span>Connect core to a provider before creating a signal.</span>
           </div>
         ) : null}
 

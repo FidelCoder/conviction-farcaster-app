@@ -26,7 +26,10 @@ export default async function MarketsPage() {
         <div className="app-title-lockup market-board-copy">
           <p className="eyebrow">Market board</p>
           <h1 id="markets-title">Pick a side. Size the thesis.</h1>
-          <p>Four live boards up front. Tap one for YES/NO price, resolution, and signal entry.</p>
+          <p>
+            The strongest boards surface first. Tap a market for YES/NO price, resolution, and
+            signal entry.
+          </p>
         </div>
         <Link className="app-hero-action" href="/margin">
           Open margin desk
@@ -76,7 +79,7 @@ export default async function MarketsPage() {
       ) : (
         <EmptyState
           title="No markets yet"
-          body="No market board records are available from the core API yet."
+          body="Markets are not available from the core API yet."
         />
       )}
     </main>

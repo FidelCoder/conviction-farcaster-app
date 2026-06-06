@@ -672,6 +672,8 @@ type CoreRequestOptions = {
   method?: "GET" | "PATCH" | "POST";
 };
 
+const defaultCoreRequestTimeoutMs = 3500;
+
 const unavailableExecutionCapabilities: ExecutionCapabilities = {
   evmOnly: true,
   architecture: "INTENT_FIRST_SPOT_ADAPTERS_BEFORE_MARGIN",
@@ -713,8 +715,16 @@ async function coreRequest<TData>(path: string, options: CoreRequestOptions = {}
       headers,
       body: hasBody ? JSON.stringify(options.body) : undefined,
       cache: "no-store",
+      signal: createCoreRequestSignal(),
     });
-  } catch {
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new CoreApiError("Core API request timed out.", {
+        code: "CORE_API_TIMEOUT",
+        statusCode: 504,
+      });
+    }
+
     throw new CoreApiError("Core API is not reachable.", {
       code: "CORE_API_UNAVAILABLE",
       statusCode: 502,
@@ -764,6 +774,20 @@ async function parseJson(response: Response) {
       statusCode: response.status,
     });
   }
+}
+
+function createCoreRequestSignal() {
+  return AbortSignal.timeout(getCoreRequestTimeoutMs());
+}
+
+function getCoreRequestTimeoutMs() {
+  const parsed = Number(process.env.CORE_API_REQUEST_TIMEOUT_MS);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultCoreRequestTimeoutMs;
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
 }
 
 export function getCoreApiUrl() {
