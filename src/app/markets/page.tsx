@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 
 import { EmptyState } from "../../components/EmptyState";
 import type { Market } from "../../lib/core-api";
@@ -17,24 +18,54 @@ export default async function MarketsPage() {
   const markets = await listMarkets();
   const rankedMarkets = sortMarketsForConvictionBoard(markets);
   const boardStats = getMarketBoardStats(markets);
-  const marketClusters = getMarketClusters(rankedMarkets);
-  const featuredClusters = marketClusters.slice(0, 4);
+  const categories = getMarketCategories(rankedMarkets);
+  const visibleMarkets = rankedMarkets.slice(0, 24);
 
   return (
-    <main className="page-shell app-layer-shell">
-      <section className="app-board-hero market-board-hero" aria-labelledby="markets-title">
-        <div className="app-title-lockup market-board-copy">
-          <p className="eyebrow">Market board</p>
-          <h1 id="markets-title">Only markets with a case.</h1>
-          <p>
-            Boards with price, YES/NO mapping, and a clear close date surface first. Thin records
-            stay lower until the data is worth acting on.
-          </p>
+    <main className="markets-browse-shell">
+      <section className="markets-browse-toolbar" aria-label="Market navigation">
+        <div className="browse-brand-lockup">
+          <Link className="browse-brand" href="/">
+            Conviction
+          </Link>
+          <nav aria-label="Primary market navigation">
+            <Link aria-current="page" href="/markets">
+              Markets
+            </Link>
+            <Link href="/margin">Margin</Link>
+            <Link href="/leaderboard">Social</Link>
+            <Link href="/me">Portfolio</Link>
+          </nav>
         </div>
-        <Link className="app-hero-action" href="/margin">
-          Open margin desk
+
+        <label className="browse-search" htmlFor="market-search-preview">
+          <span aria-hidden="true" className="search-icon" />
+          <input
+            disabled
+            id="market-search-preview"
+            placeholder="Search real synced markets"
+            type="search"
+          />
+        </label>
+
+        <Link className="browse-open-margin" href="/margin">
+          Open margin
         </Link>
-        <dl className="app-board-stats compact-stats market-board-summary-strip" aria-label="Market board composition">
+      </section>
+
+      <nav className="browse-category-strip" aria-label="Market categories">
+        <span className="category-all">Trending</span>
+        {categories.slice(0, 9).map((category) => (
+          <span key={category}>{category}</span>
+        ))}
+      </nav>
+
+      <section className="markets-browse-header" aria-labelledby="markets-title">
+        <div>
+          <p className="eyebrow">Browse markets</p>
+          <h1 id="markets-title">Prediction markets worth a side.</h1>
+        </div>
+        <dl className="browse-stat-strip" aria-label="Market board composition">
           <div>
             <dt>Actionable</dt>
             <dd>{boardStats.qualified}</dd>
@@ -54,28 +85,21 @@ export default async function MarketsPage() {
         </dl>
       </section>
 
-      {markets.length > 0 ? (
-        <>
-          <section className="market-cluster-board" aria-label="Featured market clusters">
-            {featuredClusters.map((cluster) => (
-              <MarketClusterCard cluster={cluster} key={cluster.name} />
-            ))}
-          </section>
+      <section className="browse-filter-row" aria-label="Market filters">
+        <button type="button">Trending</button>
+        <button type="button">Frequency</button>
+        <button type="button">All categories</button>
+        <button aria-label="More filters" type="button">
+          More
+        </button>
+      </section>
 
-          <section className="section-heading conviction-section-heading compact-heading">
-            <div>
-              <p className="eyebrow">Categories</p>
-              <h2>Categories</h2>
-            </div>
-            <span>{marketClusters.length} categories</span>
-          </section>
-
-          <section className="category-section-stack" aria-label="Market categories">
-            {marketClusters.map((cluster) => (
-              <CategoryMarketSection cluster={cluster} key={cluster.name} />
-            ))}
-          </section>
-        </>
+      {visibleMarkets.length > 0 ? (
+        <section className="prediction-card-grid" aria-label="Prediction markets">
+          {visibleMarkets.map((market) => (
+            <PredictionMarketCard key={market.id} market={market} />
+          ))}
+        </section>
       ) : (
         <EmptyState
           title="No markets yet"
@@ -86,133 +110,95 @@ export default async function MarketsPage() {
   );
 }
 
-type MarketCluster = {
-  name: string;
-  markets: Market[];
-  readyCount: number;
-};
-
-function MarketClusterCard({ cluster }: { cluster: MarketCluster }) {
-  const topMarket = cluster.markets[0];
-  const displayCase = getMarketDisplayCase(topMarket);
+function PredictionMarketCard({ market }: { market: Market }) {
+  const displayCase = getMarketDisplayCase(market);
   const yesPrice = displayCase.price ?? "--";
-  const noPrice = getNoPrice(topMarket) ?? "--";
+  const noPrice = getNoPrice(market) ?? "--";
+  const probability = getMarketProbability(market);
+  const noProbability = probability === null ? null : Math.max(0, 1 - probability);
+  const category = market.category?.trim() || market.source;
+  const resolution = displayCase.resolutionLabel ?? "Close date pending";
 
   return (
-    <article className="market-cluster-card" tabIndex={0}>
-      <div className="cluster-summary">
-        <span className="cluster-topline">
-          <span>{cluster.name}</span>
-          <strong>{cluster.markets.length}</strong>
-        </span>
-        <h2>{topMarket.title}</h2>
-        <span className="cluster-price-row">
-          <span>
-            <b>YES</b>
-            {yesPrice}
+    <article className="prediction-market-card">
+      <Link className="prediction-card-link" href={"/markets/" + market.id}>
+        <div className="prediction-card-topline">
+          <span className="market-avatar" aria-hidden="true">
+            {getCategoryInitial(category)}
           </span>
-          <span>
-            <b>NO</b>
-            {noPrice}
-          </span>
-        </span>
-      </div>
-
-      <div className="cluster-intel">
-        <dl>
-          <div>
-            <dt>Actionable</dt>
-            <dd>
-              {cluster.readyCount}/{cluster.markets.length}
-            </dd>
-          </div>
-          <div>
-            <dt>Resolution</dt>
-            <dd>{displayCase.resolutionLabel ?? "Pending"}</dd>
-          </div>
-        </dl>
-
-        <ul>
-          {cluster.markets.slice(0, 3).map((market) => {
-            const marketCase = getMarketDisplayCase(market);
-
-            return (
-              <li key={market.id}>
-                <span>{market.title}</span>
-                <strong>{marketCase.price ?? "--"}</strong>
-              </li>
-            );
-          })}
-        </ul>
-
-        <div className="cluster-actions">
-          <Link href={"/markets/" + topMarket.id}>Open details</Link>
-          <Link href={"/markets/" + topMarket.id + "#signal"}>YES/NO thesis</Link>
+          <span className="market-card-category">{category}</span>
+          <span className="market-card-status">{displayCase.label}</span>
         </div>
-      </div>
+
+        <h2>{market.title}</h2>
+        <p className="market-card-resolution">{resolution}</p>
+
+        <div className="outcome-stack" aria-label="Outcome prices">
+          <OutcomeRow
+            color="yes"
+            label="YES"
+            name={getOutcomeLabel(market, "YES")}
+            probability={probability}
+            price={yesPrice}
+          />
+          <OutcomeRow
+            color="no"
+            label="NO"
+            name={getOutcomeLabel(market, "NO")}
+            probability={noProbability}
+            price={noPrice}
+          />
+        </div>
+
+        <footer className="prediction-card-footer">
+          <span>{market.externalUrl ? "Provider market" : "Core market"}</span>
+          <span>{market.yesTokenId && market.noTokenId ? "YES/NO mapped" : "Mapping pending"}</span>
+        </footer>
+      </Link>
     </article>
   );
 }
 
-function CategoryMarketSection({ cluster }: { cluster: MarketCluster }) {
+function OutcomeRow({
+  color,
+  label,
+  name,
+  price,
+  probability,
+}: {
+  color: "yes" | "no";
+  label: string;
+  name: string;
+  price: string;
+  probability: number | null;
+}) {
   return (
-    <section className="category-market-section">
-      <header>
-        <div>
-          <p className="eyebrow">Category</p>
-          <h3>{cluster.name}</h3>
-        </div>
-        <span>{cluster.markets.length}</span>
-      </header>
-
-      <div className="market-row-list">
-        {cluster.markets.slice(0, 6).map((market) => {
-          const displayCase = getMarketDisplayCase(market);
-
-          return (
-            <Link className="market-row-link" href={"/markets/" + market.id} key={market.id}>
-              <span>{market.title}</span>
-              <span className="row-price-pair">
-                <strong>YES {displayCase.price ?? "--"}</strong>
-                <strong>NO {getNoPrice(market) ?? "--"}</strong>
-              </span>
-            </Link>
-          );
-        })}
+    <div className={"outcome-row " + color}>
+      <div className="outcome-identity">
+        <span>{label}</span>
+        <strong>{name}</strong>
       </div>
-    </section>
+      <span className="outcome-line" style={getOutcomeLineStyle(probability)} />
+      <strong className="outcome-price">{price}</strong>
+    </div>
   );
 }
 
-function getMarketClusters(markets: Market[]): MarketCluster[] {
-  const groups = new Map<string, Market[]>();
+function getMarketCategories(markets: Market[]) {
+  const categories = new Set<string>();
 
   markets.forEach((market) => {
-    const category = market.category?.trim() || "General";
-    groups.set(category, [...(groups.get(category) ?? []), market]);
+    const category = market.category?.trim();
+
+    if (category) {
+      categories.add(category);
+    }
   });
 
-  return Array.from(groups.entries())
-    .map(([name, groupedMarkets]) => {
-      const marketsForCluster = sortMarketsForConvictionBoard(groupedMarkets);
-      const readyCount = marketsForCluster.filter(
-        (market) => getMarketDisplayCase(market).boardFitScore >= 70,
-      ).length;
-
-      return { name, markets: marketsForCluster, readyCount };
-    })
-    .sort((left, right) => {
-      const countDelta = right.markets.length - left.markets.length;
-      if (countDelta !== 0) return countDelta;
-
-      return (
-        getMarketDisplayCase(right.markets[0]).boardFitScore -
-          getMarketDisplayCase(left.markets[0]).boardFitScore || left.name.localeCompare(right.name)
-      );
-    });
+  return Array.from(categories).sort((left, right) => left.localeCompare(right));
 }
 
-function getNoPrice(market: Market) {
+function getMarketProbability(market: Market) {
   const price = getMarketPrice(market);
   const numericPrice = Number(price);
 
@@ -220,5 +206,47 @@ function getNoPrice(market: Market) {
     return null;
   }
 
-  return formatMarketPrice(String(1 - numericPrice));
+  return numericPrice;
+}
+
+function getNoPrice(market: Market) {
+  const probability = getMarketProbability(market);
+
+  if (probability === null) {
+    return null;
+  }
+
+  return formatMarketPrice(String(1 - probability));
+}
+
+function getOutcomeLineStyle(probability: number | null) {
+  const width = probability === null ? "18%" : Math.max(8, Math.min(92, probability * 100)) + "%";
+
+  return { "--outcome-width": width } as CSSProperties;
+}
+
+function getOutcomeLabel(market: Market, side: "YES" | "NO") {
+  if (side === "YES") {
+    return trimMarketTitle(market.title);
+  }
+
+  return "Not " + trimMarketTitle(market.title);
+}
+
+function trimMarketTitle(title: string) {
+  const compact = title
+    .replace(/^Will\s+/i, "")
+    .replace(/\?$/, "")
+    .trim();
+
+  return compact.length > 34 ? compact.slice(0, 31).trimEnd() + "..." : compact;
+}
+
+function getCategoryInitial(category: string) {
+  return (
+    category
+      .replace(/[^a-z0-9]/gi, "")
+      .slice(0, 1)
+      .toUpperCase() || "C"
+  );
 }
