@@ -37,8 +37,7 @@ const contractStepDefinitions = [
     prepareLabel: "Prepare deposit",
     sendingLabel: "Sending deposit...",
     submitLabel: "Send deposit",
-    submittedMessage:
-      "Deposit submitted. Wait for wallet confirmation before opening margin.",
+    submittedMessage: "Deposit submitted. Wait for wallet confirmation before opening margin.",
   },
   {
     key: "marginIntent",
@@ -487,185 +486,185 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
   }
 
   return (
-    <section className="margin-desk browser-margin-desk" aria-label="Browser margin trading desk">
-      <div className="margin-desk-header browser-desk-header">
-        <div className="desk-title">
-          <p className="eyebrow">Margin desk</p>
-          <h1>Open margin on prediction markets.</h1>
-          <p>
-            Choose a side, collateral, and leverage. A position only opens after real market
-            execution confirms.
-          </p>
+    <section className="margin-browse-shell" aria-label="Browser margin trading desk">
+      <div className="markets-browse-toolbar margin-toolbar" aria-label="Margin navigation">
+        <div className="browse-brand-lockup">
+          <Link className="browse-brand" href="/">
+            Conviction
+          </Link>
+          <nav aria-label="Primary margin navigation">
+            <Link href="/markets">Markets</Link>
+            <Link aria-current="page" href="/margin">
+              Margin
+            </Link>
+            <Link href="/leaderboard">Social</Link>
+            <Link href="/me">Portfolio</Link>
+          </nav>
         </div>
-        <div className="desk-status-stack compact" aria-label="Vault route status">
-          <div className="live-badge route">
-            <span>Vault route</span>
-            <strong>{selectedChain ? selectedChain.chainName : "Select chain"}</strong>
-          </div>
-          <div className="live-badge route orange">
-            <span>Collateral</span>
-            <strong>{getCollateralRouteLabel(selectedChain, collateralToken)}</strong>
-          </div>
-        </div>
+
+        <label className="browse-search" htmlFor="margin-search-preview">
+          <span aria-hidden="true" className="search-icon" />
+          <input
+            disabled
+            id="margin-search-preview"
+            placeholder="Pick a market to open margin"
+            type="search"
+          />
+        </label>
+
+        <Link className="browse-open-margin secondary" href="/markets">
+          Browse markets
+        </Link>
       </div>
 
-      <div className="margin-workspace browser-desk-grid">
-        <aside className="market-rail expanded" aria-label="Market tape">
-          <div className="rail-heading">
+      <nav className="browse-category-strip margin-category-strip" aria-label="Margin categories">
+        <button
+          aria-pressed={selectedCategory === "All"}
+          onClick={() => setSelectedCategory("All")}
+          type="button"
+        >
+          Trending
+        </button>
+        {marketCategories.slice(1, 9).map((category) => (
+          <button
+            aria-pressed={selectedCategory === category}
+            key={category}
+            onClick={() => setSelectedCategory(category)}
+            type="button"
+          >
+            {category}
+          </button>
+        ))}
+      </nav>
+
+      <div className="margin-browse-header">
+        <div>
+          <p className="eyebrow">Margin desk</p>
+          <h1>Open margin from real market prices.</h1>
+        </div>
+        <dl className="browse-stat-strip margin-route-strip" aria-label="Current margin route">
+          <div>
+            <dt>Vault</dt>
+            <dd>{selectedChain ? selectedChain.chainName : "--"}</dd>
+          </div>
+          <div>
+            <dt>Collateral</dt>
+            <dd>{getCollateralRouteLabel(selectedChain, collateralToken)}</dd>
+          </div>
+          <div>
+            <dt>Markets</dt>
+            <dd>{markets.length}</dd>
+          </div>
+          <div>
+            <dt>Wallet</dt>
+            <dd>{walletState.status === "ready" ? "Ready" : "--"}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div className="margin-terminal-grid">
+        <aside className="margin-market-column" aria-label="Market tape">
+          <div className="terminal-column-heading">
             <div>
               <span>Market tape</span>
-              <small>{selectedCategory === "All" ? "High-signal board" : selectedCategory}</small>
+              <strong>{selectedCategory === "All" ? "Trending" : selectedCategory}</strong>
             </div>
-            <strong>{marketRailItems.length}</strong>
+            <small>{marketRailItems.length}</small>
           </div>
 
-          <label className="rail-filter">
-            <span>Category</span>
-            <select
-              onChange={(event) => setSelectedCategory(event.target.value)}
-              value={selectedCategory}
-            >
-              {marketCategories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </label>
-
           {marketRailItems.length > 0 ? (
-            <div className="market-rail-list">
+            <div className="margin-market-list">
               {marketRailItems.map((market) => {
                 const snapshot = getPriceSnapshot(market);
                 const isSelected = market.id === selectedMarket?.id;
-                const noPrice = snapshot ? formatProbability(1 - snapshot.probability) : "--";
 
                 return (
                   <button
                     aria-pressed={isSelected}
-                    className={isSelected ? "market-rail-item active" : "market-rail-item"}
+                    className={isSelected ? "margin-market-card active" : "margin-market-card"}
                     key={market.id}
                     onClick={() => setSelectedMarketId(market.id)}
                     type="button"
                   >
-                    <span className="rail-market-copy">
-                      <span>{market.title}</span>
-                      <small>{market.category ?? market.source}</small>
-                    </span>
-                    <span className="rail-market-price">
+                    <span className="margin-market-topline">
+                      <span>{market.category ?? market.source}</span>
                       <strong>{snapshot ? formatProbability(snapshot.probability) : "--"}</strong>
-                      <small>YES</small>
                     </span>
-                    <span
-                      aria-hidden="true"
-                      className={"micro-price-strip " + getPriceTone(snapshot)}
-                      style={getPriceStripStyle(snapshot)}
-                    >
-                      <span />
+                    <span className="margin-market-title">{market.title}</span>
+                    <span className="mini-outcome-stack">
+                      <span className="mini-outcome yes">
+                        <b>YES</b>
+                        <i style={getPriceStripStyle(snapshot)} />
+                      </span>
+                      <span className="mini-outcome no">
+                        <b>NO</b>
+                        <i style={getPriceStripStyle(invertSnapshot(snapshot))} />
+                      </span>
                     </span>
-                    <span className="rail-hover-intel">
-                      <span>YES {snapshot ? formatProbability(snapshot.probability) : "--"}</span>
-                      <span>NO {noPrice}</span>
+                    <span className="margin-market-footer">
                       <span>{getForcedCloseLabel(market)}</span>
+                      <span>
+                        {market.yesTokenId && market.noTokenId ? "Mapped" : "Mapping pending"}
+                      </span>
                     </span>
                   </button>
                 );
               })}
             </div>
           ) : (
-            <div className="desk-empty compact">
+            <div className="desk-empty compact light-empty">
               <strong>No markets in this category</strong>
               <span>Switch category or sync provider markets through core.</span>
             </div>
           )}
         </aside>
 
-        <form className="trade-ticket compact-ticket" aria-label="Open margin ticket" onSubmit={handleSubmit}>
-          <div className="ticket-topline">
-            <span>Open margin</span>
-            <strong>{selectedMarket?.source ?? "Core API"}</strong>
-          </div>
-
+        <form className="margin-order-card" aria-label="Open margin ticket" onSubmit={handleSubmit}>
           {selectedMarket ? (
             <>
-              <div className="selected-market-copy">
-                <div className="selected-market-title-row">
-                  <div>
-                    <span className="market-source-line">
-                      {selectedMarket.category ?? selectedMarket.source}
-                    </span>
-                    <h2>{selectedMarket.title}</h2>
-                  </div>
-                  <div className="selected-price-pill">
-                    <span>{selectedSnapshot?.source ?? "Reference"}</span>
-                    <strong>
-                      {selectedSnapshot
-                        ? formatProbability(selectedSnapshot.probability)
-                        : "No price"}
-                    </strong>
-                  </div>
+              <div className="order-card-heading">
+                <div>
+                  <p className="eyebrow">Open margin</p>
+                  <h2>{selectedMarket.title}</h2>
+                  <span>{selectedMarket.category ?? selectedMarket.source}</span>
                 </div>
-                <p>{getDescriptionPreview(selectedMarket.description)}</p>
-                <div
-                  aria-hidden="true"
-                  className={"market-price-band " + getPriceTone(selectedSnapshot)}
-                  style={getPriceStripStyle(selectedSnapshot)}
-                >
-                  <span />
-                </div>
-                <dl className="selected-price-grid condensed">
-                  <div>
-                    <dt>YES</dt>
-                    <dd>
-                      {selectedSnapshot
-                        ? formatProbability(selectedSnapshot.probability)
-                        : "No price"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>NO</dt>
-                    <dd>
-                      {selectedSnapshot
-                        ? formatProbability(1 - selectedSnapshot.probability)
-                        : "No price"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Close before</dt>
-                    <dd>{getForcedCloseLabel(selectedMarket)}</dd>
-                  </div>
-                </dl>
-                <Link href={"/markets/" + selectedMarket.id}>Market details</Link>
+                <Link href={"/markets/" + selectedMarket.id}>Details</Link>
               </div>
 
-              <div className="segmented-control side-picker" aria-label="Trade side">
+              <div className="order-outcome-board" aria-label="Selected market outcomes">
                 <button
-                  className={side === "YES" ? "active yes" : "yes"}
+                  className={
+                    side === "YES" ? "order-outcome-row yes active" : "order-outcome-row yes"
+                  }
                   onClick={() => setSide("YES")}
                   type="button"
                 >
-                  <span>YES</span>
-                  <strong>
-                    {selectedSnapshot
-                      ? formatProbability(selectedSnapshot.probability)
-                      : "--"}
-                  </strong>
+                  <span>
+                    <b>YES</b>
+                    <strong>{getOutcomeName(selectedMarket, "YES")}</strong>
+                  </span>
+                  <i style={getPriceStripStyle(selectedSnapshot)} />
+                  <em>
+                    {selectedSnapshot ? formatProbability(selectedSnapshot.probability) : "--"}
+                  </em>
                 </button>
                 <button
-                  className={side === "NO" ? "active no" : "no"}
+                  className={side === "NO" ? "order-outcome-row no active" : "order-outcome-row no"}
                   onClick={() => setSide("NO")}
                   type="button"
                 >
-                  <span>NO</span>
-                  <strong>
-                    {selectedSnapshot
-                      ? formatProbability(1 - selectedSnapshot.probability)
-                      : "--"}
-                  </strong>
+                  <span>
+                    <b>NO</b>
+                    <strong>{getOutcomeName(selectedMarket, "NO")}</strong>
+                  </span>
+                  <i style={getPriceStripStyle(invertSnapshot(selectedSnapshot))} />
+                  <em>
+                    {selectedSnapshot ? formatProbability(1 - selectedSnapshot.probability) : "--"}
+                  </em>
                 </button>
               </div>
 
-              <div className="ticket-field-grid">
+              <div className="order-input-grid">
                 <label className="ticket-field">
                   <span>Outcome shares</span>
                   <input
@@ -682,7 +681,9 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                   <div className="token-input-row">
                     <select
                       aria-label="Collateral token"
-                      onChange={(event) => setCollateralToken(event.target.value as CollateralToken)}
+                      onChange={(event) =>
+                        setCollateralToken(event.target.value as CollateralToken)
+                      }
                       value={collateralToken}
                     >
                       {collateralTokenOptions.map((token) => (
@@ -700,9 +701,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                     />
                   </div>
                 </label>
-              </div>
 
-              <div className="ticket-select-row">
                 <label className="ticket-field compact-select">
                   <span>Leverage</span>
                   <select
@@ -736,7 +735,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                 </label>
               </div>
 
-              <dl className="ticket-metrics lean">
+              <dl className="order-preview-grid">
                 <div>
                   <dt>Reference</dt>
                   <dd>{preview.referencePriceLabel}</dd>
@@ -756,7 +755,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
               </dl>
 
               <button
-                className="ticket-submit"
+                className="ticket-submit margin-submit"
                 disabled={isSubmitting || Boolean(submitBlockReason)}
                 type="submit"
               >
@@ -771,7 +770,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
               </p>
 
               {submitState.status === "submitted" ? (
-                <div className="intent-confirmation" aria-live="polite">
+                <div className="intent-confirmation margin-confirmation" aria-live="polite">
                   <div className="intent-confirmation-topline">
                     <span>Margin request</span>
                     <strong>{executionStatusLabel(submitState.position.status)}</strong>
@@ -798,111 +797,27 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                     {submitState.executionAttempt.failureMessage ??
                       "Request recorded. A market position opens only after real execution confirms."}
                   </p>
-                  <div className="vault-action-panel">
-                    <div>
-                      <span>Vault flow</span>
-                      <strong>{getContractWorkflowLabel(contractSteps)}</strong>
-                    </div>
-                    <p>{getContractWorkflowMessage(contractSteps)}</p>
-                    <div className="vault-step-list">
-                      {contractStepDefinitions.map((definition, index) => {
-                        const step = definition.key;
-                        const stepState = contractSteps[step];
-                        const isUnlocked = isContractStepUnlocked(step, contractSteps);
-                        const canPrepare =
-                          isUnlocked &&
-                          (stepState.status === "idle" ||
-                            stepState.status === "error" ||
-                            (stepState.status === "submitted" &&
-                              stepState.transaction.status === "FAILED"));
-                        const canSend =
-                          stepState.status === "prepared" &&
-                          walletState.status === "ready" &&
-                          isUnlocked;
-
-                        return (
-                          <div
-                            className={
-                              isUnlocked
-                                ? "vault-step-card " + stepState.status
-                                : "vault-step-card locked"
-                            }
-                            key={step}
-                          >
-                            <div className="vault-step-heading">
-                              <span>{index + 1}</span>
-                              <div>
-                                <strong>{definition.label}</strong>
-                                <small>{getContractStepStatusLabel(stepState, isUnlocked)}</small>
-                              </div>
-                            </div>
-                            <p>{getContractStepMessage(definition, stepState, isUnlocked)}</p>
-                            {stepState.status === "prepared" || stepState.status === "sending" ? (
-                              <dl>
-                                <div>
-                                  <dt>Contract</dt>
-                                  <dd>
-                                    {truncateAddress(
-                                      stepState.prepared.contractCall.contractAddress,
-                                    )}
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt>Amount</dt>
-                                  <dd>{getPreparedContractAmount(stepState.prepared)}</dd>
-                                </div>
-                              </dl>
-                            ) : null}
-                            {stepState.status === "submitted" ? (
-                              <dl>
-                                <div>
-                                  <dt>Hash</dt>
-                                  <dd>{truncateHash(stepState.transactionHash)}</dd>
-                                </div>
-                                <div>
-                                  <dt>Status</dt>
-                                  <dd>{stepState.transaction.status}</dd>
-                                </div>
-                              </dl>
-                            ) : null}
-                            <div className="vault-action-row">
-                              <button
-                                disabled={!canPrepare}
-                                onClick={() => handlePrepareContractStep(step)}
-                                type="button"
-                              >
-                                {stepState.status === "preparing"
-                                  ? "Preparing..."
-                                  : definition.prepareLabel}
-                              </button>
-                              <button
-                                disabled={!canSend}
-                                onClick={() => handleSubmitContractStep(step)}
-                                type="button"
-                              >
-                                {stepState.status === "sending"
-                                  ? definition.sendingLabel
-                                  : definition.submitLabel}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <VaultWorkflow
+                    contractSteps={contractSteps}
+                    handlePrepareContractStep={handlePrepareContractStep}
+                    handleSubmitContractStep={handleSubmitContractStep}
+                    walletState={walletState}
+                  />
                 </div>
               ) : null}
             </>
           ) : (
-            <div className="desk-empty">
+            <div className="desk-empty light-empty">
               <strong>No market selected</strong>
               <span>Select a real core market before opening margin.</span>
             </div>
           )}
         </form>
 
-        <aside className="portfolio-console" aria-label="Wallet and portfolio">
-          <section className={walletState.status === "ready" ? "wallet-panel ready" : "wallet-panel"}>
+        <aside className="portfolio-console margin-portfolio" aria-label="Wallet and portfolio">
+          <section
+            className={walletState.status === "ready" ? "wallet-panel ready" : "wallet-panel"}
+          >
             <div>
               <span>Wallet</span>
               <strong>
@@ -980,12 +895,14 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
               <span>Realized profit / loss</span>
               <strong>--</strong>
             </div>
-            <p className="portfolio-empty">Trend history coming soon from real closed positions.</p>
+            <p className="portfolio-empty">Trend history comes from real closed positions only.</p>
           </section>
 
           <section className="portfolio-card activity-card">
             <div className="activity-tabs" aria-label="Portfolio activity tabs">
-              <button aria-pressed="true" type="button">Positions</button>
+              <button aria-pressed="true" type="button">
+                Positions
+              </button>
               <button type="button">Open Orders</button>
               <button type="button">History</button>
             </div>
@@ -1000,6 +917,101 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
   );
 }
 
+function VaultWorkflow({
+  contractSteps,
+  handlePrepareContractStep,
+  handleSubmitContractStep,
+  walletState,
+}: {
+  contractSteps: Record<ContractStepKey, ContractStepState>;
+  handlePrepareContractStep: (step: ContractStepKey) => void;
+  handleSubmitContractStep: (step: ContractStepKey) => void;
+  walletState: WalletState;
+}) {
+  return (
+    <div className="vault-action-panel margin-vault-panel">
+      <div>
+        <span>Vault flow</span>
+        <strong>{getContractWorkflowLabel(contractSteps)}</strong>
+      </div>
+      <p>{getContractWorkflowMessage(contractSteps)}</p>
+      <div className="vault-step-list">
+        {contractStepDefinitions.map((definition, index) => {
+          const step = definition.key;
+          const stepState = contractSteps[step];
+          const isUnlocked = isContractStepUnlocked(step, contractSteps);
+          const canPrepare =
+            isUnlocked &&
+            (stepState.status === "idle" ||
+              stepState.status === "error" ||
+              (stepState.status === "submitted" && stepState.transaction.status === "FAILED"));
+          const canSend =
+            stepState.status === "prepared" && walletState.status === "ready" && isUnlocked;
+
+          return (
+            <div
+              className={
+                isUnlocked ? "vault-step-card " + stepState.status : "vault-step-card locked"
+              }
+              key={step}
+            >
+              <div className="vault-step-heading">
+                <span>{index + 1}</span>
+                <div>
+                  <strong>{definition.label}</strong>
+                  <small>{getContractStepStatusLabel(stepState, isUnlocked)}</small>
+                </div>
+              </div>
+              <p>{getContractStepMessage(definition, stepState, isUnlocked)}</p>
+              {stepState.status === "prepared" || stepState.status === "sending" ? (
+                <dl>
+                  <div>
+                    <dt>Contract</dt>
+                    <dd>{truncateAddress(stepState.prepared.contractCall.contractAddress)}</dd>
+                  </div>
+                  <div>
+                    <dt>Amount</dt>
+                    <dd>{getPreparedContractAmount(stepState.prepared)}</dd>
+                  </div>
+                </dl>
+              ) : null}
+              {stepState.status === "submitted" ? (
+                <dl>
+                  <div>
+                    <dt>Hash</dt>
+                    <dd>{truncateHash(stepState.transactionHash)}</dd>
+                  </div>
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{stepState.transaction.status}</dd>
+                  </div>
+                </dl>
+              ) : null}
+              <div className="vault-action-row">
+                <button
+                  disabled={!canPrepare}
+                  onClick={() => handlePrepareContractStep(step)}
+                  type="button"
+                >
+                  {stepState.status === "preparing" ? "Preparing..." : definition.prepareLabel}
+                </button>
+                <button
+                  disabled={!canSend}
+                  onClick={() => handleSubmitContractStep(step)}
+                  type="button"
+                >
+                  {stepState.status === "sending"
+                    ? definition.sendingLabel
+                    : definition.submitLabel}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function getMarketCategories(markets: Market[]) {
   const categories = new Set<string>();
@@ -1023,18 +1035,31 @@ function filterMarketsByCategory(markets: Market[], category: string) {
   return markets.filter((market) => (market.category?.trim() || "General") === category);
 }
 
-function getPriceTone(snapshot: PriceSnapshot) {
-  if (!snapshot) {
-    return "neutral";
-  }
-
-  return snapshot.probability >= 0.5 ? "yes" : "no";
-}
-
 function getPriceStripStyle(snapshot: PriceSnapshot) {
   const probability = snapshot ? Math.min(Math.max(snapshot.probability, 0), 1) : 0.5;
 
   return { "--yes-probability": Math.round(probability * 100) + "%" } as CSSProperties;
+}
+
+function invertSnapshot(snapshot: PriceSnapshot): PriceSnapshot {
+  if (!snapshot) {
+    return null;
+  }
+
+  return {
+    probability: Math.max(0, 1 - snapshot.probability),
+    source: snapshot.source,
+  };
+}
+
+function getOutcomeName(market: Market, side: Side) {
+  const title = market.title
+    .replace(/^Will\s+/i, "")
+    .replace(/\?$/, "")
+    .trim();
+  const compactTitle = title.length > 44 ? title.slice(0, 41).trimEnd() + "..." : title;
+
+  return side === "YES" ? compactTitle : "Not " + compactTitle;
 }
 
 function getCollateralRouteLabel(
@@ -1268,16 +1293,6 @@ function parsePositiveNumber(value: string) {
   const parsed = Number(trimmed);
 
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-function getDescriptionPreview(description: string | null) {
-  if (!description) {
-    return "No market description returned by core API.";
-  }
-
-  const normalized = description.replace(/\s+/g, " ").trim();
-
-  return normalized.length > 260 ? normalized.slice(0, 257).trimEnd() + "..." : normalized;
 }
 
 function getForcedCloseLabel(market: Market) {
