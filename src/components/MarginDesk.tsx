@@ -9,7 +9,7 @@ import type {
   ExecutionCapabilities,
   Market,
   Position,
-  PreparedMarginIntent,
+  PreparedContractTransaction,
   ContractTransaction,
 } from "../lib/core-api";
 import { executionStatusLabel, formatDate } from "../lib/display";
@@ -20,6 +20,38 @@ const leverageOptions = [1, 2, 3, 5, 10] as const;
 const marginHealthThreshold = 45;
 const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
 
+const contractStepDefinitions = [
+  {
+    key: "approval",
+    label: "Approve USDC",
+    endpoint: "/api/contracts/collateral-approvals/prepare",
+    prepareLabel: "Prepare approval",
+    sendingLabel: "Sending approval...",
+    submitLabel: "Send approval",
+    submittedMessage: "Approval submitted. Wait for wallet confirmation before depositing.",
+  },
+  {
+    key: "deposit",
+    label: "Deposit collateral",
+    endpoint: "/api/contracts/deposits/prepare",
+    prepareLabel: "Prepare deposit",
+    sendingLabel: "Sending deposit...",
+    submitLabel: "Send deposit",
+    submittedMessage:
+      "Deposit submitted. Wait for wallet confirmation before creating the margin intent.",
+  },
+  {
+    key: "marginIntent",
+    label: "Create margin intent",
+    endpoint: "/api/contracts/margin-intents/prepare",
+    prepareLabel: "Prepare intent",
+    sendingLabel: "Sending intent...",
+    submitLabel: "Send intent",
+    submittedMessage:
+      "Onchain margin intent submitted. It still does not mean a market order executed.",
+  },
+] as const;
+
 type Side = "YES" | "NO";
 
 type MarginSubmitState =
@@ -28,22 +60,24 @@ type MarginSubmitState =
   | { status: "submitted"; message: string; position: Position; executionAttempt: ExecutionAttempt }
   | { status: "error"; message: string };
 
-type VaultTransactionState =
+type ContractStepKey = "approval" | "deposit" | "marginIntent";
+
+type ContractStepState =
   | { status: "idle"; message: string }
   | { status: "preparing"; message: string }
-  | { status: "prepared"; message: string; prepared: PreparedMarginIntent }
-  | { status: "sending"; message: string; prepared: PreparedMarginIntent }
+  | { status: "prepared"; message: string; prepared: PreparedContractTransaction }
+  | { status: "sending"; message: string; prepared: PreparedContractTransaction }
   | {
       status: "submitted";
       message: string;
-      prepared: PreparedMarginIntent;
+      prepared: PreparedContractTransaction;
       transaction: ContractTransaction;
       transactionHash: string;
     }
-  | { status: "error"; message: string; prepared?: PreparedMarginIntent };
+  | { status: "error"; message: string; prepared?: PreparedContractTransaction };
 
 type VaultPrepareResponse =
-  | { ok: true; data: PreparedMarginIntent }
+  | { ok: true; data: PreparedContractTransaction }
   | { ok: false; error: { code: string; message: string } };
 
 type VaultTransactionResponse =
@@ -107,10 +141,9 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
     status: "idle",
     message: "",
   });
-  const [vaultState, setVaultState] = useState<VaultTransactionState>({
-    status: "idle",
-    message: "",
-  });
+  const [contractSteps, setContractSteps] = useState<Record<ContractStepKey, ContractStepState>>(
+    createInitialContractStepState,
+  );
   const selectedMarket =
     markets.find((market) => market.id === selectedMarketId) ?? firstPricedMarket;
   const selectedChain = execution.chains.find((chain) => String(chain.chainId) === chainId);
@@ -131,6 +164,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
     marginAmount,
     quantity,
     selectedMarket,
+    selectedChain,
     selectedChainId: chainId,
     sessionState,
     walletAddress,
@@ -305,10 +339,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
         position: body.data.position,
         executionAttempt: body.data.executionAttempt,
       });
-      setVaultState({
-        status: "idle",
-        message: "Prepare a vault transaction when contract config is active in core.",
-      });
+      setContractSteps(createInitialContractStepState());
     } catch {
       setSubmitState({
         status: "error",
@@ -317,62 +348,79 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
     }
   }
 
-  async function handlePrepareVaultTransaction() {
+  function updateContractStep(step: ContractStepKey, nextState: ContractStepState) {
+    setContractSteps((current) => ({ ...current, [step]: nextState }));
+  }
+
+  async function handlePrepareContractStep(step: ContractStepKey) {
     if (submitState.status !== "submitted") {
       return;
     }
 
-    setVaultState({ status: "preparing", message: "Preparing vault transaction..." });
+    const definition = getContractStepDefinition(step);
+
+    updateContractStep(step, {
+      status: "preparing",
+      message: "Preparing " + definition.label.toLowerCase() + "...",
+    });
 
     try {
-      const response = await fetch("/api/contracts/margin-intents/prepare", {
+      const response = await fetch(definition.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ positionId: submitState.position.id, maxSlippageBps: 100 }),
+        body: JSON.stringify(
+          step === "marginIntent"
+            ? { positionId: submitState.position.id, maxSlippageBps: 100 }
+            : { positionId: submitState.position.id },
+        ),
       });
       const body = (await response.json()) as VaultPrepareResponse;
 
       if (!response.ok || !body.ok) {
-        setVaultState({
+        updateContractStep(step, {
           status: "error",
-          message: body.ok ? "Vault transaction was not prepared." : body.error.message,
+          message: body.ok ? definition.label + " was not prepared." : body.error.message,
         });
         return;
       }
 
-      setVaultState({
+      updateContractStep(step, {
         status: "prepared",
         message: body.data.executionNote,
         prepared: body.data,
       });
     } catch {
-      setVaultState({
+      updateContractStep(step, {
         status: "error",
-        message: "Unable to prepare the vault transaction from core.",
+        message: "Unable to prepare " + definition.label.toLowerCase() + " from core.",
       });
     }
   }
 
-  async function handleSubmitVaultTransaction() {
-    if (vaultState.status !== "prepared" || walletState.status !== "ready") {
+  async function handleSubmitContractStep(step: ContractStepKey) {
+    const state = contractSteps[step];
+
+    if (state.status !== "prepared" || walletState.status !== "ready") {
       return;
     }
 
-    setVaultState({
+    const definition = getContractStepDefinition(step);
+
+    updateContractStep(step, {
       status: "sending",
-      message: "Opening wallet transaction...",
-      prepared: vaultState.prepared,
+      message: definition.sendingLabel,
+      prepared: state.prepared,
     });
 
     try {
-      const data = encodeVaultCall(vaultState.prepared);
+      const data = encodeContractCall(state.prepared);
       const transactionHash = normalizeTransactionHash(
         await walletState.provider.request({
           method: "eth_sendTransaction",
           params: [
             {
               from: walletState.address,
-              to: vaultState.prepared.contractCall.contractAddress,
+              to: state.prepared.contractCall.contractAddress,
               data,
             },
           ],
@@ -380,45 +428,56 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
       );
 
       if (!transactionHash) {
-        setVaultState({
+        updateContractStep(step, {
           status: "error",
           message: "Wallet did not return a transaction hash.",
-          prepared: vaultState.prepared,
+          prepared: state.prepared,
         });
         return;
       }
 
-      const response = await fetch(
-        "/api/contracts/transactions/" + vaultState.prepared.transaction.id,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transactionHash, status: "SUBMITTED" }),
-        },
+      const submittedTransaction = await recordContractTransactionStatus(
+        state.prepared.transaction.id,
+        { transactionHash, status: "SUBMITTED" },
       );
-      const body = (await response.json()) as VaultTransactionResponse;
 
-      if (!response.ok || !body.ok) {
-        setVaultState({
-          status: "error",
-          message: body.ok ? "Transaction hash was not recorded." : body.error.message,
-          prepared: vaultState.prepared,
-        });
-        return;
-      }
-
-      setVaultState({
+      updateContractStep(step, {
         status: "submitted",
-        message: "Vault transaction submitted. Execution still requires adapter confirmation.",
-        prepared: vaultState.prepared,
-        transaction: body.data.transaction,
+        message: "Transaction submitted. Waiting for chain confirmation...",
+        prepared: state.prepared,
+        transaction: submittedTransaction,
+        transactionHash,
+      });
+
+      const receipt = await waitForTransactionReceipt(walletState.provider, transactionHash);
+      const confirmedStatus =
+        receipt?.status === "0x1" ? "CONFIRMED" : receipt ? "FAILED" : "SUBMITTED";
+      const finalTransaction =
+        confirmedStatus === "SUBMITTED"
+          ? submittedTransaction
+          : await recordContractTransactionStatus(state.prepared.transaction.id, {
+              transactionHash,
+              status: confirmedStatus,
+              responsePayload: receipt,
+            });
+
+      updateContractStep(step, {
+        status: "submitted",
+        message:
+          confirmedStatus === "CONFIRMED"
+            ? definition.submittedMessage
+            : confirmedStatus === "FAILED"
+              ? "Wallet transaction failed onchain. Prepare and send this step again."
+              : "Transaction submitted. Wait for confirmation before continuing.",
+        prepared: state.prepared,
+        transaction: finalTransaction,
         transactionHash,
       });
     } catch {
-      setVaultState({
+      updateContractStep(step, {
         status: "error",
         message: "Wallet transaction was not submitted.",
-        prepared: vaultState.prepared,
+        prepared: state.prepared,
       });
     }
   }
@@ -708,59 +767,94 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                   </p>
                   <div className="vault-action-panel">
                     <div>
-                      <span>Vault transaction</span>
-                      <strong>{getVaultStateLabel(vaultState)}</strong>
+                      <span>Vault workflow</span>
+                      <strong>{getContractWorkflowLabel(contractSteps)}</strong>
                     </div>
-                    <p>{getVaultStateMessage(vaultState)}</p>
-                    {vaultState.status === "prepared" || vaultState.status === "sending" ? (
-                      <dl>
-                        <div>
-                          <dt>Vault</dt>
-                          <dd>
-                            {truncateAddress(vaultState.prepared.contractCall.contractAddress)}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Chain</dt>
-                          <dd>{vaultState.prepared.contractCall.chainId}</dd>
-                        </div>
-                        <div>
-                          <dt>Collateral</dt>
-                          <dd>{vaultState.prepared.contractCall.namedArgs.collateralAmount}</dd>
-                        </div>
-                      </dl>
-                    ) : null}
-                    {vaultState.status === "submitted" ? (
-                      <dl>
-                        <div>
-                          <dt>Hash</dt>
-                          <dd>{truncateHash(vaultState.transactionHash)}</dd>
-                        </div>
-                        <div>
-                          <dt>Status</dt>
-                          <dd>{vaultState.transaction.status}</dd>
-                        </div>
-                      </dl>
-                    ) : null}
-                    <div className="vault-action-row">
-                      <button
-                        disabled={
-                          vaultState.status === "preparing" || vaultState.status === "sending"
-                        }
-                        onClick={handlePrepareVaultTransaction}
-                        type="button"
-                      >
-                        {vaultState.status === "preparing" ? "Preparing..." : "Prepare vault call"}
-                      </button>
-                      <button
-                        disabled={
-                          vaultState.status !== "prepared" || walletState.status !== "ready"
-                        }
-                        onClick={handleSubmitVaultTransaction}
-                        type="button"
-                      >
-                        {vaultState.status === "sending" ? "Sending..." : "Submit with wallet"}
-                      </button>
+                    <p>{getContractWorkflowMessage(contractSteps)}</p>
+                    <div className="vault-step-list">
+                      {contractStepDefinitions.map((definition, index) => {
+                        const step = definition.key;
+                        const stepState = contractSteps[step];
+                        const isUnlocked = isContractStepUnlocked(step, contractSteps);
+                        const canPrepare =
+                          isUnlocked &&
+                          (stepState.status === "idle" ||
+                            stepState.status === "error" ||
+                            (stepState.status === "submitted" &&
+                              stepState.transaction.status === "FAILED"));
+                        const canSend =
+                          stepState.status === "prepared" &&
+                          walletState.status === "ready" &&
+                          isUnlocked;
+
+                        return (
+                          <div
+                            className={
+                              isUnlocked
+                                ? "vault-step-card " + stepState.status
+                                : "vault-step-card locked"
+                            }
+                            key={step}
+                          >
+                            <div className="vault-step-heading">
+                              <span>{index + 1}</span>
+                              <div>
+                                <strong>{definition.label}</strong>
+                                <small>{getContractStepStatusLabel(stepState, isUnlocked)}</small>
+                              </div>
+                            </div>
+                            <p>{getContractStepMessage(definition, stepState, isUnlocked)}</p>
+                            {stepState.status === "prepared" || stepState.status === "sending" ? (
+                              <dl>
+                                <div>
+                                  <dt>Contract</dt>
+                                  <dd>
+                                    {truncateAddress(
+                                      stepState.prepared.contractCall.contractAddress,
+                                    )}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Amount</dt>
+                                  <dd>{getPreparedContractAmount(stepState.prepared)}</dd>
+                                </div>
+                              </dl>
+                            ) : null}
+                            {stepState.status === "submitted" ? (
+                              <dl>
+                                <div>
+                                  <dt>Hash</dt>
+                                  <dd>{truncateHash(stepState.transactionHash)}</dd>
+                                </div>
+                                <div>
+                                  <dt>Status</dt>
+                                  <dd>{stepState.transaction.status}</dd>
+                                </div>
+                              </dl>
+                            ) : null}
+                            <div className="vault-action-row">
+                              <button
+                                disabled={!canPrepare}
+                                onClick={() => handlePrepareContractStep(step)}
+                                type="button"
+                              >
+                                {stepState.status === "preparing"
+                                  ? "Preparing..."
+                                  : definition.prepareLabel}
+                              </button>
+                              <button
+                                disabled={!canSend}
+                                onClick={() => handleSubmitContractStep(step)}
+                                type="button"
+                              >
+                                {stepState.status === "sending"
+                                  ? definition.sendingLabel
+                                  : definition.submitLabel}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -848,6 +942,7 @@ function getSubmitBlockReason({
   leverage,
   marginAmount,
   quantity,
+  selectedChain,
   selectedChainId,
   selectedMarket,
   sessionState,
@@ -858,6 +953,7 @@ function getSubmitBlockReason({
   leverage: number;
   marginAmount: string;
   quantity: string;
+  selectedChain: ExecutionCapabilities["chains"][number] | undefined;
   selectedChainId: string;
   selectedMarket: Market | undefined;
   sessionState: FarcasterSessionState;
@@ -886,6 +982,14 @@ function getSubmitBlockReason({
 
   if (!chainId) {
     return "Select an execution chain from core capabilities.";
+  }
+
+  if (
+    !selectedChain?.walletFlowEnabled ||
+    !selectedChain.vaultAddress ||
+    !selectedChain.collateralTokenAddress
+  ) {
+    return "Select a chain with a connected testnet vault and collateral token.";
   }
 
   if (walletState.status !== "ready") {
@@ -1114,39 +1218,184 @@ function truncateAddress(address: string) {
   return address.slice(0, 6) + "..." + address.slice(-4);
 }
 
-function encodeVaultCall(prepared: PreparedMarginIntent) {
+function createInitialContractStepState(): Record<ContractStepKey, ContractStepState> {
+  return {
+    approval: { status: "idle", message: "Approve testnet USDC for the vault." },
+    deposit: { status: "idle", message: "Deposit approved USDC into the vault." },
+    marginIntent: { status: "idle", message: "Create the onchain margin intent." },
+  };
+}
+
+function getContractStepDefinition(step: ContractStepKey) {
+  return contractStepDefinitions.find((definition) => definition.key === step)!;
+}
+
+function isContractStepUnlocked(
+  step: ContractStepKey,
+  state: Record<ContractStepKey, ContractStepState>,
+) {
+  if (step === "approval") return true;
+  if (step === "deposit") return isContractStepConfirmed(state.approval);
+
+  return isContractStepConfirmed(state.deposit);
+}
+
+function isContractStepConfirmed(state: ContractStepState) {
+  return state.status === "submitted" && state.transaction.status === "CONFIRMED";
+}
+
+function getContractWorkflowLabel(state: Record<ContractStepKey, ContractStepState>) {
+  if (isContractStepConfirmed(state.marginIntent)) return "Intent confirmed";
+  if (isContractStepConfirmed(state.deposit)) return "Ready for intent";
+  if (isContractStepConfirmed(state.approval)) return "Ready to deposit";
+
+  return "Ready to approve";
+}
+
+function getContractWorkflowMessage(state: Record<ContractStepKey, ContractStepState>) {
+  if (isContractStepConfirmed(state.marginIntent)) {
+    return "The vault intent is confirmed onchain. Execution still needs a real adapter confirmation before core can mark anything executed.";
+  }
+
+  if (isContractStepConfirmed(state.deposit)) {
+    return "The vault deposit is confirmed. Create the onchain margin intent next; do not treat this as a market fill.";
+  }
+
+  if (isContractStepConfirmed(state.approval)) {
+    return "The approval is confirmed. Deposit collateral into the vault next.";
+  }
+
+  return "Run the wallet flow in order: approve USDC, deposit collateral, then create the margin intent.";
+}
+
+function getContractStepStatusLabel(state: ContractStepState, isUnlocked: boolean) {
+  if (!isUnlocked) return "Waiting";
+  if (state.status === "idle") return "Ready";
+  if (state.status === "preparing") return "Preparing";
+  if (state.status === "prepared") return "Prepared";
+  if (state.status === "sending") return "Wallet";
+  if (state.status === "submitted") {
+    if (state.transaction.status === "CONFIRMED") return "Confirmed";
+    if (state.transaction.status === "FAILED") return "Failed";
+
+    return "Submitted";
+  }
+
+  return "Error";
+}
+
+function getContractStepMessage(
+  definition: (typeof contractStepDefinitions)[number],
+  state: ContractStepState,
+  isUnlocked: boolean,
+) {
+  if (!isUnlocked) {
+    return definition.key === "deposit"
+      ? "Confirm approval before this step."
+      : "Confirm deposit before this step.";
+  }
+
+  if (state.message) return state.message;
+
+  return "Prepare the wallet transaction from core.";
+}
+
+function getPreparedContractAmount(prepared: PreparedContractTransaction) {
+  const { namedArgs } = prepared.contractCall;
+  const value = namedArgs.amount ?? namedArgs.collateralAmount;
+
+  return typeof value === "undefined" ? "n/a" : String(value);
+}
+
+function encodeContractCall(prepared: PreparedContractTransaction) {
   const args = prepared.contractCall.namedArgs;
   const abi = parseAbi(prepared.contractCall.abi);
 
+  if (prepared.contractCall.functionName === "approve") {
+    return encodeFunctionData({
+      abi,
+      functionName: "approve",
+      args: [args.spender as `0x${string}`, BigInt(String(args.amount))],
+    });
+  }
+
+  if (prepared.contractCall.functionName === "deposit") {
+    return encodeFunctionData({
+      abi,
+      functionName: "deposit",
+      args: [args.collateralToken as `0x${string}`, BigInt(String(args.amount))],
+    });
+  }
+
   return encodeFunctionData({
     abi,
-    functionName: prepared.contractCall.functionName,
+    functionName: "createMarginIntent",
     args: [
       args.collateralToken as `0x${string}`,
       args.marketId as `0x${string}`,
-      args.side,
-      BigInt(args.collateralAmount),
-      BigInt(args.leverageBps),
-      BigInt(args.maxSlippageBps),
-      BigInt(args.deadline),
+      Number(args.side),
+      BigInt(String(args.collateralAmount)),
+      BigInt(String(args.leverageBps)),
+      BigInt(String(args.maxSlippageBps)),
+      BigInt(String(args.deadline)),
       args.offchainPositionId as `0x${string}`,
     ],
   });
 }
 
-function getVaultStateLabel(state: VaultTransactionState) {
-  if (state.status === "idle") return "Not prepared";
-  if (state.status === "preparing") return "Preparing";
-  if (state.status === "prepared") return "Ready";
-  if (state.status === "sending") return "Wallet open";
-  if (state.status === "submitted") return "Submitted";
-  return "Needs attention";
+async function recordContractTransactionStatus(
+  transactionId: string,
+  input: {
+    responsePayload?: unknown;
+    status?: ContractTransaction["status"];
+    transactionHash?: string;
+  },
+) {
+  const response = await fetch("/api/contracts/transactions/" + transactionId, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const body = (await response.json()) as VaultTransactionResponse;
+
+  if (!response.ok || !body.ok) {
+    throw new Error(body.ok ? "Transaction hash was not recorded." : body.error.message);
+  }
+
+  return body.data.transaction;
 }
 
-function getVaultStateMessage(state: VaultTransactionState) {
-  if (state.message) return state.message;
+async function waitForTransactionReceipt(provider: EthereumProvider, transactionHash: string) {
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const receipt = await provider.request({
+      method: "eth_getTransactionReceipt",
+      params: [transactionHash],
+    });
 
-  return "Prepare a vault call after recording a margin intent.";
+    if (isTransactionReceipt(receipt)) {
+      return receipt;
+    }
+
+    await delay(2500);
+  }
+
+  return null;
+}
+
+function isTransactionReceipt(
+  value: unknown,
+): value is Record<string, unknown> & { status: string } {
+  if (typeof value !== "object" || value === null || !("status" in value)) {
+    return false;
+  }
+
+  const status = (value as { status?: unknown }).status;
+
+  return status === "0x1" || status === "0x0";
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function normalizeTransactionHash(value: unknown) {
