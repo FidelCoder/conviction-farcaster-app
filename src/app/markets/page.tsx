@@ -25,18 +25,18 @@ export default async function MarketsPage() {
       <section className="app-board-hero market-board-hero" aria-labelledby="markets-title">
         <div className="app-title-lockup market-board-copy">
           <p className="eyebrow">Market board</p>
-          <h1 id="markets-title">Pick a side. Size the thesis.</h1>
+          <h1 id="markets-title">Only markets with a case.</h1>
           <p>
-            The strongest boards surface first. Tap a market for YES/NO price, resolution, and
-            signal entry.
+            Boards with price, YES/NO mapping, and a clear close date surface first. Thin records
+            stay lower until the data is worth acting on.
           </p>
         </div>
         <Link className="app-hero-action" href="/margin">
           Open margin desk
         </Link>
-        <dl className="app-board-stats compact-stats" aria-label="Market board composition">
+        <dl className="app-board-stats compact-stats market-board-summary-strip" aria-label="Market board composition">
           <div>
-            <dt>Ready</dt>
+            <dt>Actionable</dt>
             <dd>{boardStats.qualified}</dd>
           </div>
           <div>
@@ -44,11 +44,11 @@ export default async function MarketsPage() {
             <dd>{boardStats.priced}</dd>
           </div>
           <div>
-            <dt>Mapped</dt>
+            <dt>YES/NO</dt>
             <dd>{boardStats.mapped}</dd>
           </div>
           <div>
-            <dt>Total</dt>
+            <dt>Synced</dt>
             <dd>{boardStats.total}</dd>
           </div>
         </dl>
@@ -65,9 +65,9 @@ export default async function MarketsPage() {
           <section className="section-heading conviction-section-heading compact-heading">
             <div>
               <p className="eyebrow">Categories</p>
-              <h2>Browse by thesis</h2>
+              <h2>Categories</h2>
             </div>
-            <span>{marketClusters.length} groups</span>
+            <span>{marketClusters.length} categories</span>
           </section>
 
           <section className="category-section-stack" aria-label="Market categories">
@@ -121,7 +121,7 @@ function MarketClusterCard({ cluster }: { cluster: MarketCluster }) {
       <div className="cluster-intel">
         <dl>
           <div>
-            <dt>Ready</dt>
+            <dt>Actionable</dt>
             <dd>
               {cluster.readyCount}/{cluster.markets.length}
             </dd>
