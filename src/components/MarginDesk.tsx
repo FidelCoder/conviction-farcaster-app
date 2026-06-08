@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { encodeFunctionData, parseAbi } from "viem";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { CSSProperties, FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type {
   ExecutionAttempt,
@@ -14,16 +15,15 @@ import type {
 } from "../lib/core-api";
 import { executionStatusLabel, formatDate } from "../lib/display";
 import { type FarcasterSessionState, useFarcasterSession } from "../hooks/useFarcasterSession";
-import { FarcasterSessionPanel } from "./FarcasterSessionPanel";
 
 const leverageOptions = [1, 2, 3, 5, 10] as const;
-const marginHealthThreshold = 45;
+const collateralTokenOptions = ["USDC", "USDT"] as const;
 const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
 
 const contractStepDefinitions = [
   {
     key: "approval",
-    label: "Approve USDC",
+    label: "Approve collateral",
     endpoint: "/api/contracts/collateral-approvals/prepare",
     prepareLabel: "Prepare approval",
     sendingLabel: "Sending approval...",
@@ -38,21 +38,23 @@ const contractStepDefinitions = [
     sendingLabel: "Sending deposit...",
     submitLabel: "Send deposit",
     submittedMessage:
-      "Deposit submitted. Wait for wallet confirmation before creating the margin intent.",
+      "Deposit submitted. Wait for wallet confirmation before opening margin.",
   },
   {
     key: "marginIntent",
-    label: "Create margin intent",
+    label: "Open margin",
     endpoint: "/api/contracts/margin-intents/prepare",
-    prepareLabel: "Prepare intent",
-    sendingLabel: "Sending intent...",
-    submitLabel: "Send intent",
+    prepareLabel: "Prepare request",
+    sendingLabel: "Sending request...",
+    submitLabel: "Open margin",
     submittedMessage:
-      "Onchain margin intent submitted. It still does not mean a market order executed.",
+      "Margin request submitted onchain. A market position opens only after real execution confirms.",
   },
 ] as const;
 
 type Side = "YES" | "NO";
+type CollateralToken = (typeof collateralTokenOptions)[number];
+type PriceSnapshot = { probability: number; source: string } | null;
 
 type MarginSubmitState =
   | { status: "idle"; message: string }
@@ -135,6 +137,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
   });
   const [quantity, setQuantity] = useState("");
   const [marginAmount, setMarginAmount] = useState("");
+  const [collateralToken, setCollateralToken] = useState<CollateralToken>("USDC");
   const [leverage, setLeverage] = useState<(typeof leverageOptions)[number]>(3);
   const [chainId, setChainId] = useState(() => String(execution.chains[0]?.chainId ?? ""));
   const [submitState, setSubmitState] = useState<MarginSubmitState>({
@@ -148,18 +151,19 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
     markets.find((market) => market.id === selectedMarketId) ?? firstPricedMarket;
   const selectedChain = execution.chains.find((chain) => String(chain.chainId) === chainId);
   const selectedSnapshot = selectedMarket ? getPriceSnapshot(selectedMarket) : null;
-  const activeMarketCount = markets.filter(
-    (market) => market.status.toLowerCase() === "active",
-  ).length;
-  const pricedMarketCount = markets.filter((market) => Boolean(getPriceSnapshot(market))).length;
-  const marketRailItems = markets.slice(0, 16);
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const marketCategories = useMemo(() => getMarketCategories(markets), [markets]);
+  const marketRailItems = useMemo(
+    () => filterMarketsByCategory(markets, selectedCategory).slice(0, 18),
+    [markets, selectedCategory],
+  );
   const preview = useMemo(
     () => buildMarginPreview(selectedMarket, side, marginAmount, leverage),
     [leverage, marginAmount, selectedMarket, side],
   );
-  const isMarginLive = execution.marginExecutionEnabled && execution.leverageEnabled;
   const submitBlockReason = getSubmitBlockReason({
     chainId,
+    collateralToken,
     leverage,
     marginAmount,
     quantity,
@@ -229,7 +233,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
 
         setWalletState({
           status: "available",
-          message: "Connect an EVM wallet to submit a margin intent.",
+          message: "Connect an EVM wallet to open margin.",
           provider,
         });
       } catch {
@@ -303,7 +307,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
 
     setSubmitState({
       status: "submitting",
-      message: "Submitting margin intent...",
+      message: "Preparing margin request...",
     });
 
     try {
@@ -328,7 +332,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
       if (!response.ok || !body.ok) {
         setSubmitState({
           status: "error",
-          message: body.ok ? "Margin intent failed." : body.error.message,
+          message: body.ok ? "Margin request failed." : body.error.message,
         });
         return;
       }
@@ -343,7 +347,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
     } catch {
       setSubmitState({
         status: "error",
-        message: "Core API did not accept the margin intent.",
+        message: "Core API did not accept the margin request.",
       });
     }
   }
@@ -483,52 +487,58 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
   }
 
   return (
-    <section className="margin-desk" aria-label="Margin trading desk">
-      <div className="margin-desk-header">
+    <section className="margin-desk browser-margin-desk" aria-label="Browser margin trading desk">
+      <div className="margin-desk-header browser-desk-header">
         <div className="desk-title">
           <p className="eyebrow">Margin desk</p>
-          <h1>Size the thesis before execution.</h1>
+          <h1>Open margin on prediction markets.</h1>
           <p>
-            Pick a market, choose YES or NO, set collateral and leverage, then submit an intent. No
-            trade is marked executed until the vault flow confirms it.
+            Choose a side, collateral, and leverage. A position only opens after real market
+            execution confirms.
           </p>
         </div>
-        <div className="desk-status-stack" aria-label="Execution status">
-          <div className={isMarginLive ? "live-badge ready" : "live-badge pending"}>
-            <span>{isMarginLive ? "Execution live" : "Intent mode"}</span>
-            <strong>{execution.evmOnly ? "EVM" : "Multichain"}</strong>
+        <div className="desk-status-stack compact" aria-label="Vault route status">
+          <div className="live-badge route">
+            <span>Vault route</span>
+            <strong>{selectedChain ? selectedChain.chainName : "Select chain"}</strong>
           </div>
-          <dl className="desk-stat-grid">
-            <div>
-              <dt>Markets</dt>
-              <dd>{markets.length}</dd>
-            </div>
-            <div>
-              <dt>Active</dt>
-              <dd>{activeMarketCount}</dd>
-            </div>
-            <div>
-              <dt>Priced</dt>
-              <dd>{pricedMarketCount}</dd>
-            </div>
-          </dl>
+          <div className="live-badge route orange">
+            <span>Collateral</span>
+            <strong>{getCollateralRouteLabel(selectedChain, collateralToken)}</strong>
+          </div>
         </div>
       </div>
 
-      <div className="margin-workspace">
-        <aside className="market-rail" aria-label="Market tape">
+      <div className="margin-workspace browser-desk-grid">
+        <aside className="market-rail expanded" aria-label="Market tape">
           <div className="rail-heading">
             <div>
               <span>Market tape</span>
-              <small>Provider data</small>
+              <small>{selectedCategory === "All" ? "High-signal board" : selectedCategory}</small>
             </div>
-            <strong>{markets.length}</strong>
+            <strong>{marketRailItems.length}</strong>
           </div>
-          {markets.length > 0 ? (
+
+          <label className="rail-filter">
+            <span>Category</span>
+            <select
+              onChange={(event) => setSelectedCategory(event.target.value)}
+              value={selectedCategory}
+            >
+              {marketCategories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {marketRailItems.length > 0 ? (
             <div className="market-rail-list">
               {marketRailItems.map((market) => {
                 const snapshot = getPriceSnapshot(market);
                 const isSelected = market.id === selectedMarket?.id;
+                const noPrice = snapshot ? formatProbability(1 - snapshot.probability) : "--";
 
                 return (
                   <button
@@ -542,24 +552,37 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                       <span>{market.title}</span>
                       <small>{market.category ?? market.source}</small>
                     </span>
-                    <strong>
-                      {snapshot ? formatProbability(snapshot.probability) : "No price"}
-                    </strong>
+                    <span className="rail-market-price">
+                      <strong>{snapshot ? formatProbability(snapshot.probability) : "--"}</strong>
+                      <small>YES</small>
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className={"micro-price-strip " + getPriceTone(snapshot)}
+                      style={getPriceStripStyle(snapshot)}
+                    >
+                      <span />
+                    </span>
+                    <span className="rail-hover-intel">
+                      <span>YES {snapshot ? formatProbability(snapshot.probability) : "--"}</span>
+                      <span>NO {noPrice}</span>
+                      <span>{getForcedCloseLabel(market)}</span>
+                    </span>
                   </button>
                 );
               })}
             </div>
           ) : (
             <div className="desk-empty compact">
-              <strong>No markets available</strong>
-              <span>Connect core to a provider before trading.</span>
+              <strong>No markets in this category</strong>
+              <span>Switch category or sync provider markets through core.</span>
             </div>
           )}
         </aside>
 
-        <form className="trade-ticket" aria-label="Margin trade ticket" onSubmit={handleSubmit}>
+        <form className="trade-ticket compact-ticket" aria-label="Open margin ticket" onSubmit={handleSubmit}>
           <div className="ticket-topline">
-            <span>Trade ticket</span>
+            <span>Open margin</span>
             <strong>{selectedMarket?.source ?? "Core API"}</strong>
           </div>
 
@@ -583,125 +606,143 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                   </div>
                 </div>
                 <p>{getDescriptionPreview(selectedMarket.description)}</p>
-                <dl className="selected-price-grid">
+                <div
+                  aria-hidden="true"
+                  className={"market-price-band " + getPriceTone(selectedSnapshot)}
+                  style={getPriceStripStyle(selectedSnapshot)}
+                >
+                  <span />
+                </div>
+                <dl className="selected-price-grid condensed">
                   <div>
-                    <dt>Last</dt>
-                    <dd>{formatStoredMarketPrice(selectedMarket.lastTradePrice)}</dd>
+                    <dt>YES</dt>
+                    <dd>
+                      {selectedSnapshot
+                        ? formatProbability(selectedSnapshot.probability)
+                        : "No price"}
+                    </dd>
                   </div>
                   <div>
-                    <dt>Bid</dt>
-                    <dd>{formatStoredMarketPrice(selectedMarket.bestBid)}</dd>
+                    <dt>NO</dt>
+                    <dd>
+                      {selectedSnapshot
+                        ? formatProbability(1 - selectedSnapshot.probability)
+                        : "No price"}
+                    </dd>
                   </div>
                   <div>
-                    <dt>Ask</dt>
-                    <dd>{formatStoredMarketPrice(selectedMarket.bestAsk)}</dd>
-                  </div>
-                  <div>
-                    <dt>Close</dt>
+                    <dt>Close before</dt>
                     <dd>{getForcedCloseLabel(selectedMarket)}</dd>
                   </div>
                 </dl>
-                <Link href={"/markets/" + selectedMarket.id}>Open market page</Link>
+                <Link href={"/markets/" + selectedMarket.id}>Market details</Link>
               </div>
 
-              <FarcasterSessionPanel label="Farcaster account" sessionState={sessionState} />
-
-              <div className="segmented-control" aria-label="Trade side">
+              <div className="segmented-control side-picker" aria-label="Trade side">
                 <button
                   className={side === "YES" ? "active yes" : "yes"}
                   onClick={() => setSide("YES")}
                   type="button"
                 >
-                  YES
+                  <span>YES</span>
+                  <strong>
+                    {selectedSnapshot
+                      ? formatProbability(selectedSnapshot.probability)
+                      : "--"}
+                  </strong>
                 </button>
                 <button
                   className={side === "NO" ? "active no" : "no"}
                   onClick={() => setSide("NO")}
                   type="button"
                 >
-                  NO
+                  <span>NO</span>
+                  <strong>
+                    {selectedSnapshot
+                      ? formatProbability(1 - selectedSnapshot.probability)
+                      : "--"}
+                  </strong>
                 </button>
               </div>
 
-              <label className="ticket-field">
-                <span>Requested market size</span>
-                <input
-                  inputMode="decimal"
-                  onChange={(event) => setQuantity(event.target.value)}
-                  placeholder="Outcome share size"
-                  type="text"
-                  value={quantity}
-                />
-              </label>
+              <div className="ticket-field-grid">
+                <label className="ticket-field">
+                  <span>Outcome shares</span>
+                  <input
+                    inputMode="decimal"
+                    onChange={(event) => setQuantity(event.target.value)}
+                    placeholder="Shares"
+                    type="text"
+                    value={quantity}
+                  />
+                </label>
 
-              <label className="ticket-field">
-                <span>Margin deposit</span>
-                <input
-                  inputMode="decimal"
-                  onChange={(event) => setMarginAmount(event.target.value)}
-                  placeholder="USDC collateral"
-                  type="text"
-                  value={marginAmount}
-                />
-              </label>
+                <label className="ticket-field">
+                  <span>Collateral</span>
+                  <div className="token-input-row">
+                    <select
+                      aria-label="Collateral token"
+                      onChange={(event) => setCollateralToken(event.target.value as CollateralToken)}
+                      value={collateralToken}
+                    >
+                      {collateralTokenOptions.map((token) => (
+                        <option key={token} value={token}>
+                          {token}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      inputMode="decimal"
+                      onChange={(event) => setMarginAmount(event.target.value)}
+                      placeholder="0.00"
+                      type="text"
+                      value={marginAmount}
+                    />
+                  </div>
+                </label>
+              </div>
 
-              <div className="leverage-row" aria-label="Leverage multiplier">
-                {leverageOptions.map((option) => (
-                  <button
-                    aria-pressed={option === leverage}
-                    className={option === leverage ? "active" : ""}
-                    key={option}
-                    onClick={() => setLeverage(option)}
-                    type="button"
+              <div className="ticket-select-row">
+                <label className="ticket-field compact-select">
+                  <span>Leverage</span>
+                  <select
+                    aria-label="Leverage multiplier"
+                    onChange={(event) =>
+                      setLeverage(Number(event.target.value) as (typeof leverageOptions)[number])
+                    }
+                    value={leverage}
                   >
-                    {option}x
-                  </button>
-                ))}
-              </div>
-
-              <label className="ticket-field">
-                <span>Execution chain</span>
-                <select onChange={(event) => setChainId(event.target.value)} value={chainId}>
-                  {execution.chains.length > 0 ? (
-                    execution.chains.map((chain) => (
-                      <option key={chain.chainId} value={chain.chainId}>
-                        {chain.chainName} ({chain.network})
+                    {leverageOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}x
                       </option>
-                    ))
-                  ) : (
-                    <option value="">Core capabilities unavailable</option>
-                  )}
-                </select>
-              </label>
+                    ))}
+                  </select>
+                </label>
 
-              <div
-                className={walletState.status === "ready" ? "wallet-panel ready" : "wallet-panel"}
-              >
-                <div>
-                  <span>Wallet</span>
-                  <strong>
-                    {walletState.status === "ready"
-                      ? truncateAddress(walletState.address)
-                      : walletState.status === "loading"
-                        ? "Detecting..."
-                        : "Not connected"}
-                  </strong>
-                </div>
-                <p>{walletState.message}</p>
-                {walletState.status === "available" ? (
-                  <button onClick={connectWallet} type="button">
-                    Connect wallet
-                  </button>
-                ) : null}
+                <label className="ticket-field compact-select">
+                  <span>Chain</span>
+                  <select onChange={(event) => setChainId(event.target.value)} value={chainId}>
+                    {execution.chains.length > 0 ? (
+                      execution.chains.map((chain) => (
+                        <option key={chain.chainId} value={chain.chainId}>
+                          {chain.chainName}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No vault route</option>
+                    )}
+                  </select>
+                </label>
               </div>
 
-              <dl className="ticket-metrics">
+              <dl className="ticket-metrics lean">
                 <div>
-                  <dt>Reference price</dt>
+                  <dt>Reference</dt>
                   <dd>{preview.referencePriceLabel}</dd>
                 </div>
                 <div>
-                  <dt>Notional</dt>
+                  <dt>Exposure</dt>
                   <dd>{preview.notionalLabel}</dd>
                 </div>
                 <div>
@@ -709,16 +750,8 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                   <dd>{preview.borrowedLabel}</dd>
                 </div>
                 <div>
-                  <dt>Health threshold</dt>
-                  <dd>{leverage > 1 ? marginHealthThreshold + "%" : "Spot"}</dd>
-                </div>
-                <div>
-                  <dt>Liquidation guard</dt>
+                  <dt>Guard</dt>
                   <dd>{preview.liquidationLabel}</dd>
-                </div>
-                <div>
-                  <dt>Forced close</dt>
-                  <dd>{getForcedCloseLabel(selectedMarket)}</dd>
                 </div>
               </dl>
 
@@ -727,7 +760,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                 disabled={isSubmitting || Boolean(submitBlockReason)}
                 type="submit"
               >
-                {isSubmitting ? "Submitting..." : "Submit margin intent"}
+                {isSubmitting ? "Preparing..." : "Open margin"}
               </button>
               <p
                 className={
@@ -740,7 +773,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
               {submitState.status === "submitted" ? (
                 <div className="intent-confirmation" aria-live="polite">
                   <div className="intent-confirmation-topline">
-                    <span>Margin intent</span>
+                    <span>Margin request</span>
                     <strong>{executionStatusLabel(submitState.position.status)}</strong>
                   </div>
                   <dl>
@@ -753,21 +786,21 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                       </dd>
                     </div>
                     <div>
-                      <dt>Attempt</dt>
+                      <dt>Request</dt>
                       <dd>{formatCompactId(submitState.executionAttempt.id)}</dd>
                     </div>
                     <div>
-                      <dt>Adapter status</dt>
+                      <dt>Status</dt>
                       <dd>{executionStatusLabel(submitState.executionAttempt.status)}</dd>
                     </div>
                   </dl>
                   <p>
                     {submitState.executionAttempt.failureMessage ??
-                      "Execution attempt recorded; contracts and adapters decide the next state."}
+                      "Request recorded. A market position opens only after real execution confirms."}
                   </p>
                   <div className="vault-action-panel">
                     <div>
-                      <span>Vault workflow</span>
+                      <span>Vault flow</span>
                       <strong>{getContractWorkflowLabel(contractSteps)}</strong>
                     </div>
                     <p>{getContractWorkflowMessage(contractSteps)}</p>
@@ -863,51 +896,160 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
           ) : (
             <div className="desk-empty">
               <strong>No market selected</strong>
-              <span>A core API market is required before a margin intent can be prepared.</span>
+              <span>Select a real core market before opening margin.</span>
             </div>
           )}
         </form>
 
-        <aside className="risk-console" aria-label="Risk and execution status">
-          <div>
-            <p className="eyebrow">Execution guardrails</p>
-            <h2>Intent-first until the margin stack is live.</h2>
-            <p>
-              The desk records real intent and thesis records. Fills, PnL, and leveraged execution
-              stay off until contracts, vault liquidity, adapters, and liquidations are live.
-            </p>
-          </div>
+        <aside className="portfolio-console" aria-label="Wallet and portfolio">
+          <section className={walletState.status === "ready" ? "wallet-panel ready" : "wallet-panel"}>
+            <div>
+              <span>Wallet</span>
+              <strong>
+                {walletState.status === "ready"
+                  ? truncateAddress(walletState.address)
+                  : walletState.status === "loading"
+                    ? "Detecting..."
+                    : "Not connected"}
+              </strong>
+            </div>
+            <p>{walletState.message}</p>
+            {walletState.status === "available" ? (
+              <button onClick={connectWallet} type="button">
+                Connect wallet
+              </button>
+            ) : null}
+          </section>
 
-          <dl className="risk-list">
-            <div>
-              <dt>Spot adapters</dt>
-              <dd>{execution.spotExecutionEnabled ? "Live" : "Not live"}</dd>
+          <section className="portfolio-card">
+            <div className="portfolio-heading">
+              <span>Portfolio</span>
+              <strong>Browser wallet</strong>
             </div>
-            <div>
-              <dt>Margin adapters</dt>
-              <dd>{execution.marginExecutionEnabled ? "Live" : "Not live"}</dd>
-            </div>
-            <div>
-              <dt>Leverage</dt>
-              <dd>{execution.leverageEnabled ? "Enabled" : "Disabled"}</dd>
-            </div>
-            <div>
-              <dt>Selected chain</dt>
-              <dd>{selectedChain ? selectedChain.chainName : "No active chain"}</dd>
-            </div>
-          </dl>
+            <dl className="portfolio-grid primary">
+              <div>
+                <dt>Account Value</dt>
+                <dd>--</dd>
+              </div>
+              <div>
+                <dt>Available to Trade</dt>
+                <dd>--</dd>
+              </div>
+              <div>
+                <dt>Total Traded Volume</dt>
+                <dd>--</dd>
+              </div>
+            </dl>
+          </section>
 
-          <div className="process-rail" aria-label="Execution flow">
-            <span>Choose real market</span>
-            <span>Record margin intent</span>
-            <span>Block execution safely</span>
-            <span>Enable adapters later</span>
-            <span>Close before resolution</span>
-          </div>
+          <section className="portfolio-card compact">
+            <div className="portfolio-heading muted-heading">
+              <span>Balance breakdown</span>
+              <strong>USDC / USDT</strong>
+            </div>
+            <dl className="portfolio-grid">
+              <div>
+                <dt>Available Balance</dt>
+                <dd>--</dd>
+              </div>
+              <div>
+                <dt>Locked Margin</dt>
+                <dd>--</dd>
+              </div>
+              <div>
+                <dt>Total Predictions</dt>
+                <dd>--</dd>
+              </div>
+              <div>
+                <dt>Total Rewards</dt>
+                <dd>--</dd>
+              </div>
+              <div>
+                <dt>Current Borrowed</dt>
+                <dd>--</dd>
+              </div>
+              <div>
+                <dt>Total Borrowed</dt>
+                <dd>--</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="portfolio-card compact">
+            <div className="portfolio-heading muted-heading">
+              <span>Realized profit / loss</span>
+              <strong>--</strong>
+            </div>
+            <p className="portfolio-empty">Trend history coming soon from real closed positions.</p>
+          </section>
+
+          <section className="portfolio-card activity-card">
+            <div className="activity-tabs" aria-label="Portfolio activity tabs">
+              <button aria-pressed="true" type="button">Positions</button>
+              <button type="button">Open Orders</button>
+              <button type="button">History</button>
+            </div>
+            <div className="activity-empty">
+              <span>All activities</span>
+              <strong>No history found</strong>
+            </div>
+          </section>
         </aside>
       </div>
     </section>
   );
+}
+
+
+function getMarketCategories(markets: Market[]) {
+  const categories = new Set<string>();
+
+  markets.forEach((market) => {
+    const category = market.category?.trim();
+
+    if (category) {
+      categories.add(category);
+    }
+  });
+
+  return ["All", ...Array.from(categories).sort((left, right) => left.localeCompare(right))];
+}
+
+function filterMarketsByCategory(markets: Market[], category: string) {
+  if (category === "All") {
+    return markets;
+  }
+
+  return markets.filter((market) => (market.category?.trim() || "General") === category);
+}
+
+function getPriceTone(snapshot: PriceSnapshot) {
+  if (!snapshot) {
+    return "neutral";
+  }
+
+  return snapshot.probability >= 0.5 ? "yes" : "no";
+}
+
+function getPriceStripStyle(snapshot: PriceSnapshot) {
+  const probability = snapshot ? Math.min(Math.max(snapshot.probability, 0), 1) : 0.5;
+
+  return { "--yes-probability": Math.round(probability * 100) + "%" } as CSSProperties;
+}
+
+function getCollateralRouteLabel(
+  selectedChain: ExecutionCapabilities["chains"][number] | undefined,
+  selectedToken: CollateralToken,
+) {
+  return selectedChain?.collateralTokenSymbol ?? selectedToken;
+}
+
+function getAccountSubmissionMessage(sessionState: FarcasterSessionState) {
+  if (sessionState.status === "unavailable") {
+    return "Account submission is not connected in the browser yet. Wallet preview is available now.";
+  }
+
+  return sessionState.message;
 }
 
 function buildMarginPreview(
@@ -939,6 +1081,7 @@ function buildMarginPreview(
 
 function getSubmitBlockReason({
   chainId,
+  collateralToken,
   leverage,
   marginAmount,
   quantity,
@@ -950,6 +1093,7 @@ function getSubmitBlockReason({
   walletState,
 }: {
   chainId: string;
+  collateralToken: CollateralToken;
   leverage: number;
   marginAmount: string;
   quantity: string;
@@ -964,24 +1108,20 @@ function getSubmitBlockReason({
     return "Select a market from the board first.";
   }
 
-  if (sessionState.status !== "ready") {
-    return sessionState.message;
-  }
-
   if (!parsePositiveNumber(quantity)) {
-    return "Enter a requested market size greater than zero.";
+    return "Enter outcome shares greater than zero.";
   }
 
   if (parsePositiveNumber(marginAmount) === null) {
-    return "Enter a real USDC margin amount to preview notional and borrowed capital.";
+    return "Enter a real " + collateralToken + " collateral amount.";
   }
 
   if (leverage <= 1) {
-    return "Choose leverage above 1x for a margin intent.";
+    return "Choose leverage above 1x to open margin.";
   }
 
   if (!chainId) {
-    return "Select an execution chain from core capabilities.";
+    return "Select an execution chain.";
   }
 
   if (
@@ -989,7 +1129,13 @@ function getSubmitBlockReason({
     !selectedChain.vaultAddress ||
     !selectedChain.collateralTokenAddress
   ) {
-    return "Select a chain with a connected testnet vault and collateral token.";
+    return "Select a chain with a connected vault route.";
+  }
+
+  const routeToken = selectedChain.collateralTokenSymbol?.toUpperCase();
+
+  if (routeToken && routeToken !== collateralToken) {
+    return collateralToken + " is not configured on this vault yet. Select " + routeToken + ".";
   }
 
   if (walletState.status !== "ready") {
@@ -1001,7 +1147,11 @@ function getSubmitBlockReason({
   }
 
   if (walletAddress.trim().toLowerCase() !== walletState.address.toLowerCase()) {
-    return "Connected wallet changed. Reconnect the EVM wallet before submitting.";
+    return "Connected wallet changed. Reconnect before opening margin.";
+  }
+
+  if (sessionState.status !== "ready") {
+    return getAccountSubmissionMessage(sessionState);
   }
 
   if (
@@ -1041,11 +1191,11 @@ function getTicketMessage({
   }
 
   if (sessionState.status !== "ready") {
-    return sessionState.message;
+    return getAccountSubmissionMessage(sessionState);
   }
 
   if (!execution.marginExecutionEnabled || !execution.leverageEnabled) {
-    return "Submitting records a real margin intent and execution attempt. Execution will stay blocked until core reports live contracts, vault liquidity, liquidation, and adapters.";
+    return "Open margin records a real vault-backed request. A position opens only after real execution confirms.";
   }
 
   return (
@@ -1056,12 +1206,12 @@ function getTicketMessage({
 function buildSubmittedMessage(executionAttempt: ExecutionAttempt) {
   if (executionAttempt.status === "BLOCKED") {
     return (
-      "Margin intent recorded. Execution attempt blocked: " +
-      (executionAttempt.failureMessage ?? "adapter or contracts are not active.")
+      "Margin request recorded. Execution blocked: " +
+      (executionAttempt.failureMessage ?? "the route is not active yet.")
     );
   }
 
-  return "Margin intent recorded. Execution attempt status: " + executionAttempt.status + ".";
+  return "Margin request recorded. Status: " + executionAttempt.status + ".";
 }
 
 function getPriceSnapshot(market: Market) {
@@ -1128,12 +1278,6 @@ function getDescriptionPreview(description: string | null) {
   const normalized = description.replace(/\s+/g, " ").trim();
 
   return normalized.length > 260 ? normalized.slice(0, 257).trimEnd() + "..." : normalized;
-}
-
-function formatStoredMarketPrice(value: string | null | undefined) {
-  const parsed = parseProbability(value);
-
-  return parsed === null ? "No price" : formatProbability(parsed);
 }
 
 function getForcedCloseLabel(market: Market) {
@@ -1220,9 +1364,9 @@ function truncateAddress(address: string) {
 
 function createInitialContractStepState(): Record<ContractStepKey, ContractStepState> {
   return {
-    approval: { status: "idle", message: "Approve testnet USDC for the vault." },
-    deposit: { status: "idle", message: "Deposit approved USDC into the vault." },
-    marginIntent: { status: "idle", message: "Create the onchain margin intent." },
+    approval: { status: "idle", message: "Approve collateral for the vault." },
+    deposit: { status: "idle", message: "Deposit approved collateral into the vault." },
+    marginIntent: { status: "idle", message: "Send the vault-backed margin request." },
   };
 }
 
@@ -1245,8 +1389,8 @@ function isContractStepConfirmed(state: ContractStepState) {
 }
 
 function getContractWorkflowLabel(state: Record<ContractStepKey, ContractStepState>) {
-  if (isContractStepConfirmed(state.marginIntent)) return "Intent confirmed";
-  if (isContractStepConfirmed(state.deposit)) return "Ready for intent";
+  if (isContractStepConfirmed(state.marginIntent)) return "Request confirmed";
+  if (isContractStepConfirmed(state.deposit)) return "Ready to open";
   if (isContractStepConfirmed(state.approval)) return "Ready to deposit";
 
   return "Ready to approve";
@@ -1254,18 +1398,18 @@ function getContractWorkflowLabel(state: Record<ContractStepKey, ContractStepSta
 
 function getContractWorkflowMessage(state: Record<ContractStepKey, ContractStepState>) {
   if (isContractStepConfirmed(state.marginIntent)) {
-    return "The vault intent is confirmed onchain. Execution still needs a real adapter confirmation before core can mark anything executed.";
+    return "The vault request is confirmed onchain. A market position opens only after real execution confirms.";
   }
 
   if (isContractStepConfirmed(state.deposit)) {
-    return "The vault deposit is confirmed. Create the onchain margin intent next; do not treat this as a market fill.";
+    return "The vault deposit is confirmed. Send the margin request next; do not treat this as a market fill.";
   }
 
   if (isContractStepConfirmed(state.approval)) {
     return "The approval is confirmed. Deposit collateral into the vault next.";
   }
 
-  return "Run the wallet flow in order: approve USDC, deposit collateral, then create the margin intent.";
+  return "Run the wallet flow in order: approve collateral, deposit it, then open margin.";
 }
 
 function getContractStepStatusLabel(state: ContractStepState, isUnlocked: boolean) {
