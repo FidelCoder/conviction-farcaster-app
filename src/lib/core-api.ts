@@ -470,6 +470,21 @@ export async function createTradeSignal(input: CreateTradeSignalInput) {
   return "signal" in response && response.signal ? response.signal : (response as TradeSignal);
 }
 
+export async function listRecentSignals(limit = 50) {
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ signals?: TradeSignal[] } | TradeSignal[]>(
+      "/signals?limit=" + encodeURIComponent(String(limit)),
+      { allowNotFound: true },
+    );
+
+    if (!response) {
+      return [];
+    }
+
+    return Array.isArray(response) ? response : (response.signals ?? []);
+  }, [] as TradeSignal[]);
+}
+
 export async function getSignal(id: string) {
   return readOrFallback(
     async () => {
