@@ -16,7 +16,7 @@ export default async function MarginPage() {
   const [markets, execution] = await Promise.all([listMarkets(), getExecutionCapabilities()]);
 
   return (
-    <main className="page-shell wide">
+    <main className="margin-page-shell">
       <MarginDesk execution={execution} markets={markets} />
     </main>
   );

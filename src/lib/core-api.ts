@@ -24,6 +24,11 @@ export type ExecutionCapabilityChain = {
   spotExecutionEnabled: boolean;
   marginExecutionEnabled: boolean;
   contractRequiredForMargin: boolean;
+  vaultAddress?: string | null;
+  collateralTokenAddress?: string | null;
+  collateralTokenSymbol?: string | null;
+  collateralTokenDecimals?: number | null;
+  walletFlowEnabled?: boolean;
   plannedAdapters: string[];
 };
 
@@ -55,7 +60,7 @@ export type ContractTransaction = {
   contractAddress: string;
   walletAddress: string;
   transactionHash: string | null;
-  type: "DEPOSIT" | "MARGIN_INTENT" | "CLOSE_INTENT" | "LIQUIDATION";
+  type: "COLLATERAL_APPROVAL" | "DEPOSIT" | "MARGIN_INTENT" | "CLOSE_INTENT" | "LIQUIDATION";
   status: ContractTransactionStatus;
   requestPayload: unknown;
   responsePayload: unknown;
@@ -63,15 +68,23 @@ export type ContractTransaction = {
   updatedAt: string;
 };
 
-export type PreparedMarginIntent = {
+export type PreparedContractTransaction = {
   transaction: ContractTransaction;
   contractCall: {
     chainId: number;
     contractAddress: string;
     walletAddress: string;
-    functionName: "createMarginIntent";
+    functionName: "approve" | "deposit" | "createMarginIntent";
     abi: string[];
     args: readonly unknown[];
+    namedArgs: Record<string, number | string>;
+  };
+  executionNote: string;
+};
+
+export type PreparedMarginIntent = PreparedContractTransaction & {
+  contractCall: PreparedContractTransaction["contractCall"] & {
+    functionName: "createMarginIntent";
     namedArgs: {
       collateralToken: string;
       marketId: string;
@@ -83,7 +96,6 @@ export type PreparedMarginIntent = {
       offchainPositionId: string;
     };
   };
-  executionNote: string;
 };
 
 export type ExecutionCapabilities = {
@@ -602,6 +614,20 @@ export async function createMarginPositionIntent(input: CreateMarginPositionInpu
   });
 
   return "position" in response && response.position ? response.position : (response as Position);
+}
+
+export async function prepareCollateralApprovalContractCall(input: { positionId: string }) {
+  return coreRequest<PreparedContractTransaction>("/contracts/collateral-approvals/prepare", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function prepareCollateralDepositContractCall(input: { positionId: string }) {
+  return coreRequest<PreparedContractTransaction>("/contracts/deposits/prepare", {
+    method: "POST",
+    body: input,
+  });
 }
 
 export async function prepareMarginIntentContractCall(input: {
