@@ -8,6 +8,7 @@ const navItems = [
   { href: "/markets", label: "Markets" },
   { href: "/margin", label: "Margin" },
   { href: "/me", label: "Activity" },
+  { href: "/social", label: "Social" },
   { href: "/leaderboard", label: "Leaders" },
 ];
 
