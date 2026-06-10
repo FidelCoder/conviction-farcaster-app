@@ -7,7 +7,7 @@ import {
   getMarket,
   getTraderProfile,
   listMarkets,
-  listRecentSignals,
+  getRecentSignalFeed,
 } from "../../lib/core-api";
 import { formatMarketPrice, getMarketPrice } from "../../lib/market-display";
 import { createMiniAppPageMetadata, getMiniAppImagePath } from "../../lib/miniapp";
@@ -29,7 +29,8 @@ type FeedPost = {
 };
 
 export default async function SocialPage() {
-  const [signals, markets] = await Promise.all([listRecentSignals(60), listMarkets()]);
+  const [signalFeed, markets] = await Promise.all([getRecentSignalFeed(60), listMarkets()]);
+  const signals = signalFeed.signals;
   const marketMap = new Map(markets.map((market) => [market.id, market]));
   const missingMarketIds = Array.from(
     new Set(signals.map((signal) => signal.marketId).filter((marketId) => !marketMap.has(marketId))),
@@ -105,7 +106,7 @@ export default async function SocialPage() {
           </Link>
         </div>
 
-        <div className="social-new-posts-pill">{posts.length} real signals</div>
+        <div className="social-new-posts-pill">{signalFeed.status === "ready" ? posts.length + " real signals" : "Feed unavailable"}</div>
 
         {posts.length > 0 ? (
           <div className="social-post-list">
@@ -113,6 +114,11 @@ export default async function SocialPage() {
               <SocialSignalPost key={post.signal.id} post={post} />
             ))}
           </div>
+        ) : signalFeed.status === "unavailable" ? (
+          <EmptyState
+            title="Signal feed unavailable"
+            body={signalFeed.message + " The feed is not showing placeholder posts."}
+          />
         ) : (
           <EmptyState
             title="No signal posts yet"
@@ -133,10 +139,10 @@ export default async function SocialPage() {
           </div>
           <div>
             <dt>Source</dt>
-            <dd>Core API</dd>
+            <dd>{signalFeed.status === "ready" ? "Core API" : "Unavailable"}</dd>
           </div>
         </dl>
-        <p>Every feed item is a saved signal. Comments, likes, and bookmarks need real backend records before counts appear.</p>
+        <p>{signalFeed.status === "ready" ? "Every feed item is a saved signal. Comments, likes, and bookmarks need real backend records before counts appear." : signalFeed.message}</p>
       </aside>
     </main>
   );

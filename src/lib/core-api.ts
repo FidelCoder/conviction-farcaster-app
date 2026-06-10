@@ -295,6 +295,10 @@ export type CreateCopyIntentInput = {
   sourceSignalId?: string | null;
 };
 
+export type RecentSignalFeedResult =
+  | { status: "ready"; signals: TradeSignal[]; message: null }
+  | { status: "unavailable"; signals: []; message: string };
+
 export type CreateTradeSignalInput = {
   traderProfileId: string;
   marketId: string;
@@ -470,19 +474,39 @@ export async function createTradeSignal(input: CreateTradeSignalInput) {
   return "signal" in response && response.signal ? response.signal : (response as TradeSignal);
 }
 
-export async function listRecentSignals(limit = 50) {
-  return readOrFallback(async () => {
+export async function getRecentSignalFeed(limit = 50): Promise<RecentSignalFeedResult> {
+  try {
     const response = await coreRequest<{ signals?: TradeSignal[] } | TradeSignal[]>(
       "/signals?limit=" + encodeURIComponent(String(limit)),
       { allowNotFound: true },
     );
 
     if (!response) {
-      return [];
+      return { status: "ready", signals: [], message: null };
     }
 
-    return Array.isArray(response) ? response : (response.signals ?? []);
-  }, [] as TradeSignal[]);
+    return {
+      status: "ready",
+      signals: Array.isArray(response) ? response : (response.signals ?? []),
+      message: null,
+    };
+  } catch (error) {
+    if (isRecoverableReadError(error)) {
+      return {
+        status: "unavailable",
+        signals: [],
+        message: error instanceof CoreApiError ? error.message : "Core API signal feed is unavailable.",
+      };
+    }
+
+    throw error;
+  }
+}
+
+export async function listRecentSignals(limit = 50) {
+  const feed = await getRecentSignalFeed(limit);
+
+  return feed.signals;
 }
 
 export async function getSignal(id: string) {
@@ -713,7 +737,7 @@ type CoreRequestOptions = {
   method?: "GET" | "PATCH" | "POST";
 };
 
-const defaultCoreRequestTimeoutMs = 3500;
+const defaultCoreRequestTimeoutMs = 8000;
 
 const unavailableExecutionCapabilities: ExecutionCapabilities = {
   evmOnly: true,
