@@ -2,70 +2,37 @@ import Link from "next/link";
 
 import { EmptyState } from "../../components/EmptyState";
 import { SharePredictionActions } from "../../components/SharePredictionActions";
-import type { Market, TraderProfile, TradeSignal } from "../../lib/core-api";
-import {
-  getMarket,
-  getTraderProfile,
-  listMarkets,
-  getRecentSignalFeed,
-} from "../../lib/core-api";
+import { SocialPostActions } from "../../components/SocialPostActions";
+import type { Market, SocialActor, SocialFeedItem, TradeSignal } from "../../lib/core-api";
+import { getSocialFeed } from "../../lib/core-api";
 import { formatMarketPrice, getMarketPrice } from "../../lib/market-display";
 import { createMiniAppPageMetadata, getMiniAppImagePath } from "../../lib/miniapp";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = createMiniAppPageMetadata({
-  title: "Conviction Social Feed",
-  description: "Real prediction-market signals from Conviction Markets traders.",
+  title: "Conviction Ideas",
+  description: "A real prediction-market social feed for Conviction Markets.",
   imagePath: getMiniAppImagePath("leaderboard"),
   targetPath: "/social",
-  buttonTitle: "Open social feed",
+  buttonTitle: "Open ideas",
 });
 
-type FeedPost = {
-  market: Market | null;
-  signal: TradeSignal;
-  trader: TraderProfile | null;
-};
+type FeedPost = SocialFeedItem;
 
 export default async function SocialPage() {
-  const [signalFeed, markets] = await Promise.all([getRecentSignalFeed(60), listMarkets()]);
-  const signals = signalFeed.signals;
-  const marketMap = new Map(markets.map((market) => [market.id, market]));
-  const missingMarketIds = Array.from(
-    new Set(signals.map((signal) => signal.marketId).filter((marketId) => !marketMap.has(marketId))),
-  );
-  const traderIds = Array.from(new Set(signals.map((signal) => signal.traderProfileId)));
-  const [missingMarkets, traders] = await Promise.all([
-    Promise.all(missingMarketIds.map((marketId) => getMarket(marketId))),
-    Promise.all(traderIds.map((traderId) => getTraderProfile(traderId))),
-  ]);
-
-  missingMarkets.forEach((market) => {
-    if (market) {
-      marketMap.set(market.id, market);
-    }
-  });
-
-  const traderMap = new Map<string, TraderProfile | null>();
-  traderIds.forEach((traderId, index) => {
-    traderMap.set(traderId, traders[index] ?? null);
-  });
-
-  const posts = signals.map((signal) => ({
-    market: marketMap.get(signal.marketId) ?? null,
-    signal,
-    trader: traderMap.get(signal.traderProfileId) ?? null,
-  }));
-  const totalMarkets = new Set(posts.map((post) => post.signal.marketId)).size;
+  const signalFeed = await getSocialFeed({ limit: 80 });
+  const posts = signalFeed.feed;
+  const stats = getFeedStats(posts);
+  const totalMarkets = stats.markets;
 
   return (
     <main className="social-feed-shell">
       <aside className="social-feed-sidebar" aria-label="Social navigation">
         <div className="social-feed-title">
           <p className="eyebrow">Ideas</p>
-          <h1>Conviction feed</h1>
-          <span>Real market signals only.</span>
+          <h1>Prediction takes</h1>
+          <span>Signals, replies, saves, and shares tied to real markets.</span>
         </div>
         <nav aria-label="Feed sections">
           <Link aria-current="page" href="/social">
@@ -106,7 +73,7 @@ export default async function SocialPage() {
           </Link>
         </div>
 
-        <div className="social-new-posts-pill">{signalFeed.status === "ready" ? posts.length + " real signals" : "Feed unavailable"}</div>
+        <div className="social-new-posts-pill">{signalFeed.status === "ready" ? posts.length + " real posts" : "Feed unavailable"}</div>
 
         {posts.length > 0 ? (
           <div className="social-post-list">
@@ -116,13 +83,13 @@ export default async function SocialPage() {
           </div>
         ) : signalFeed.status === "unavailable" ? (
           <EmptyState
-            title="Signal feed unavailable"
+            title="Ideas feed unavailable"
             body={signalFeed.message + " The feed is not showing placeholder posts."}
           />
         ) : (
           <EmptyState
-            title="No signal posts yet"
-            body="When traders publish real signals through core, they will appear here. No placeholder posts are shown."
+            title="No prediction takes yet"
+            body="Publish a real signal from a synced market and it will appear here. No fake posts are shown."
           />
         )}
       </section>
@@ -138,20 +105,20 @@ export default async function SocialPage() {
             <dd>{totalMarkets}</dd>
           </div>
           <div>
-            <dt>Source</dt>
-            <dd>{signalFeed.status === "ready" ? "Core API" : "Unavailable"}</dd>
+            <dt>Replies</dt>
+            <dd>{stats.replies}</dd>
           </div>
         </dl>
-        <p>{signalFeed.status === "ready" ? "Every feed item is a saved signal. Comments, likes, and bookmarks need real backend records before counts appear." : signalFeed.message}</p>
+        <p>{signalFeed.status === "ready" ? "Every feed item is a saved signal. Replies, likes, bookmarks, and copy counts appear only after core records them." : signalFeed.message}</p>
       </aside>
     </main>
   );
 }
 
 function SocialSignalPost({ post }: { post: FeedPost }) {
-  const { market, signal, trader } = post;
+  const { market, signal } = post;
   const sideClass = signal.side.toLowerCase();
-  const author = trader?.handle ?? compactId(signal.traderProfileId);
+  const author = getActorLabel(post.author, post.trader?.handle ?? null);
   const priceLabel = market ? getSignalPriceLabel(market, signal.side) : null;
   const marketTitle = market?.title ?? "Market unavailable";
   const detailText = [
@@ -170,8 +137,9 @@ function SocialSignalPost({ post }: { post: FeedPost }) {
       </div>
       <div className="social-post-body">
         <header className="social-post-header">
-          <Link href={"/traders/" + signal.traderProfileId}>{author}</Link>
+          <Link href={post.trader ? "/traders/" + post.trader.id : "/social"}>{author}</Link>
           <span>{formatRelativeTime(signal.createdAt)}</span>
+          <small>{signal.source.toLowerCase()}</small>
         </header>
         <p className="social-post-thesis">{signal.thesis}</p>
         <Link className="social-market-callout" href={"/markets/" + signal.marketId}>
@@ -179,17 +147,12 @@ function SocialSignalPost({ post }: { post: FeedPost }) {
           <span>{detailText}</span>
         </Link>
         <footer className="social-post-footer">
-          <div className="social-icon-row" aria-label="Post actions">
-            <Link href={"/signals/" + signal.id} aria-label="Open signal">
-              <span className="feed-tool reply" aria-hidden="true" />
-            </Link>
-            <Link href="/leaderboard" aria-label="Open leaderboard">
-              <span className="feed-tool heart" aria-hidden="true" />
-            </Link>
-            <Link href="/me" aria-label="Open activity">
-              <span className="feed-tool bookmark" aria-hidden="true" />
-            </Link>
-          </div>
+          <SocialPostActions
+            initialCounts={post.counts}
+            initialReplies={post.recentReplies}
+            initialViewer={post.viewer}
+            signalId={signal.id}
+          />
           <SharePredictionActions
             className="social-post-share"
             context={signal.side + " signal"}
@@ -197,12 +160,44 @@ function SocialSignalPost({ post }: { post: FeedPost }) {
             title={marketTitle}
           />
           <Link className="social-open-market" href={"/markets/" + signal.marketId}>
-            Open
+            Open market
           </Link>
         </footer>
       </div>
     </article>
   );
+}
+
+function getFeedStats(posts: SocialFeedItem[]) {
+  const marketIds = new Set<string>();
+  let replies = 0;
+  let reactions = 0;
+  let bookmarks = 0;
+  let copyIntents = 0;
+
+  for (const post of posts) {
+    replies += post.counts.replies;
+    reactions += post.counts.reactions;
+    bookmarks += post.counts.bookmarks;
+    copyIntents += post.counts.copyIntents;
+    marketIds.add(post.signal.marketId);
+  }
+
+  return {
+    replies,
+    reactions,
+    bookmarks,
+    copyIntents,
+    markets: marketIds.size,
+  };
+}
+
+function getActorLabel(actor: SocialActor, fallbackHandle: string | null) {
+  if (actor.username) {
+    return "@" + actor.username;
+  }
+
+  return actor.handle ?? fallbackHandle ?? actor.displayName ?? compactId(actor.userId);
 }
 
 function getSignalPriceLabel(market: Market, side: TradeSignal["side"]) {
