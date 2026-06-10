@@ -295,9 +295,56 @@ export type CreateCopyIntentInput = {
   sourceSignalId?: string | null;
 };
 
+export type SocialActor = {
+  userId: string;
+  displayName: string | null;
+  handle: string | null;
+  platform: "TELEGRAM" | "FARCASTER" | null;
+  platformUserId: string | null;
+  username: string | null;
+  profileUrl: string | null;
+};
+
+export type SignalReply = {
+  id: string;
+  signalId: string;
+  authorUserId: string;
+  body: string;
+  status: string;
+  author: SocialActor;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SocialFeedCounts = {
+  replies: number;
+  reactions: number;
+  bookmarks: number;
+  copyIntents: number;
+};
+
+export type SocialViewerState = {
+  reacted: boolean;
+  bookmarked: boolean;
+};
+
+export type SocialFeedItem = {
+  signal: TradeSignal;
+  market: Market | null;
+  trader: TraderProfile | null;
+  author: SocialActor;
+  counts: SocialFeedCounts;
+  viewer: SocialViewerState | null;
+  recentReplies: SignalReply[];
+};
+
 export type RecentSignalFeedResult =
   | { status: "ready"; signals: TradeSignal[]; message: null }
   | { status: "unavailable"; signals: []; message: string };
+
+export type RecentSocialFeedResult =
+  | { status: "ready"; feed: SocialFeedItem[]; message: null }
+  | { status: "unavailable"; feed: []; message: string };
 
 export type CreateTradeSignalInput = {
   traderProfileId: string;
@@ -507,6 +554,92 @@ export async function listRecentSignals(limit = 50) {
   const feed = await getRecentSignalFeed(limit);
 
   return feed.signals;
+}
+
+export async function getSocialFeed(options: { limit?: number; viewerUserId?: string } = {}): Promise<RecentSocialFeedResult> {
+  const params = new URLSearchParams();
+
+  params.set("limit", String(options.limit ?? 50));
+
+  if (options.viewerUserId) {
+    params.set("viewerUserId", options.viewerUserId);
+  }
+
+  try {
+    const response = await coreRequest<{ feed?: SocialFeedItem[] } | SocialFeedItem[]>(
+      "/social/feed?" + params.toString(),
+      { allowNotFound: true },
+    );
+
+    if (!response) {
+      return { status: "ready", feed: [], message: null };
+    }
+
+    return {
+      status: "ready",
+      feed: Array.isArray(response) ? response : (response.feed ?? []),
+      message: null,
+    };
+  } catch (error) {
+    if (isRecoverableReadError(error)) {
+      return {
+        status: "unavailable",
+        feed: [],
+        message: error instanceof CoreApiError ? error.message : "Core API social feed is unavailable.",
+      };
+    }
+
+    throw error;
+  }
+}
+
+export async function createSignalReply(input: { signalId: string; authorUserId: string; body: string }) {
+  const response = await coreRequest<{ reply?: SignalReply } | SignalReply>(
+    "/signals/" + encodeURIComponent(input.signalId) + "/replies",
+    {
+      method: "POST",
+      body: {
+        authorUserId: input.authorUserId,
+        body: input.body,
+      },
+    },
+  );
+
+  return "reply" in response && response.reply ? response.reply : (response as SignalReply);
+}
+
+export async function addSignalReaction(input: { signalId: string; userId: string }) {
+  return coreRequest<{ counts: SocialFeedCounts }>(
+    "/signals/" + encodeURIComponent(input.signalId) + "/reactions",
+    {
+      method: "POST",
+      body: { userId: input.userId },
+    },
+  );
+}
+
+export async function removeSignalReaction(input: { signalId: string; userId: string }) {
+  return coreRequest<{ counts: SocialFeedCounts }>(
+    "/signals/" + encodeURIComponent(input.signalId) + "/reactions/" + encodeURIComponent(input.userId),
+    { method: "DELETE" },
+  );
+}
+
+export async function addSignalBookmark(input: { signalId: string; userId: string }) {
+  return coreRequest<{ counts: SocialFeedCounts }>(
+    "/signals/" + encodeURIComponent(input.signalId) + "/bookmarks",
+    {
+      method: "POST",
+      body: { userId: input.userId },
+    },
+  );
+}
+
+export async function removeSignalBookmark(input: { signalId: string; userId: string }) {
+  return coreRequest<{ counts: SocialFeedCounts }>(
+    "/signals/" + encodeURIComponent(input.signalId) + "/bookmarks/" + encodeURIComponent(input.userId),
+    { method: "DELETE" },
+  );
 }
 
 export async function getSignal(id: string) {
@@ -734,7 +867,7 @@ export async function createCopyIntent(input: CreateCopyIntentInput) {
 type CoreRequestOptions = {
   allowNotFound?: boolean;
   body?: unknown;
-  method?: "GET" | "PATCH" | "POST";
+  method?: "DELETE" | "GET" | "PATCH" | "POST";
 };
 
 const defaultCoreRequestTimeoutMs = 8000;
