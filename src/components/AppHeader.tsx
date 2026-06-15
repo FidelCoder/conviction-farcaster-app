@@ -20,6 +20,10 @@ export function AppHeader() {
     setIsOpen(false);
   }, [pathname]);
 
+  if (pathname === "/") {
+    return null;
+  }
+
   return (
     <header className="app-header">
       <Link className="brand" href="/">
