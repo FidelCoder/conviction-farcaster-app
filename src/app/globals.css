@@ -547,7 +547,7 @@ nav a:hover {
 
 .split-heading {
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+  align-items: flex-end;
 }
 
 .market-overview-band {
@@ -659,7 +659,7 @@ nav a:hover {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 1rem;
-  align-items: end;
+  align-items: flex-end;
   border: 1px solid #26352e;
   border-radius: 8px;
   background: var(--panel);
@@ -2414,7 +2414,7 @@ nav a:hover,
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 1rem;
-  align-items: end;
+  align-items: flex-end;
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 8px;
   background: linear-gradient(135deg, rgba(106, 39, 255, 0.2), transparent 36%),
@@ -3546,7 +3546,7 @@ main,
 
 .app-board-hero.market-board-hero {
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+  align-items: flex-end;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   background: rgba(8, 8, 11, 0.64);
@@ -4493,7 +4493,7 @@ body::after {
 .markets-browse-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+  align-items: flex-end;
   gap: 1rem;
   background: rgba(248, 248, 249, 0.98);
   padding: 1.75rem 0 1rem;
@@ -4863,7 +4863,7 @@ body::after {
 .margin-browse-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(28rem, auto);
-  align-items: end;
+  align-items: flex-end;
   gap: 1rem;
   background: rgba(248, 248, 249, 0.98);
   padding: 1.55rem 0 1rem;
@@ -6423,4 +6423,900 @@ body::after {
   color: #802f14;
   font-size: 0.78rem;
   font-weight: 800;
+}
+
+
+/* Browser terminal redesign */
+.browser-terminal-shell {
+  --terminal-bg: #050407;
+  --terminal-panel: rgba(15, 13, 19, 0.88);
+  --terminal-panel-strong: rgba(22, 18, 31, 0.96);
+  --terminal-line: rgba(255, 255, 255, 0.12);
+  --terminal-line-strong: rgba(255, 255, 255, 0.2);
+  --terminal-text: #fffaf4;
+  --terminal-muted: rgba(255, 250, 244, 0.63);
+  --terminal-purple: #2d1657;
+  --terminal-purple-hot: #6d31ff;
+  --terminal-orange: #802f14;
+  --terminal-orange-hot: #f05a24;
+  --terminal-yes: #12b886;
+  --terminal-no: #ef4444;
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 84%, rgba(109, 49, 255, 0.42), transparent 30rem),
+    radial-gradient(circle at 88% 14%, rgba(128, 47, 20, 0.46), transparent 26rem),
+    linear-gradient(145deg, #050407 0%, #0b0711 48%, #130b1d 100%);
+  color: var(--terminal-text);
+  padding: 1.1rem;
+}
+
+.browser-terminal-grid {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: radial-gradient(circle at center, black 0%, black 54%, transparent 86%);
+  opacity: 0.72;
+}
+
+.terminal-hero,
+.terminal-layout,
+.terminal-telemetry {
+  position: relative;
+  z-index: 1;
+}
+
+.terminal-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.35fr);
+  gap: 1rem;
+  width: min(1440px, 100%);
+  margin: 0 auto 1rem;
+  border: 1px solid var(--terminal-line);
+  border-radius: 20px;
+  background: rgba(8, 7, 11, 0.64);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+  padding: clamp(1rem, 2.8vw, 2rem);
+  backdrop-filter: blur(18px);
+}
+
+.terminal-hero h1 {
+  max-width: 840px;
+  margin: 0.2rem 0 0.75rem;
+  color: var(--terminal-text);
+  font-size: clamp(2.2rem, 6vw, 5.6rem);
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 0.9;
+}
+
+.terminal-hero p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--terminal-muted);
+  font-size: clamp(1rem, 1.4vw, 1.2rem);
+  line-height: 1.55;
+}
+
+.terminal-kicker,
+.terminal-panel-header span,
+.terminal-card-top span,
+.terminal-market-tape > span,
+.terminal-contract-flow > span,
+.terminal-vault-copy > span,
+.terminal-section-title > span {
+  color: #f7a16f;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.terminal-wallet-card {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+  border: 1px solid var(--terminal-line-strong);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(45, 22, 87, 0.52), rgba(128, 47, 20, 0.18)),
+    rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+}
+
+.terminal-wallet-card strong {
+  font-size: 1.3rem;
+  overflow-wrap: anywhere;
+}
+
+.terminal-wallet-card p {
+  font-size: 0.92rem;
+}
+
+.terminal-wallet-card button,
+.terminal-primary-action,
+.terminal-vault-copy button,
+.terminal-contract-step button,
+.terminal-market-card button {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--terminal-purple-hot), var(--terminal-purple));
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+  padding: 0.78rem 0.95rem;
+}
+
+.terminal-wallet-card button:hover,
+.terminal-primary-action:hover,
+.terminal-vault-copy button:hover,
+.terminal-contract-step button:hover,
+.terminal-market-card button:hover:not(:disabled) {
+  box-shadow: 0 0 0 4px rgba(109, 49, 255, 0.18), 0 16px 42px rgba(109, 49, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.terminal-market-card button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.terminal-layout {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  gap: 1rem;
+  width: min(1440px, 100%);
+  margin: 0 auto;
+}
+
+.terminal-sidebar,
+.terminal-main-panel,
+.terminal-market-card,
+.terminal-ticket,
+.terminal-market-tape,
+.terminal-contract-flow,
+.terminal-vault-copy,
+.terminal-vault-card,
+.terminal-feed,
+.terminal-leaderboard {
+  border: 1px solid var(--terminal-line);
+  border-radius: 18px;
+  background: var(--terminal-panel);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(18px);
+}
+
+.terminal-sidebar {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 1rem;
+  align-self: start;
+  min-height: 36rem;
+  padding: 0.85rem;
+}
+
+.terminal-logo {
+  width: 3.3rem;
+  height: 3.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--terminal-purple-hot), var(--terminal-orange));
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 950;
+}
+
+.terminal-sidebar nav {
+  display: grid;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.terminal-sidebar nav button {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--terminal-muted);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 850;
+  padding: 0.72rem;
+  text-align: left;
+}
+
+.terminal-sidebar nav button span {
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--terminal-text);
+  font-size: 0.75rem;
+}
+
+.terminal-sidebar nav button.active,
+.terminal-sidebar nav button:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--terminal-text);
+}
+
+.terminal-main-panel {
+  min-height: 40rem;
+  overflow: hidden;
+}
+
+.terminal-panel-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--terminal-line);
+  background:
+    linear-gradient(90deg, rgba(45, 22, 87, 0.64), rgba(128, 47, 20, 0.18)),
+    rgba(255, 255, 255, 0.03);
+  padding: 1.1rem;
+}
+
+.terminal-panel-header h2,
+.terminal-section-title h3,
+.terminal-vault-copy h3 {
+  margin: 0.2rem 0 0;
+  color: var(--terminal-text);
+  font-size: clamp(1.45rem, 3vw, 2.4rem);
+  line-height: 1;
+}
+
+.terminal-panel-header p {
+  max-width: 42rem;
+  margin: 0;
+  color: var(--terminal-muted);
+  line-height: 1.5;
+  text-align: right;
+}
+
+.terminal-view-stack {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.terminal-filter-row {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.1rem;
+}
+
+.terminal-filter-row button {
+  flex: 0 0 auto;
+  border: 1px solid var(--terminal-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--terminal-muted);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 850;
+  padding: 0.58rem 0.78rem;
+}
+
+.terminal-filter-row button.active,
+.terminal-filter-row button:hover {
+  border-color: rgba(240, 90, 36, 0.6);
+  background: rgba(128, 47, 20, 0.3);
+  color: var(--terminal-text);
+}
+
+.terminal-market-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 1rem;
+}
+
+.terminal-market-card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+}
+
+.terminal-card-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.terminal-market-avatar,
+.terminal-feed-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--terminal-purple-hot), var(--terminal-orange));
+  color: #fff;
+  font-weight: 950;
+}
+
+.terminal-card-top strong {
+  border: 1px solid var(--terminal-line);
+  border-radius: 999px;
+  color: var(--terminal-muted);
+  font-size: 0.68rem;
+  padding: 0.16rem 0.46rem;
+}
+
+.terminal-card-top strong.live {
+  border-color: rgba(18, 184, 134, 0.38);
+  color: var(--terminal-yes);
+}
+
+.terminal-card-top strong.halted {
+  color: var(--terminal-orange-hot);
+}
+
+.terminal-market-card h3 {
+  margin: 0;
+  color: var(--terminal-text);
+  font-size: 1.05rem;
+  line-height: 1.24;
+}
+
+.terminal-market-card p {
+  display: -webkit-box;
+  min-height: 2.8rem;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--terminal-muted);
+  line-height: 1.42;
+}
+
+.terminal-outcome-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.terminal-outcome-grid div {
+  border: 1px solid var(--terminal-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.7rem;
+}
+
+.terminal-outcome-grid span,
+.terminal-preview-grid dt,
+.terminal-vault-card dt {
+  display: block;
+  color: var(--terminal-muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.terminal-outcome-grid strong,
+.terminal-preview-grid dd,
+.terminal-vault-card dd {
+  margin: 0;
+  color: var(--terminal-text);
+  font-size: 1.35rem;
+  font-weight: 950;
+}
+
+.terminal-outcome-grid .yes strong,
+.terminal-side-toggle .yes.active {
+  color: var(--terminal-yes);
+}
+
+.terminal-outcome-grid .no strong,
+.terminal-side-toggle .no.active {
+  color: var(--terminal-no);
+}
+
+.terminal-meter-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--terminal-muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.terminal-meter {
+  height: 0.42rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.terminal-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--terminal-purple-hot), var(--terminal-orange-hot));
+}
+
+.terminal-margin-layout,
+.terminal-activity-grid {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.7fr) minmax(20rem, 1.3fr) minmax(14rem, 0.7fr);
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.terminal-market-tape,
+.terminal-contract-flow,
+.terminal-feed,
+.terminal-leaderboard,
+.terminal-vault-copy,
+.terminal-vault-list {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.terminal-market-tape,
+.terminal-contract-flow,
+.terminal-feed,
+.terminal-leaderboard,
+.terminal-vault-copy {
+  padding: 1rem;
+}
+
+.terminal-market-tape button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  width: 100%;
+  border: 1px solid var(--terminal-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--terminal-muted);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.7rem;
+  text-align: left;
+}
+
+.terminal-market-tape button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-market-tape button strong {
+  color: var(--terminal-text);
+}
+
+.terminal-market-tape button.active,
+.terminal-market-tape button:hover {
+  border-color: rgba(240, 90, 36, 0.42);
+  background: rgba(128, 47, 20, 0.24);
+  color: var(--terminal-text);
+}
+
+.terminal-ticket {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.terminal-ticket-market span {
+  color: #f7a16f;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.terminal-ticket-market h3 {
+  margin: 0.3rem 0 0.45rem;
+  color: var(--terminal-text);
+  font-size: clamp(1.4rem, 3vw, 2.4rem);
+  line-height: 1;
+}
+
+.terminal-ticket-market p,
+.terminal-contract-flow p,
+.terminal-vault-copy p {
+  margin: 0;
+  color: var(--terminal-muted);
+  line-height: 1.5;
+}
+
+.terminal-candle-panel {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 13rem;
+  overflow: hidden;
+  border: 1px solid var(--terminal-line);
+  border-radius: 18px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(45, 22, 87, 0.34), rgba(128, 47, 20, 0.18));
+  background-size: 28px 28px, 28px 28px, auto;
+}
+
+.terminal-candle-panel strong {
+  position: relative;
+  z-index: 1;
+  color: var(--terminal-text);
+  font-size: 4rem;
+  font-weight: 950;
+  line-height: 0.9;
+}
+
+.terminal-candle-panel span {
+  position: relative;
+  z-index: 1;
+  color: var(--terminal-muted);
+  font-weight: 850;
+}
+
+.terminal-candle-line {
+  position: absolute;
+  right: -8%;
+  left: -8%;
+  height: 2px;
+  transform: rotate(-4deg);
+}
+
+.terminal-candle-line.yes {
+  top: 34%;
+  background: linear-gradient(90deg, transparent, var(--terminal-yes), transparent);
+}
+
+.terminal-candle-line.no {
+  bottom: 24%;
+  background: linear-gradient(90deg, transparent, var(--terminal-no), transparent);
+  transform: rotate(6deg);
+}
+
+.terminal-ticket-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.terminal-ticket-controls label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.terminal-ticket-controls label span {
+  color: var(--terminal-muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.terminal-ticket-controls select,
+.terminal-ticket-controls input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--terminal-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--terminal-text);
+  font: inherit;
+  font-weight: 800;
+  padding: 0.76rem;
+}
+
+.terminal-ticket-controls option {
+  background: #130b1d;
+  color: #fff;
+}
+
+.terminal-side-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-column: 1 / -1;
+  gap: 0.55rem;
+}
+
+.terminal-side-toggle button {
+  border: 1px solid var(--terminal-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--terminal-muted);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 950;
+  padding: 0.82rem;
+}
+
+.terminal-side-toggle button.active.yes {
+  border-color: rgba(18, 184, 134, 0.54);
+  background: rgba(18, 184, 134, 0.13);
+}
+
+.terminal-side-toggle button.active.no {
+  border-color: rgba(239, 68, 68, 0.54);
+  background: rgba(239, 68, 68, 0.13);
+}
+
+.terminal-preview-grid,
+.terminal-vault-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.terminal-preview-grid div,
+.terminal-vault-card dl div {
+  border: 1px solid var(--terminal-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.72rem;
+}
+
+.terminal-contract-step {
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid var(--terminal-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.8rem;
+}
+
+.terminal-contract-step small,
+.terminal-contract-step code,
+.terminal-leader-row small,
+.terminal-feed-card small,
+.terminal-feed-card footer {
+  color: var(--terminal-muted);
+}
+
+.terminal-contract-step code {
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+}
+
+.terminal-secondary-link {
+  display: block;
+  border: 1px solid rgba(240, 90, 36, 0.42);
+  border-radius: 12px;
+  color: #f7a16f;
+  font-weight: 900;
+  padding: 0.78rem 0.95rem;
+  text-align: center;
+}
+
+.terminal-secondary-link:hover {
+  background: rgba(128, 47, 20, 0.24);
+  color: #ffffff;
+}
+
+.terminal-vault-grid {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.8fr) minmax(0, 1.2fr);
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.terminal-vault-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+
+.terminal-vault-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.terminal-vault-card > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.terminal-vault-card > div span {
+  border: 1px solid var(--terminal-line);
+  border-radius: 999px;
+  color: #f7a16f;
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 0.2rem 0.55rem;
+  text-transform: uppercase;
+}
+
+.terminal-activity-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.42fr);
+}
+
+.terminal-feed-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.8rem;
+  border: 1px solid var(--terminal-line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.9rem;
+}
+
+.terminal-feed-card header,
+.terminal-feed-card footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.terminal-feed-card header span {
+  border: 1px solid var(--terminal-line);
+  border-radius: 999px;
+  color: var(--terminal-text);
+  font-size: 0.7rem;
+  font-weight: 900;
+  padding: 0.15rem 0.45rem;
+}
+
+.terminal-feed-card p {
+  margin: 0.45rem 0 0.25rem;
+  color: var(--terminal-text);
+  line-height: 1.42;
+}
+
+.terminal-feed-card footer {
+  margin-top: 0.65rem;
+  font-size: 0.82rem;
+}
+
+.terminal-leader-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.25rem 0.7rem;
+  align-items: center;
+  border: 1px solid var(--terminal-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.75rem;
+}
+
+.terminal-leader-row span {
+  grid-row: span 2;
+  color: #f7a16f;
+  font-weight: 950;
+}
+
+.terminal-empty {
+  margin: 0;
+  border: 1px dashed var(--terminal-line-strong);
+  border-radius: 14px;
+  color: var(--terminal-muted);
+  line-height: 1.5;
+  padding: 1rem;
+}
+
+.terminal-telemetry {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.6rem;
+  width: min(1440px, 100%);
+  margin: 1rem auto 0;
+}
+
+.terminal-telemetry div {
+  border: 1px solid var(--terminal-line);
+  border-radius: 14px;
+  background: rgba(15, 13, 19, 0.76);
+  padding: 0.8rem;
+}
+
+.terminal-telemetry span {
+  display: block;
+  color: var(--terminal-muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.terminal-telemetry strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--terminal-text);
+  font-size: 1.35rem;
+  font-weight: 950;
+}
+
+@media (max-width: 1180px) {
+  .terminal-margin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .terminal-market-tape {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  }
+
+  .terminal-market-tape > span {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .browser-terminal-shell {
+    padding: 0.75rem;
+  }
+
+  .terminal-hero,
+  .terminal-layout,
+  .terminal-vault-grid,
+  .terminal-activity-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .terminal-sidebar {
+    position: static;
+    min-height: 0;
+  }
+
+  .terminal-sidebar nav {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .terminal-sidebar nav button {
+    justify-content: center;
+    padding: 0.65rem 0.4rem;
+    font-size: 0.78rem;
+  }
+
+  .terminal-sidebar nav button span {
+    display: none;
+  }
+
+  .terminal-panel-header {
+    display: grid;
+  }
+
+  .terminal-panel-header p {
+    text-align: left;
+  }
+
+  .terminal-telemetry {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .terminal-hero,
+  .terminal-panel-header,
+  .terminal-view-stack,
+  .terminal-margin-layout,
+  .terminal-vault-grid,
+  .terminal-activity-grid {
+    padding: 0.75rem;
+  }
+
+  .terminal-ticket-controls,
+  .terminal-preview-grid,
+  .terminal-vault-card dl,
+  .terminal-sidebar nav {
+    grid-template-columns: 1fr;
+  }
+
+  .terminal-candle-panel strong {
+    font-size: 3rem;
+  }
 }

@@ -1,63 +1,31 @@
-import Link from "next/link";
-
-import { getExecutionCapabilities, listMarkets } from "../lib/core-api";
-import { getMarketBoardStats } from "../lib/market-display";
+import { BrowserTerminal } from "../components/BrowserTerminal";
+import { getExecutionCapabilities, getSocialFeed, listLeaderboard, listMarkets } from "../lib/core-api";
 import { createMiniAppPageMetadata, getMiniAppImagePath } from "../lib/miniapp";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = createMiniAppPageMetadata({
-  title: "Conviction Markets",
-  description: "Prediction-market margin desk for conviction trades.",
+  title: "Conviction Markets Browser Terminal",
+  description: "Core-backed prediction market terminal for browser wallets and margin intents.",
   imagePath: getMiniAppImagePath("home"),
   targetPath: "/",
-  buttonTitle: "Launch app",
+  buttonTitle: "Launch terminal",
 });
 
 export default async function HomePage() {
-  const [markets, execution] = await Promise.all([listMarkets(), getExecutionCapabilities()]);
-  const boardStats = getMarketBoardStats(markets);
-  const executionMode = execution.marginExecutionEnabled ? "Live" : "Request";
+  const [markets, execution, socialFeedResult, leaderboard] = await Promise.all([
+    listMarkets(),
+    getExecutionCapabilities(),
+    getSocialFeed({ limit: 40 }),
+    listLeaderboard(12),
+  ]);
 
   return (
-    <main className="launch-shell">
-      <section className="launch-stage unified-launch" aria-labelledby="launch-title">
-        <div className="launch-copy">
-          <p className="launch-mark">Conviction Markets</p>
-          <h1 id="launch-title">The margin layer for prediction markets.</h1>
-          <p className="launch-brief">
-            Open vault-backed margin requests from real market data. No fake fills. No fake PnL.
-          </p>
-
-          <div className="experience-switch" aria-label="Choose app surface">
-            <Link className="experience-card primary" href="/markets">
-              <span>Miniapp</span>
-              <strong>Launch app</strong>
-              <small>Compact social trading flow for Farcaster.</small>
-            </Link>
-            <Link className="experience-card" href="/margin">
-              <span>Browser</span>
-              <strong>Open margin desk</strong>
-              <small>Wallet, market tape, and vault workflow.</small>
-            </Link>
-          </div>
-        </div>
-
-        <dl className="launch-stats surface-stats" aria-label="Current app state">
-          <div>
-            <dt>Markets</dt>
-            <dd>{boardStats.total}</dd>
-          </div>
-          <div>
-            <dt>Ready</dt>
-            <dd>{boardStats.qualified}</dd>
-          </div>
-          <div>
-            <dt>Mode</dt>
-            <dd>{executionMode}</dd>
-          </div>
-        </dl>
-      </section>
-    </main>
+    <BrowserTerminal
+      execution={execution}
+      leaderboard={leaderboard}
+      markets={markets}
+      socialFeed={socialFeedResult.feed}
+    />
   );
 }

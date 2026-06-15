@@ -154,7 +154,7 @@ export type CoreUser = {
 export type SocialAccount = {
   id: string;
   userId: string;
-  platform: "TELEGRAM" | "FARCASTER";
+  platform: "TELEGRAM" | "FARCASTER" | "WEB";
   platformUserId: string;
   username: string | null;
   profileUrl: string | null;
@@ -299,7 +299,7 @@ export type SocialActor = {
   userId: string;
   displayName: string | null;
   handle: string | null;
-  platform: "TELEGRAM" | "FARCASTER" | null;
+  platform: "TELEGRAM" | "FARCASTER" | "WEB" | null;
   platformUserId: string | null;
   username: string | null;
   profileUrl: string | null;
@@ -420,6 +420,21 @@ export async function createFarcasterSession(input: CreateFarcasterSessionInput)
       profileUrl: input.username
         ? "https://warpcast.com/" + input.username
         : (input.pfpUrl ?? null),
+    },
+  });
+}
+
+export async function createBrowserWalletSession(input: { walletAddress: string }) {
+  const normalizedAddress = input.walletAddress.trim();
+
+  return coreRequest<UserSession>("/social-accounts", {
+    method: "POST",
+    body: {
+      platform: "WEB",
+      platformUserId: normalizedAddress.toLowerCase(),
+      username: normalizedAddress.slice(0, 6) + "..." + normalizedAddress.slice(-4),
+      displayName: "Wallet " + normalizedAddress.slice(0, 6) + "..." + normalizedAddress.slice(-4),
+      profileUrl: null,
     },
   });
 }
