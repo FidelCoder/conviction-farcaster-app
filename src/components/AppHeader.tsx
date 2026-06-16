@@ -10,15 +10,32 @@ const navItems = [
   { href: "/me", label: "Activity" },
   { href: "/social", label: "Social" },
   { href: "/leaderboard", label: "Leaders" },
+  { href: "/docs", label: "Docs" },
+  { href: "/me/profile", label: "Profile" },
 ];
 
 export function AppHeader() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [showEmailBanner, setShowEmailBanner] = useState(false);
 
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const dismissedEmailBanner = sessionStorage.getItem("email-banner-dismissed");
+
+    if (!dismissedEmailBanner) {
+      const timer = setTimeout(() => {
+        setShowEmailBanner(true);
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   if (pathname === "/") {
     return null;
@@ -29,6 +46,28 @@ export function AppHeader() {
       <Link className="brand" href="/">
         Conviction Markets
       </Link>
+
+      {showEmailBanner ? (
+        <div className="email-banner">
+          <p>
+            Set your email for position notifications and updates.
+            <Link href="/me/profile" onClick={() => setShowEmailBanner(false)}>
+              Add email
+            </Link>
+          </p>
+          <button
+            aria-label="Dismiss email prompt"
+            className="email-banner-close"
+            onClick={() => {
+              setShowEmailBanner(false);
+              sessionStorage.setItem("email-banner-dismissed", "true");
+            }}
+            type="button"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      ) : null}
 
       <div className="app-menu">
         <button

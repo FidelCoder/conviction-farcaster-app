@@ -118,5 +118,8 @@ function isRecord(value: unknown): value is FarcasterSessionBody {
 }
 
 function buildStableTraderHandle(fid: number) {
-  return "fc-" + String(fid).slice(0, 29);
+  // Auto-create handles with the .viction suffix for community identity
+  const shortId = String(fid).slice(0, 24);
+
+  return "fc" + shortId + ".viction";
 }

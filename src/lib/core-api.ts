@@ -125,6 +125,7 @@ export type TraderProfile = {
   userId: string;
   handle: string;
   bio: string | null;
+  avatarUrl: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -148,6 +149,7 @@ export type LeaderboardEntry = TraderStats & {
 export type CoreUser = {
   id: string;
   displayName: string | null;
+  email: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -180,6 +182,7 @@ export type UpsertTraderProfileInput = {
   userId: string;
   handle: string;
   bio?: string | null;
+  avatarUrl?: string | null;
 };
 
 export type TradeSignal = {
@@ -859,6 +862,16 @@ export async function startPositionExecution(positionId: string) {
   return "executionAttempt" in response && response.executionAttempt
     ? response.executionAttempt
     : (response as ExecutionAttempt);
+}
+
+export async function updateUserEmail(userId: string, email: string) {
+  return coreRequest<{ email: string }>(
+    "/users/" + encodeURIComponent(userId) + "/email",
+    {
+      method: "PATCH",
+      body: { email },
+    },
+  );
 }
 
 export async function createCopyIntent(input: CreateCopyIntentInput) {

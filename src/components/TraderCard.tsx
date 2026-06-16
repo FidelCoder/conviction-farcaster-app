@@ -19,11 +19,43 @@ export function TraderCard({
     );
   }
 
+  const avatarUrl = trader.avatarUrl;
+  const handle = trader.handle;
+  const initial = handle.slice(0, 1).toUpperCase();
+
   return (
     <article className="card trader-card">
       <div className="card-kicker">Trader</div>
-      <h3>{trader.handle}</h3>
-      {trader.bio ? <p>{trader.bio}</p> : null}
+      <div className="trader-card-header">
+        <div className="trader-avatar">
+          {avatarUrl ? (
+            <img
+              alt={handle}
+              className="trader-avatar-img"
+              src={avatarUrl}
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = "none";
+                const parent = (e.target as HTMLElement).closest(".trader-avatar");
+                const fallback =
+                  parent?.querySelector<HTMLElement>(".trader-avatar-fallback");
+                if (fallback) {
+                  fallback.style.display = "grid";
+                }
+              }}
+            />
+          ) : null}
+          <div
+            className="trader-avatar-fallback"
+            style={{ display: avatarUrl ? "none" : "grid" }}
+          >
+            {initial}
+          </div>
+        </div>
+        <div className="trader-card-name">
+          <h3>{handle}</h3>
+          {trader.bio ? <p>{trader.bio}</p> : null}
+        </div>
+      </div>
       {stats ? (
         <dl className="stats-strip">
           <div>

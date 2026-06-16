@@ -23,6 +23,11 @@ export default function MyActivityPage() {
             status stays explicit.
           </p>
         </div>
+        <div className="my-activity-actions">
+          <a className="text-link" href="/me/profile">
+            Edit profile
+          </a>
+        </div>
       </section>
       <MyActivityDashboard />
     </main>
