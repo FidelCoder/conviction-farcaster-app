@@ -13,6 +13,7 @@ export type Market = {
   lastTradePrice?: string | null;
   bestBid?: string | null;
   bestAsk?: string | null;
+  orderMinSize?: string | null;
   syncedAt?: string | null;
 };
 
