@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Vault, GlobalRiskParameter, UserPortfolio } from '../types';
-import { Plus, ShieldCheck, Sliders } from 'lucide-react';
+import { Check, Copy, Plus, QrCode, ShieldCheck, Sliders, Wallet } from 'lucide-react';
+
+function formatWalletAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
 
 interface VaultsViewProps {
   vaults: Vault[];
@@ -25,7 +30,8 @@ export default function VaultsView({
   const [activeModal, setActiveModal] = useState<'none' | 'deposit' | 'withdraw' | 'create'>('none');
   const [selectedVaultId, setSelectedVaultId] = useState<string>('');
   const [transactionAmount, setTransactionAmount] = useState<string>('');
-  
+  const [fundingCopyState, setFundingCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+
   // Create vault states
   const [newVaultName, setNewVaultName] = useState<string>('');
   const [newVaultRisk, setNewVaultRisk] = useState<'Low Risk' | 'High Risk'>('Low Risk');
@@ -37,6 +43,7 @@ export default function VaultsView({
   const openDeposit = (vaultId: string) => {
     setSelectedVaultId(vaultId);
     setTransactionAmount('');
+    setFundingCopyState('idle');
     setActiveModal('deposit');
   };
 
@@ -57,9 +64,14 @@ export default function VaultsView({
     const currentVault = vaults.find(v => v.id === selectedVaultId);
     if (!currentVault) return;
 
+    if (!portfolio.connected || !portfolio.address) {
+      alert('Connect your wallet from the top-right action before funding or depositing into a vault.');
+      return;
+    }
+
     const available = currentVault.asset === 'USDC' ? portfolio.usdcBalance : portfolio.wethBalance;
     if (amount > available) {
-      alert(`Insufficient Funds: You only have ${available.toFixed(2)} ${currentVault.asset} available to deposit.`);
+      alert(`Insufficient Funds: You only have ${available.toFixed(2)} ${currentVault.asset} available. Add funds to your connected wallet using the QR code or copy address, then try again.`);
       return;
     }
 
@@ -130,10 +142,40 @@ export default function VaultsView({
   }, 0);
 
   const activeVault = vaults.find(v => v.id === selectedVaultId);
+  const fundingAddress = portfolio.address;
+  const fundingQrValue = fundingAddress ? `ethereum:${fundingAddress}` : '';
+  const activeVaultAvailable = activeVault
+    ? activeVault.asset === 'USDC' ? portfolio.usdcBalance : portfolio.wethBalance
+    : 0;
+
+  const copyFundingAddress = async () => {
+    if (!fundingAddress) return;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(fundingAddress);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = fundingAddress;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
+      setFundingCopyState('copied');
+      window.setTimeout(() => setFundingCopyState('idle'), 1800);
+    } catch {
+      setFundingCopyState('failed');
+    }
+  };
 
   return (
     <main className="flex-1 md:ml-64 bg-grid-tech pt-8 px-4 md:px-10 pb-32 max-w-[1280px] mx-auto w-full">
-      
+
       {/* 1. PROTOCOL HEADER METRICS */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="bg-surface-card border border-[#262626] rounded-lg p-6 hover:border-deep-orange transition-colors">
@@ -161,7 +203,7 @@ export default function VaultsView({
             <h1 className="text-2xl font-sans font-bold text-white">Active Liquidity Vaults</h1>
             <p className="text-xs text-[#ccc3d8]/80 mt-1">Provide liquidity to back prediction contracts and claim institutional yields.</p>
           </div>
-          <button 
+          <button
             onClick={() => setActiveModal('create')}
             className="border border-[#F97316] text-[#F97316] hover:bg-[#F97316]/10 px-4 py-2 rounded text-xs font-mono font-bold tracking-wider uppercase transition-colors duration-200 cursor-pointer flex items-center gap-1.5"
           >
@@ -176,11 +218,11 @@ export default function VaultsView({
             const userBalance = portfolio.vaultBalances[vault.id] || 0;
 
             return (
-              <div 
-                key={vault.id} 
+              <div
+                key={vault.id}
                 className={`bg-surface-card border border-[#262626] rounded-lg flex flex-col relative overflow-hidden transition-all duration-300 ${
-                  isPurple 
-                    ? 'border-t-2 border-t-electric-purple glow-purple' 
+                  isPurple
+                    ? 'border-t-2 border-t-electric-purple glow-purple'
                     : 'border-t-2 border-t-deep-orange glow-orange'
                 }`}
               >
@@ -231,7 +273,7 @@ export default function VaultsView({
 
                 {/* Operations buttons */}
                 <div className="bg-[#201f1f] p-4 border-t border-[#262626] flex gap-4">
-                  <button 
+                  <button
                     onClick={() => openDeposit(vault.id)}
                     className={`flex-1 text-black py-2.5 rounded font-sans font-bold text-xs tracking-wider uppercase opacity-95 hover:opacity-100 transition-opacity cursor-pointer ${
                       isPurple ? 'bg-electric-purple text-white' : 'bg-deep-orange text-black'
@@ -239,13 +281,13 @@ export default function VaultsView({
                   >
                     Deposit
                   </button>
-                  <button 
+                  <button
                     onClick={() => openWithdraw(vault.id)}
                     className="flex-1 border border-[#ccc3d8]/40 hover:border-white text-white py-2.5 rounded font-sans font-bold text-xs tracking-wider uppercase hover:bg-white/5 transition-all cursor-pointer"
                   >
                     Withdraw
                   </button>
-                  <button 
+                  <button
                     onClick={() => alert(`Metrics console for ${vault.name} is not connected yet.`)}
                     className="p-2 border border-[#ccc3d8]/40 hover:border-white rounded text-white hover:bg-white/5 transition-all flex items-center justify-center cursor-pointer"
                     title="Tune settings"
@@ -290,7 +332,7 @@ export default function VaultsView({
                     <td className="p-4 py-3">
                       {isPending ? (
                         <div className="flex items-center gap-2">
-                          <button 
+                          <button
                             onClick={() => onModifyRisk(index, 'FOR')}
                             className="bg-deep-orange/15 text-deep-orange border border-deep-orange/20 hover:bg-deep-orange hover:text-black font-extrabold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-colors uppercase leading-none"
                             title="Vote FOR"
@@ -298,7 +340,7 @@ export default function VaultsView({
                             Vote Yes
                           </button>
                           <span className="text-xs text-[#ccc3d8]/50">or</span>
-                          <button 
+                          <button
                             onClick={() => onModifyRisk(index, 'AGAINST')}
                             className="border border-[#EF4444]/30 text-[#EF4444] hover:bg-[#EF4444]/15 font-extrabold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-colors uppercase leading-none"
                             title="Vote AGAINST"
@@ -324,47 +366,130 @@ export default function VaultsView({
       {/* ==================== COLLATERAL/DEPOSIT DIALOG MODAL ==================== */}
       {activeModal === 'deposit' && activeVault && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in">
-          <form 
+          <form
             onSubmit={handleDepositSubmit}
-            className="bg-[#161616] border border-[#262626] rounded-xl w-full max-w-md p-6 relative glow-orange animate-scale-up"
+            className="bg-[#161616] border border-[#262626] rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-5 sm:p-6 relative glow-orange animate-scale-up"
           >
-            <h3 className="text-lg font-sans font-bold text-white mb-2">Deposit Collateral</h3>
-            <p className="text-xs text-[#ccc3d8] mb-5">
-              Secure liquidity inside the <span className="font-bold text-white">{activeVault.name}</span> to back contracts. Available: {activeVault.asset === 'USDC' ? portfolio.usdcBalance.toFixed(2) : portfolio.wethBalance.toFixed(2)} {activeVault.asset}
-            </p>
-
-            <div className="mb-6">
-              <label className="block font-mono text-[9px] text-[#ccc3d8]/80 uppercase tracking-widest font-bold mb-2">Deposit Amount</label>
-              <div className="relative">
-                <input 
-                  type="number" 
-                  step="any"
-                  required
-                  placeholder="0.00"
-                  value={transactionAmount}
-                  onChange={(e) => setTransactionAmount(e.target.value)}
-                  className="w-full bg-[#0A0A0A] border border-[#262626] text-white rounded p-3 font-mono text-lg text-right focus:outline-none focus:border-deep-orange focus:ring-1 focus:ring-deep-orange/50 transition-colors"
-                />
-                <span className="absolute left-3 top-4 text-xs font-mono font-bold text-[#ccc3d8] italic">
-                  {activeVault.asset}
-                </span>
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-deep-orange mb-2">
+                  <Wallet size={16} />
+                  <span className="font-mono text-[10px] uppercase tracking-widest font-bold">Vault Funding</span>
+                </div>
+                <h3 className="text-lg font-sans font-bold text-white">Deposit Collateral</h3>
+                <p className="text-xs text-[#ccc3d8] mt-2 max-w-xl leading-relaxed">
+                  Add {activeVault.asset} to your connected wallet, then deposit into <span className="font-bold text-white">{activeVault.name}</span>. Available: {activeVaultAvailable.toFixed(2)} {activeVault.asset}
+                </p>
+              </div>
+              <div className="rounded border border-[#262626] bg-[#0A0A0A] px-3 py-2 text-left sm:text-right">
+                <div className="font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/60">Asset</div>
+                <div className="font-mono text-sm font-bold text-white">{activeVault.asset}</div>
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <button 
-                type="submit"
-                className="flex-1 bg-deep-orange text-black font-sans font-bold text-xs py-3 rounded tracking-wider uppercase hover:opacity-90 transition-opacity cursor-pointer"
-              >
-                Confirm Deposit
-              </button>
-              <button 
-                type="button"
-                onClick={() => setActiveModal('none')}
-                className="flex-1 border border-[#ccc3d8]/40 hover:border-white text-white font-sans font-bold text-xs py-3 rounded tracking-wider uppercase hover:bg-white/5 transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
+            <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-5">
+              <section className="rounded-lg border border-[#262626] bg-[#0A0A0A] p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <QrCode size={15} className="text-deep-orange" />
+                  <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-white">Add Funds To Wallet</h4>
+                </div>
+
+                {portfolio.connected && fundingAddress ? (
+                  <>
+                    <div className="mx-auto mb-4 flex aspect-square w-full max-w-[220px] items-center justify-center rounded-lg border border-[#262626] bg-white p-3">
+                      <QRCodeSVG
+                        value={fundingQrValue}
+                        size={196}
+                        bgColor="#ffffff"
+                        fgColor="#0A0A0A"
+                        level="M"
+                        className="h-full w-full"
+                        title="Funding wallet QR code"
+                      />
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-[#ccc3d8]/80">
+                      Scan to send funds to the connected wallet. Use the copy button if you are funding from an exchange or another wallet.
+                    </p>
+                    <div className="mt-3 rounded border border-[#262626] bg-[#111111] p-3">
+                      <div className="mb-2 font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/60">Wallet Address</div>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <code className="min-w-0 flex-1 truncate font-mono text-xs text-white">{fundingAddress}</code>
+                        <button
+                          type="button"
+                          onClick={copyFundingAddress}
+                          className="shrink-0 rounded border border-deep-orange/50 p-2 text-deep-orange transition-colors hover:bg-deep-orange hover:text-black"
+                          title="Copy wallet address"
+                          aria-label="Copy wallet address"
+                        >
+                          {fundingCopyState === 'copied' ? <Check size={14} /> : <Copy size={14} />}
+                        </button>
+                      </div>
+                      <div className="mt-2 min-h-4 font-mono text-[10px] text-[#ccc3d8]/70" aria-live="polite">
+                        {fundingCopyState === 'copied' && 'Address copied.'}
+                        {fundingCopyState === 'failed' && 'Copy failed. Select the address manually.'}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-lg border border-deep-orange/30 bg-deep-orange/10 p-4">
+                    <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Wallet Required</div>
+                    <p className="text-xs leading-relaxed text-[#ccc3d8]">
+                      Connect a browser wallet from the top-right action to reveal your funding QR code and deposit controls.
+                    </p>
+                  </div>
+                )}
+              </section>
+
+              <section className="flex flex-col rounded-lg border border-[#262626] bg-[#111111] p-4">
+                <div className="mb-4 grid grid-cols-2 gap-3 font-mono">
+                  <div className="rounded border border-[#262626] bg-[#0A0A0A] p-3">
+                    <div className="text-[9px] uppercase tracking-widest text-[#ccc3d8]/60">Available</div>
+                    <div className="mt-1 text-sm font-bold text-white">{activeVaultAvailable.toFixed(2)} {activeVault.asset}</div>
+                  </div>
+                  <div className="rounded border border-[#262626] bg-[#0A0A0A] p-3">
+                    <div className="text-[9px] uppercase tracking-widest text-[#ccc3d8]/60">Wallet</div>
+                    <div className="mt-1 truncate text-sm font-bold text-white">
+                      {fundingAddress ? formatWalletAddress(fundingAddress) : 'Not Connected'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <label className="block font-mono text-[9px] text-[#ccc3d8]/80 uppercase tracking-widest font-bold mb-2">Deposit Amount</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="any"
+                      required
+                      placeholder="0.00"
+                      value={transactionAmount}
+                      onChange={(e) => setTransactionAmount(e.target.value)}
+                      disabled={!portfolio.connected || !fundingAddress}
+                      className="w-full bg-[#0A0A0A] border border-[#262626] text-white rounded p-3 font-mono text-lg text-right focus:outline-none focus:border-deep-orange focus:ring-1 focus:ring-deep-orange/50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <span className="absolute left-3 top-4 text-xs font-mono font-bold text-[#ccc3d8] italic">
+                      {activeVault.asset}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-auto flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="submit"
+                    disabled={!portfolio.connected || !fundingAddress}
+                    className="flex-1 bg-deep-orange text-black font-sans font-bold text-xs py-3 rounded tracking-wider uppercase hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Confirm Deposit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('none')}
+                    className="flex-1 border border-[#ccc3d8]/40 hover:border-white text-white font-sans font-bold text-xs py-3 rounded tracking-wider uppercase hover:bg-white/5 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </section>
             </div>
           </form>
         </div>
@@ -373,7 +498,7 @@ export default function VaultsView({
       {/* ==================== WITHDRAW COMPONENT DIALOG MODAL ==================== */}
       {activeModal === 'withdraw' && activeVault && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <form 
+          <form
             onSubmit={handleWithdrawSubmit}
             className="bg-[#161616] border border-[#262626] rounded-xl w-full max-w-md p-6 relative glow-orange"
           >
@@ -385,8 +510,8 @@ export default function VaultsView({
             <div className="mb-6">
               <label className="block font-mono text-[9px] text-[#ccc3d8]/80 uppercase tracking-widest font-bold mb-2">Withdraw Amount</label>
               <div className="relative">
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   step="any"
                   required
                   placeholder="0.00"
@@ -401,13 +526,13 @@ export default function VaultsView({
             </div>
 
             <div className="flex gap-4">
-              <button 
+              <button
                 type="submit"
                 className="flex-1 bg-deep-orange text-black font-sans font-bold text-xs py-3 rounded tracking-wider uppercase hover:opacity-90 transition-opacity cursor-pointer"
               >
                 Confirm Withdraw
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setActiveModal('none')}
                 className="flex-1 border border-[#ccc3d8]/40 hover:border-white text-white font-sans font-bold text-xs py-3 rounded tracking-wider uppercase hover:bg-white/5 transition-all cursor-pointer"
@@ -422,7 +547,7 @@ export default function VaultsView({
       {/* ==================== CREATE VAULT POOL MODAL ==================== */}
       {activeModal === 'create' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <form 
+          <form
             onSubmit={handleCreateVaultSubmit}
             className="bg-[#161616] border border-[#262626] rounded-xl w-full max-w-md p-6 relative glow-purple"
           >
@@ -434,8 +559,8 @@ export default function VaultsView({
             <div className="flex flex-col gap-4 mb-6 text-xs font-sans">
               <div>
                 <label className="block text-[#ccc3d8] mb-1.5 font-bold uppercase tracking-wide text-[10px]">Vault Label</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   placeholder="e.g. BTC Arbitrage Vault"
                   value={newVaultName}
@@ -447,7 +572,7 @@ export default function VaultsView({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[#ccc3d8] mb-1.5 font-bold uppercase tracking-wide text-[10px]">Backing Asset</label>
-                  <select 
+                  <select
                     value={newVaultAsset}
                     onChange={(e) => setNewVaultAsset(e.target.value as 'USDC' | 'WETH')}
                     className="w-full bg-[#0A0A0A] border border-[#262626] text-white rounded p-3 focus:outline-none focus:border-deep-orange focus:ring-1"
@@ -458,7 +583,7 @@ export default function VaultsView({
                 </div>
                 <div>
                   <label className="block text-[#ccc3d8] mb-1.5 font-bold uppercase tracking-wide text-[10px]">Risk Tier</label>
-                  <select 
+                  <select
                     value={newVaultRisk}
                     onChange={(e) => setNewVaultRisk(e.target.value as 'Low Risk' | 'High Risk')}
                     className="w-full bg-[#0A0A0A] border border-[#262626] text-white rounded p-3 focus:outline-none focus:border-deep-orange focus:ring-1"
@@ -472,8 +597,8 @@ export default function VaultsView({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[#ccc3d8] mb-1.5 font-bold uppercase tracking-wide text-[10px]">APY Yield Estimate (%)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="any"
                     required
                     placeholder="e.g. 15.5"
@@ -484,8 +609,8 @@ export default function VaultsView({
                 </div>
                 <div>
                   <label className="block text-[#ccc3d8] mb-1.5 font-bold uppercase tracking-wide text-[10px]/80">Maximum Leverage Limit</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     required
                     placeholder="e.g. 5"
                     value={newVaultLeverage}
@@ -497,13 +622,13 @@ export default function VaultsView({
             </div>
 
             <div className="flex gap-4">
-              <button 
+              <button
                 type="submit"
                 className="flex-1 bg-electric-purple text-white font-sans font-bold text-xs py-3 rounded tracking-wider uppercase hover:opacity-90 transition-opacity cursor-pointer"
               >
                 PROPOSE VAULT
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setActiveModal('none')}
                 className="flex-1 border border-[#ccc3d8]/40 hover:border-white text-white font-sans font-bold text-xs py-3 rounded tracking-wider uppercase hover:bg-white/5 transition-all cursor-pointer"
