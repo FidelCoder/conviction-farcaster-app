@@ -5,6 +5,11 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import { TerminalShell } from "../../../components/TerminalShell";
 import {
+  getSessionWalletAddress,
+  getStoredBrowserWalletSession,
+  setStoredBrowserWalletSession,
+} from "../../../lib/browser-wallet-session";
+import {
   getExecutionCapabilities,
   listMarkets,
   type ExecutionCapabilities,
@@ -68,15 +73,11 @@ export default function NotificationsPage() {
       setTerminalData({ execution, marketCount: markets.length });
     });
 
-    const rawSession = window.localStorage.getItem("conviction-browser-session");
-    if (rawSession) {
-      try {
-        const storedSession = JSON.parse(rawSession) as UserSession;
-        setSession(storedSession);
-        setEmail(storedSession.user.email ?? "");
-      } catch {
-        window.localStorage.removeItem("conviction-browser-session");
-      }
+    const storedSession = getStoredBrowserWalletSession();
+
+    if (storedSession) {
+      setSession(storedSession);
+      setEmail(storedSession.user.email ?? "");
     }
 
     const rawPreferences = window.localStorage.getItem("conviction-notification-preferences");
@@ -132,7 +133,7 @@ export default function NotificationsPage() {
       const nextSession = body.data.session;
 
       setSession(nextSession);
-      window.localStorage.setItem("conviction-browser-session", JSON.stringify(nextSession));
+      setStoredBrowserWalletSession(nextSession);
       window.localStorage.setItem(
         "conviction-notification-preferences",
         JSON.stringify(preferences),
@@ -246,13 +247,7 @@ export default function NotificationsPage() {
   );
 }
 
-function getConnectedWalletAddress(session: UserSession | null) {
-  if (session?.socialAccount.platform !== "WEB") return null;
-
-  const walletAddress = session.socialAccount.platformUserId.trim();
-
-  return /^0x[a-fA-F0-9]{40}$/.test(walletAddress) ? walletAddress : null;
-}
+const getConnectedWalletAddress = getSessionWalletAddress;
 
 const fallbackExecution: ExecutionCapabilities = {
   evmOnly: true,

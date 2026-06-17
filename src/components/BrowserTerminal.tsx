@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import {
+  clearStoredBrowserWalletSession,
+  getSessionWalletAddress,
+  getStoredBrowserWalletSession,
+  setStoredBrowserWalletSession,
+} from "../lib/browser-wallet-session";
 import type {
   ExecutionCapabilities,
   LeaderboardEntry,
@@ -83,6 +89,27 @@ export function BrowserTerminal({
   const currentMarket =
     displayMarkets.find((market) => market.id === activeMarket.id) ?? displayMarkets[0];
 
+  const applySession = useCallback((nextSession: UserSession | null) => {
+    setSession(nextSession);
+    setPortfolio((current) =>
+      nextSession
+        ? {
+            ...current,
+            connected: true,
+            address: getSessionWalletAddress(nextSession) ?? current.address,
+          }
+        : emptyPortfolio,
+    );
+  }, []);
+
+  useEffect(() => {
+    const storedSession = getStoredBrowserWalletSession();
+
+    if (storedSession) {
+      applySession(storedSession);
+    }
+  }, [applySession]);
+
   useEffect(() => {
     const tabFromHash = window.location.hash.replace("#", "");
 
@@ -99,8 +126,8 @@ export function BrowserTerminal({
 
   async function handleConnectWallet() {
     if (portfolio.connected) {
-      setPortfolio(emptyPortfolio);
-      setSession(null);
+      applySession(null);
+      clearStoredBrowserWalletSession();
       triggerAlert("info", "Wallet session closed.");
       return;
     }
@@ -133,12 +160,8 @@ export function BrowserTerminal({
         return;
       }
 
-      setPortfolio({
-        ...emptyPortfolio,
-        connected: true,
-        address,
-      });
-      setSession(body.data.session);
+      applySession(body.data.session);
+      setStoredBrowserWalletSession(body.data.session);
       triggerAlert("success", "Wallet connected and registered with core.");
     } catch {
       triggerAlert("info", "Wallet connection was cancelled or failed.");

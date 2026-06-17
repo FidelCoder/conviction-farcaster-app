@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
+import {
+  clearStoredBrowserWalletSession,
+  getSessionWalletAddress,
+  getStoredBrowserWalletSession,
+  setStoredBrowserWalletSession,
+} from "../lib/browser-wallet-session";
 import type { ExecutionCapabilities, UserSession } from "../lib/core-api";
 import Header from "../zip-ui/components/Header";
 import Sidebar from "../zip-ui/components/Sidebar";
@@ -56,26 +62,18 @@ export function TerminalShell({
         ? {
             ...current,
             connected: true,
-            address:
-              nextSession.socialAccount.platform === "WEB"
-                ? nextSession.socialAccount.platformUserId
-                : current.address,
+            address: getSessionWalletAddress(nextSession) ?? current.address,
           }
         : emptyPortfolio,
     );
   }, []);
 
   useEffect(() => {
-    const raw = window.localStorage.getItem("conviction-browser-session");
+    const storedSession = getStoredBrowserWalletSession();
 
-    if (!raw) return;
-
-    try {
-      const storedSession = JSON.parse(raw) as UserSession;
+    if (storedSession) {
       applySession(storedSession);
       onSessionChange?.(storedSession);
-    } catch {
-      window.localStorage.removeItem("conviction-browser-session");
     }
   }, [applySession, onSessionChange]);
 
@@ -93,7 +91,7 @@ export function TerminalShell({
   async function handleConnectWallet() {
     if (portfolio.connected) {
       applySession(null);
-      window.localStorage.removeItem("conviction-browser-session");
+      clearStoredBrowserWalletSession();
       onSessionChange?.(null);
       triggerAlert("info", "Wallet session closed.");
       return;
@@ -128,7 +126,7 @@ export function TerminalShell({
       }
 
       applySession(body.data.session);
-      window.localStorage.setItem("conviction-browser-session", JSON.stringify(body.data.session));
+      setStoredBrowserWalletSession(body.data.session);
       onSessionChange?.(body.data.session);
       triggerAlert("success", "Wallet connected and registered with core.");
     } catch {

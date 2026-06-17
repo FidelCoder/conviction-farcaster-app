@@ -5,6 +5,11 @@ import { FormEvent, useEffect, useMemo, useRef, useState, type ChangeEvent } fro
 
 import { TerminalShell } from "../../../components/TerminalShell";
 import {
+  getSessionWalletAddress,
+  getStoredBrowserWalletSession,
+  setStoredBrowserWalletSession,
+} from "../../../lib/browser-wallet-session";
+import {
   getExecutionCapabilities,
   listMarkets,
   type ExecutionCapabilities,
@@ -93,14 +98,7 @@ export default function ProfilePage() {
       setTerminalData({ execution, marketCount: markets.length });
     });
 
-    const raw = window.localStorage.getItem("conviction-browser-session");
-    if (raw) {
-      try {
-        setSession(JSON.parse(raw));
-      } catch {
-        window.localStorage.removeItem("conviction-browser-session");
-      }
-    }
+    setSession(getStoredBrowserWalletSession());
   }, []);
 
   useEffect(() => {
@@ -205,7 +203,7 @@ export default function ProfilePage() {
       };
 
       setSession(nextSession);
-      window.localStorage.setItem("conviction-browser-session", JSON.stringify(nextSession));
+      setStoredBrowserWalletSession(nextSession);
       setHandle(cleanHandle);
       setEmail(nextEmail ?? "");
       setState({ status: "success", message: "Claimed " + nextFullHandle + "." });
@@ -569,13 +567,7 @@ function formatWalletAddress(walletAddress: string) {
   return walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
 }
 
-function getConnectedWalletAddress(session: UserSession | null) {
-  if (session?.socialAccount.platform !== "WEB") return null;
-
-  const walletAddress = session.socialAccount.platformUserId.trim();
-
-  return /^0x[a-fA-F0-9]{40}$/.test(walletAddress) ? walletAddress : null;
-}
+const getConnectedWalletAddress = getSessionWalletAddress;
 
 function normalizeHandleInput(value: string) {
   return stripVictionSuffix(value)

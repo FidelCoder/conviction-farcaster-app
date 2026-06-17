@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { TerminalShell } from "../../../components/TerminalShell";
+import { getStoredBrowserWalletSession } from "../../../lib/browser-wallet-session";
 import {
   getExecutionCapabilities,
   listMarkets,
@@ -50,14 +51,7 @@ export default function SettingsPage() {
       setTerminalData({ execution, marketCount: markets.length });
     });
 
-    const raw = window.localStorage.getItem("conviction-browser-session");
-    if (raw) {
-      try {
-        setSession(JSON.parse(raw));
-      } catch {
-        window.localStorage.removeItem("conviction-browser-session");
-      }
-    }
+    setSession(getStoredBrowserWalletSession());
   }, []);
 
   return (
