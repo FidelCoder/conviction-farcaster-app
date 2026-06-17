@@ -59,6 +59,7 @@ export default function ProfilePage() {
     status: "idle",
     message: "",
   });
+  const [isEditing, setIsEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [session, setSession] = useState<UserSession | null>(null);
@@ -84,6 +85,8 @@ export default function ProfilePage() {
     "https://twitter.com/intent/tweet?text=" +
     encodeURIComponent(shareText) +
     (shareTarget ? "&url=" + encodeURIComponent(shareTarget) : "");
+  const hasClaimedProfile = Boolean(isWalletConnected && traderProfile);
+  const shouldShowProfileView = hasClaimedProfile && !isEditing;
 
   useEffect(() => {
     void Promise.all([getExecutionCapabilities(), listMarkets()]).then(([execution, markets]) => {
@@ -107,6 +110,7 @@ export default function ProfilePage() {
       setAvatarUrl("");
       setEmail("");
       setShowEmailPrompt(false);
+      setIsEditing(false);
       return;
     }
 
@@ -206,6 +210,7 @@ export default function ProfilePage() {
       setEmail(nextEmail ?? "");
       setState({ status: "success", message: "Claimed " + nextFullHandle + "." });
       setShowEmailPrompt(false);
+      setIsEditing(false);
 
       setTimeout(() => {
         setState((current) =>
@@ -283,6 +288,11 @@ export default function ProfilePage() {
             <Link className="text-link" href="/me/settings">
               Settings
             </Link>
+            {hasClaimedProfile ? (
+              <button className="text-link" onClick={() => setIsEditing(true)} type="button">
+                Edit Profile
+              </button>
+            ) : null}
             <Link className="text-link" href="/me/notifications">
               Notifications
             </Link>
@@ -297,213 +307,266 @@ export default function ProfilePage() {
           </p>
         </section>
 
-        <form className="profile-layout" onSubmit={handleSave}>
-          <section className="profile-form" aria-label="Profile editor">
-            {!isWalletConnected ? (
-              <div className="profile-wallet-lock">
-                <strong>Wallet connection required</strong>
-                <span>Profile, email, and avatar changes unlock after wallet connection.</span>
-              </div>
-            ) : null}
-            <div className="profile-avatar-section">
-              <div className="profile-avatar-preview">
-                <div className="profile-avatar-img-wrapper">
-                  <img
-                    alt="Profile avatar"
-                    className="profile-avatar-img"
-                    src={avatarDisplay}
-                    onError={(event) => {
-                      (event.target as HTMLElement).style.display = "none";
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="profile-avatar-actions">
-                <button
-                  className="profile-action-button"
-                  aria-disabled={!isWalletConnected}
-                  onClick={() => {
-                    if (!isWalletConnected) {
-                      promptWalletConnection("Connect a wallet before setting a profile picture.");
-                      return;
-                    }
-
-                    fileInputRef.current?.click();
-                  }}
-                  type="button"
-                >
-                  Upload image
-                </button>
-                <button
-                  className="profile-action-button secondary"
-                  aria-disabled={!isWalletConnected}
-                  onClick={() => {
-                    if (!isWalletConnected) {
-                      promptWalletConnection("Connect a wallet before choosing a generated avatar.");
-                      return;
-                    }
-
-                    setAvatarUrl("");
-                  }}
-                  type="button"
-                >
-                  Use generated
-                </button>
-                <input
-                  accept="image/png,image/jpeg,image/gif,image/webp"
-                  className="profile-file-input"
-                  onChange={handleFileUpload}
-                  ref={fileInputRef}
-                  type="file"
-                />
-                <span className="profile-avatar-hint">Pick a culture card or bring your own.</span>
-              </div>
-            </div>
-
-            <label className="profile-field">
-              <span>Handle</span>
-              <div className="profile-handle-input">
-                <input
-                  className="profile-handle-prefix"
-                  onFocus={() => {
-                    if (!isWalletConnected) promptWalletConnection();
-                  }}
-                  onChange={(event) => setHandle(normalizeHandleInput(event.target.value))}
-                  placeholder="sue"
-                  readOnly={!isWalletConnected}
-                  type="text"
-                  value={handle}
-                />
-                <span className="profile-handle-suffix">.viction</span>
-              </div>
-              <small className="profile-field-hint">
-                Your claimed tag will be <strong>{fullHandle}</strong>.
-              </small>
-            </label>
-
-            <label className="profile-field">
-              <span>Avatar URL</span>
-              <input
-                onFocus={() => {
-                  if (!isWalletConnected) promptWalletConnection();
-                }}
-                onChange={(event) => setAvatarUrl(event.target.value)}
-                placeholder="https://example.com/avatar.png"
-                readOnly={!isWalletConnected}
-                type="url"
-                value={avatarUrl}
-              />
-            </label>
-
-            <label className="profile-field">
-              <span>Bio</span>
-              <textarea
-                maxLength={280}
-                onFocus={() => {
-                  if (!isWalletConnected) promptWalletConnection();
-                }}
-                onChange={(event) => setBio(event.target.value)}
-                readOnly={!isWalletConnected}
-                placeholder="Prediction markets, onchain margin, high-conviction theses."
-                value={bio}
-              />
-              <small className="profile-field-hint">{bio.length}/280 characters</small>
-            </label>
-
-            <label
-              className={"profile-field" + (showEmailPrompt ? " profile-field-highlight" : "")}
-            >
-              <span>
-                Email
-                {showEmailPrompt ? <span className="profile-email-badge">Recommended</span> : null}
-              </span>
-              <input
-                onFocus={() => {
-                  if (!isWalletConnected) promptWalletConnection();
-                }}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@example.com"
-                readOnly={!isWalletConnected}
-                type="email"
-                value={email}
-              />
-              <small className="profile-field-hint">
-                Used for position notifications, vault transaction updates, and beta access.
-              </small>
-            </label>
-
-            <button className="profile-submit" disabled={state.status === "saving"} type="submit">
-              {state.status === "saving"
-                ? "Claiming..."
-                : isWalletConnected
-                  ? "Claim .viction profile"
-                  : "Connect wallet to claim"}
-            </button>
-
-            <p
-              className={
-                "profile-message" +
-                (state.status === "error" ? " error" : "") +
-                (state.status === "success" ? " success" : "")
-              }
-            >
-              {state.message || " "}
-            </p>
-          </section>
-
-          <aside className="profile-claim-panel" aria-label="Claim preview">
-            <div className="viction-card">
+        {shouldShowProfileView ? (
+          <section className="profile-confirmed-view" aria-label="Confirmed profile">
+            <article className="profile-confirmed-card">
               <img alt="Selected .viction avatar" src={avatarDisplay} />
-              <div>
-                <span>Conviction tag</span>
-                <strong>{fullHandle}</strong>
+              <div className="profile-confirmed-copy">
+                <span>Claim confirmed</span>
+                <h2>{fullHandle}</h2>
                 <p>{bio || "Signals first. Culture follows conviction."}</p>
-              </div>
-            </div>
-
-            <div className="avatar-option-grid" aria-label="Generated avatars">
-              {avatarOptions.map((option) => {
-                const isSelected = !avatarUrl && selectedAvatar === option.id;
-
-                return (
-                  <button
-                    aria-pressed={isSelected}
-                    className={isSelected ? "avatar-option selected" : "avatar-option"}
-                    key={option.id}
-                    aria-disabled={!isWalletConnected}
-                    onClick={() => selectGeneratedAvatar(option.id)}
-                    type="button"
-                  >
-                    <img alt="" src={buildAvatarUrl(option.id, fullHandle)} />
-                    <span>{option.name}</span>
-                    <small>{option.note}</small>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="profile-share-actions">
-              {isWalletConnected && traderProfile?.id ? (
-                <>
+                <dl>
+                  <div>
+                    <dt>Wallet</dt>
+                    <dd>{walletAddress ? formatWalletAddress(walletAddress) : "Not connected"}</dd>
+                  </div>
+                  <div>
+                    <dt>Email</dt>
+                    <dd>{email || "Not set"}</dd>
+                  </div>
+                </dl>
+                <div className="profile-share-actions">
                   <a href={castUrl} rel="noreferrer" target="_blank">
                     Cast claim
                   </a>
                   <a href={xShareUrl} rel="noreferrer" target="_blank">
                     Post to X
                   </a>
-                  <Link href={"/traders/" + traderProfile.id}>View public card</Link>
-                </>
-              ) : (
-                <button onClick={() => promptWalletConnection()} type="button">
-                  Connect wallet to share
-                </button>
-              )}
-            </div>
-          </aside>
-        </form>
+                  {traderProfile?.id ? (
+                    <Link href={"/traders/" + traderProfile.id}>View public card</Link>
+                  ) : null}
+                  <button onClick={() => setIsEditing(true)} type="button">
+                    Edit profile
+                  </button>
+                </div>
+              </div>
+            </article>
+
+            <p className="profile-message success">
+              {state.status === "success" ? state.message : "Your .viction profile is active."}
+            </p>
+          </section>
+        ) : (
+          <form className="profile-layout" onSubmit={handleSave}>
+            <section className="profile-form" aria-label="Profile editor">
+              {!isWalletConnected ? (
+                <div className="profile-wallet-lock">
+                  <strong>Wallet connection required</strong>
+                  <span>Profile, email, and avatar changes unlock after wallet connection.</span>
+                </div>
+              ) : null}
+              <div className="profile-avatar-section">
+                <div className="profile-avatar-preview">
+                  <div className="profile-avatar-img-wrapper">
+                    <img
+                      alt="Profile avatar"
+                      className="profile-avatar-img"
+                      src={avatarDisplay}
+                      onError={(event) => {
+                        (event.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="profile-avatar-actions">
+                  <button
+                    className="profile-action-button"
+                    aria-disabled={!isWalletConnected}
+                    onClick={() => {
+                      if (!isWalletConnected) {
+                        promptWalletConnection(
+                          "Connect a wallet before setting a profile picture.",
+                        );
+                        return;
+                      }
+
+                      fileInputRef.current?.click();
+                    }}
+                    type="button"
+                  >
+                    Upload image
+                  </button>
+                  <button
+                    className="profile-action-button secondary"
+                    aria-disabled={!isWalletConnected}
+                    onClick={() => {
+                      if (!isWalletConnected) {
+                        promptWalletConnection(
+                          "Connect a wallet before choosing a generated avatar.",
+                        );
+                        return;
+                      }
+
+                      setAvatarUrl("");
+                    }}
+                    type="button"
+                  >
+                    Use generated
+                  </button>
+                  <input
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    className="profile-file-input"
+                    onChange={handleFileUpload}
+                    ref={fileInputRef}
+                    type="file"
+                  />
+                  <span className="profile-avatar-hint">
+                    Pick a culture card or bring your own.
+                  </span>
+                </div>
+              </div>
+
+              <label className="profile-field">
+                <span>Handle</span>
+                <div className="profile-handle-input">
+                  <input
+                    className="profile-handle-prefix"
+                    onFocus={() => {
+                      if (!isWalletConnected) promptWalletConnection();
+                    }}
+                    onChange={(event) => setHandle(normalizeHandleInput(event.target.value))}
+                    placeholder="sue"
+                    readOnly={!isWalletConnected}
+                    type="text"
+                    value={handle}
+                  />
+                  <span className="profile-handle-suffix">.viction</span>
+                </div>
+                <small className="profile-field-hint">
+                  Your claimed tag will be <strong>{fullHandle}</strong>.
+                </small>
+              </label>
+
+              <label className="profile-field">
+                <span>Avatar URL</span>
+                <input
+                  onFocus={() => {
+                    if (!isWalletConnected) promptWalletConnection();
+                  }}
+                  onChange={(event) => setAvatarUrl(event.target.value)}
+                  placeholder="https://example.com/avatar.png"
+                  readOnly={!isWalletConnected}
+                  type="url"
+                  value={avatarUrl}
+                />
+              </label>
+
+              <label className="profile-field">
+                <span>Bio</span>
+                <textarea
+                  maxLength={280}
+                  onFocus={() => {
+                    if (!isWalletConnected) promptWalletConnection();
+                  }}
+                  onChange={(event) => setBio(event.target.value)}
+                  readOnly={!isWalletConnected}
+                  placeholder="Prediction markets, onchain margin, high-conviction theses."
+                  value={bio}
+                />
+                <small className="profile-field-hint">{bio.length}/280 characters</small>
+              </label>
+
+              <label
+                className={"profile-field" + (showEmailPrompt ? " profile-field-highlight" : "")}
+              >
+                <span>
+                  Email
+                  {showEmailPrompt ? (
+                    <span className="profile-email-badge">Recommended</span>
+                  ) : null}
+                </span>
+                <input
+                  onFocus={() => {
+                    if (!isWalletConnected) promptWalletConnection();
+                  }}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  readOnly={!isWalletConnected}
+                  type="email"
+                  value={email}
+                />
+                <small className="profile-field-hint">
+                  Used for position notifications, vault transaction updates, and beta access.
+                </small>
+              </label>
+
+              <button className="profile-submit" disabled={state.status === "saving"} type="submit">
+                {state.status === "saving"
+                  ? "Claiming..."
+                  : isWalletConnected
+                    ? "Claim .viction profile"
+                    : "Connect wallet to claim"}
+              </button>
+
+              <p
+                className={
+                  "profile-message" +
+                  (state.status === "error" ? " error" : "") +
+                  (state.status === "success" ? " success" : "")
+                }
+              >
+                {state.message || " "}
+              </p>
+            </section>
+
+            <aside className="profile-claim-panel" aria-label="Claim preview">
+              <div className="viction-card">
+                <img alt="Selected .viction avatar" src={avatarDisplay} />
+                <div>
+                  <span>Conviction tag</span>
+                  <strong>{fullHandle}</strong>
+                  <p>{bio || "Signals first. Culture follows conviction."}</p>
+                </div>
+              </div>
+
+              <div className="avatar-option-grid" aria-label="Generated avatars">
+                {avatarOptions.map((option) => {
+                  const isSelected = !avatarUrl && selectedAvatar === option.id;
+
+                  return (
+                    <button
+                      aria-pressed={isSelected}
+                      className={isSelected ? "avatar-option selected" : "avatar-option"}
+                      key={option.id}
+                      aria-disabled={!isWalletConnected}
+                      onClick={() => selectGeneratedAvatar(option.id)}
+                      type="button"
+                    >
+                      <img alt="" src={buildAvatarUrl(option.id, fullHandle)} />
+                      <span>{option.name}</span>
+                      <small>{option.note}</small>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="profile-share-actions">
+                {isWalletConnected && traderProfile?.id ? (
+                  <>
+                    <a href={castUrl} rel="noreferrer" target="_blank">
+                      Cast claim
+                    </a>
+                    <a href={xShareUrl} rel="noreferrer" target="_blank">
+                      Post to X
+                    </a>
+                    <Link href={"/traders/" + traderProfile.id}>View public card</Link>
+                  </>
+                ) : (
+                  <button onClick={() => promptWalletConnection()} type="button">
+                    Connect wallet to share
+                  </button>
+                )}
+              </div>
+            </aside>
+          </form>
+        )}
       </main>
     </TerminalShell>
   );
+}
+
+function formatWalletAddress(walletAddress: string) {
+  return walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
 }
 
 function getConnectedWalletAddress(session: UserSession | null) {

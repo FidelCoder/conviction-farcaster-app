@@ -7372,6 +7372,93 @@ body::after {
   gap: 1.5rem;
   align-items: start;
 }
+.terminal-page .profile-confirmed-view {
+  display: grid;
+  gap: 1rem;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.terminal-page .profile-confirmed-card {
+  display: grid;
+  grid-template-columns: minmax(12rem, 20rem) minmax(0, 1fr);
+  gap: 1.35rem;
+  align-items: stretch;
+  border: 1px solid #262626;
+  border-top: 2px solid #f97316;
+  border-radius: 8px;
+  background: rgba(22, 22, 22, 0.94);
+  padding: 1.1rem;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
+}
+
+.terminal-page .profile-confirmed-card > img {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  background: #0a0a0a;
+  object-fit: cover;
+}
+
+.terminal-page .profile-confirmed-copy {
+  display: grid;
+  align-content: center;
+  gap: 0.85rem;
+}
+
+.terminal-page .profile-confirmed-copy > span {
+  color: #10b981;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.terminal-page .profile-confirmed-copy h2 {
+  margin: 0;
+  color: #ffffff;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: clamp(1.55rem, 3vw, 2.4rem);
+  overflow-wrap: anywhere;
+}
+
+.terminal-page .profile-confirmed-copy p {
+  max-width: 62ch;
+  margin: 0;
+  color: rgba(204, 195, 216, 0.82);
+  line-height: 1.55;
+}
+
+.terminal-page .profile-confirmed-copy dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.terminal-page .profile-confirmed-copy dl div {
+  border: 1px solid #262626;
+  border-radius: 8px;
+  background: rgba(10, 10, 10, 0.72);
+  padding: 0.8rem;
+}
+
+.terminal-page .profile-confirmed-copy dt {
+  color: rgba(204, 195, 216, 0.68);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.terminal-page .profile-confirmed-copy dd {
+  margin: 0.25rem 0 0;
+  color: #ffffff;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
 
 .terminal-page .profile-form,
 .terminal-page .notification-panel,
@@ -7699,7 +7786,8 @@ body::after {
 
 @media (max-width: 1024px) {
   .terminal-page .profile-layout,
-  .terminal-page .settings-grid {
+  .terminal-page .settings-grid,
+  .terminal-page .profile-confirmed-card {
     grid-template-columns: 1fr;
   }
 
@@ -7746,7 +7834,8 @@ body::after {
     width: 100%;
   }
 
-  .terminal-page .avatar-option-grid {
+  .terminal-page .avatar-option-grid,
+  .terminal-page .profile-confirmed-copy dl {
     grid-template-columns: 1fr;
   }
 }
