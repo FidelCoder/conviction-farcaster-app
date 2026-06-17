@@ -24,6 +24,12 @@ export default function MyActivityPage() {
           </p>
         </div>
         <div className="my-activity-actions">
+          <a className="text-link" href="/me/notifications">
+            Notifications
+          </a>
+          <a className="text-link" href="/me/settings">
+            Settings
+          </a>
           <a className="text-link" href="/me/profile">
             Edit profile
           </a>

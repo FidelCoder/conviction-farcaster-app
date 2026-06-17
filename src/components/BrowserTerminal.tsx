@@ -61,7 +61,12 @@ const emptyPortfolio: UserPortfolio = {
   activePositions: [],
 };
 
-export function BrowserTerminal({ execution, leaderboard, markets, socialFeed }: BrowserTerminalProps) {
+export function BrowserTerminal({
+  execution,
+  leaderboard,
+  markets,
+  socialFeed,
+}: BrowserTerminalProps) {
   const predictionMarkets = useMemo(() => markets.map(mapMarketToPredictionMarket), [markets]);
   const displayMarkets = predictionMarkets.length > 0 ? predictionMarkets : [emptyPredictionMarket];
   const vaults = useMemo(() => mapExecutionToVaults(execution), [execution]);
@@ -75,7 +80,8 @@ export function BrowserTerminal({ execution, leaderboard, markets, socialFeed }:
   const [activeMarket, setActiveMarket] = useState<PredictionMarket>(displayMarkets[0]);
   const [alertMessage, setAlertMessage] = useState<AlertMessage>(null);
 
-  const currentMarket = displayMarkets.find((market) => market.id === activeMarket.id) ?? displayMarkets[0];
+  const currentMarket =
+    displayMarkets.find((market) => market.id === activeMarket.id) ?? displayMarkets[0];
 
   function triggerAlert(type: "success" | "info", text: string) {
     setAlertMessage({ type, text });
@@ -194,14 +200,20 @@ export function BrowserTerminal({ execution, leaderboard, markets, socialFeed }:
           },
         ],
       }));
-      triggerAlert("success", "Core recorded the margin intent. Execution remains pending until wallet contract calls are submitted.");
+      triggerAlert(
+        "success",
+        "Core recorded the margin intent. Execution remains pending until wallet contract calls are submitted.",
+      );
     } catch {
       triggerAlert("info", "Core API did not accept the margin request.");
     }
   }
 
   function handleDeposit() {
-    triggerAlert("info", "Vault deposits need a dedicated signer flow before they can be submitted from this deck.");
+    triggerAlert(
+      "info",
+      "Vault deposits need a dedicated signer flow before they can be submitted from this deck.",
+    );
   }
 
   function handleWithdraw() {
@@ -209,7 +221,10 @@ export function BrowserTerminal({ execution, leaderboard, markets, socialFeed }:
   }
 
   function handleCreateVault() {
-    triggerAlert("info", "Custom vault deployment requires governance and contract deployment support first.");
+    triggerAlert(
+      "info",
+      "Custom vault deployment requires governance and contract deployment support first.",
+    );
   }
 
   function handleModifyRisk() {
@@ -217,11 +232,17 @@ export function BrowserTerminal({ execution, leaderboard, markets, socialFeed }:
   }
 
   function handlePostActivity() {
-    triggerAlert("info", "Standalone social broadcasts need a core API route before posting is enabled.");
+    triggerAlert(
+      "info",
+      "Standalone social broadcasts need a core API route before posting is enabled.",
+    );
   }
 
   function handleLikeActivity() {
-    triggerAlert("info", "Connect a core social session from a signal page to react to real posts.");
+    triggerAlert(
+      "info",
+      "Connect a core social session from a signal page to react to real posts.",
+    );
   }
 
   return (
@@ -236,6 +257,7 @@ export function BrowserTerminal({ execution, leaderboard, markets, socialFeed }:
         activeTab={activeTab}
         onOpenRequest={() => setActiveTab("margin-desk")}
         portfolio={portfolio}
+        session={session}
         setActiveTab={setActiveTab}
       />
 
@@ -299,7 +321,11 @@ export function BrowserTerminal({ execution, leaderboard, markets, socialFeed }:
 
       {alertMessage ? (
         <div className="fixed top-20 right-6 z-[60] max-w-sm bg-[#161616] border border-[#262626] rounded-lg shadow-2xl overflow-hidden animate-scale-up">
-          <div className={"h-1 " + (alertMessage.type === "success" ? "bg-[#10B981]" : "bg-deep-orange")} />
+          <div
+            className={
+              "h-1 " + (alertMessage.type === "success" ? "bg-[#10B981]" : "bg-deep-orange")
+            }
+          />
           <div className="px-5 py-4">
             <p className="font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/70 mb-1">
               {alertMessage.type === "success" ? "Confirmed" : "Notice"}
@@ -466,5 +492,11 @@ function getEthereumProvider() {
     return null;
   }
 
-  return (window as Window & { ethereum?: { request: (input: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum ?? null;
+  return (
+    (
+      window as Window & {
+        ethereum?: { request: (input: { method: string; params?: unknown[] }) => Promise<unknown> };
+      }
+    ).ethereum ?? null
+  );
 }

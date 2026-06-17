@@ -17,6 +17,7 @@ export async function POST(request: Request) {
   }
 
   const fid = parseFid(body.fid);
+  const username = optionalString(body.username);
 
   if (!fid) {
     return validationError("A valid Farcaster fid is required.");
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
   try {
     const session = await createFarcasterSession({
       fid,
-      username: optionalString(body.username),
+      username,
       displayName: optionalString(body.displayName),
       pfpUrl: optionalString(body.pfpUrl),
     });
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
       session.traderProfile ??
       (await upsertTraderProfile({
         userId: session.user.id,
-        handle: buildStableTraderHandle(fid),
+        handle: buildStableTraderHandle(fid, username),
         bio: null,
       }));
 
@@ -117,9 +118,12 @@ function isRecord(value: unknown): value is FarcasterSessionBody {
   return typeof value === "object" && value !== null;
 }
 
-function buildStableTraderHandle(fid: number) {
-  // Auto-create handles with the .viction suffix for community identity
-  const shortId = String(fid).slice(0, 24);
+function buildStableTraderHandle(fid: number, username: string | null) {
+  const base = (username ?? "fc" + String(fid))
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]/g, "")
+    .replace(/\.viction$/, "")
+    .slice(0, 32);
 
-  return "fc" + shortId + ".viction";
+  return (base || "fc" + String(fid)) + ".viction";
 }

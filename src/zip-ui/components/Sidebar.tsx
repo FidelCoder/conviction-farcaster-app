@@ -1,57 +1,83 @@
-import { UserPortfolio } from '../types';
-import { 
-  TrendingUp, 
-  Wallet, 
-  Lock, 
-  History, 
-  HelpCircle, 
+import { UserSession } from "../../lib/core-api";
+import { UserPortfolio } from "../types";
+import {
+  TrendingUp,
+  Wallet,
+  Lock,
+  History,
+  HelpCircle,
   BookOpen,
+  Settings,
+  Bell,
   ArrowRight,
   ShieldCheck,
   User,
   Plus,
-  Home
-} from 'lucide-react';
+  Home,
+} from "lucide-react";
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   portfolio: UserPortfolio;
+  session: UserSession | null;
   onOpenRequest: () => void;
 }
 
-export default function Sidebar({ activeTab, setActiveTab, portfolio, onOpenRequest }: SidebarProps) {
+export default function Sidebar({
+  activeTab,
+  setActiveTab,
+  portfolio,
+  session,
+  onOpenRequest,
+}: SidebarProps) {
   const primaryNavigation = [
-    { id: 'landing', label: 'Home', icon: Home },
-    { id: 'markets', label: 'Markets', icon: TrendingUp },
-    { id: 'margin-desk', label: 'Margin Desk', icon: Wallet },
-    { id: 'vaults', label: 'Vaults', icon: Lock },
-    { id: 'activity', label: 'Activity', icon: History }
+    { id: "landing", label: "Home", icon: Home },
+    { id: "markets", label: "Markets", icon: TrendingUp },
+    { id: "margin-desk", label: "Margin Desk", icon: Wallet },
+    { id: "vaults", label: "Vaults", icon: Lock },
+    { id: "activity", label: "Activity", icon: History },
   ];
 
   return (
     <aside className="fixed left-0 top-16 bottom-0 z-40 flex flex-col bg-[#0e0e0e] border-r border-[#262626] transition-all duration-300 w-20 md:w-64">
-      {/* Profiler Header (Hidden on Mobile) */}
+      {/* Profile Header (Hidden on Mobile) */}
       <div className="p-4 md:p-5 border-b border-[#262626] hidden md:block">
-        <div className="flex items-center gap-3 mb-4">
+        <button
+          onClick={() => {
+            window.location.href = "/me/profile";
+          }}
+          className="w-full flex items-center gap-3 mb-4 text-left hover:bg-white/5 rounded-lg p-1 -mx-1 transition-colors cursor-pointer"
+        >
           <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden border border-[#262626] flex-shrink-0 flex items-center justify-center">
-            <User size={20} className={portfolio.connected ? "text-deep-orange" : "text-[#ccc3d8]"} />
+            {session?.traderProfile?.avatarUrl || session?.socialAccount?.profileUrl ? (
+              <img
+                alt="Profile avatar"
+                className="w-full h-full object-cover"
+                src={session?.traderProfile?.avatarUrl || session?.socialAccount?.profileUrl || ""}
+              />
+            ) : (
+              <User
+                size={20}
+                className={portfolio.connected ? "text-deep-orange" : "text-[#ccc3d8]"}
+              />
+            )}
           </div>
-          <div className="overflow-hidden">
+          <div className="overflow-hidden flex-1 min-w-0">
             <h3 className="font-mono text-xs font-bold text-white truncate">
-              {portfolio.connected ? 'Margin Trader' : 'Terminal Guest'}
+              {session?.traderProfile?.handle || (portfolio.connected ? "trader.viction" : "guest")}
             </h3>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
               <span className="font-mono text-[10px] text-[#ccc3d8] uppercase tracking-widest leading-none">
-                {portfolio.connected ? 'Terminal Active' : 'Ready'}
+                {session?.user?.email ? "Verified" : "Profile"}
               </span>
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Create Request button inside profiles panel */}
-        <button 
+        <button
           onClick={onOpenRequest}
           className="w-full bg-deep-orange text-black font-sans font-bold text-xs py-2.5 rounded hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer"
         >
@@ -62,7 +88,7 @@ export default function Sidebar({ activeTab, setActiveTab, portfolio, onOpenRequ
 
       {/* Mobile-only request indicator / button */}
       <div className="p-3 border-b border-[#262626] md:hidden flex justify-center">
-        <button 
+        <button
           onClick={onOpenRequest}
           className="p-2.5 bg-deep-orange text-black rounded-full hover:opacity-90 transition-opacity cursor-pointer"
           title="Open request"
@@ -83,8 +109,8 @@ export default function Sidebar({ activeTab, setActiveTab, portfolio, onOpenRequ
               onClick={() => setActiveTab(nav.id)}
               className={`flex items-center gap-3.5 px-3 py-3 rounded text-left transition-all cursor-pointer ${
                 isSelected
-                  ? 'bg-deep-orange/10 text-deep-orange border-r-2 border-deep-orange'
-                  : 'text-[#ccc3d8] hover:text-white hover:bg-white/5'
+                  ? "bg-deep-orange/10 text-deep-orange border-r-2 border-deep-orange"
+                  : "text-[#ccc3d8] hover:text-white hover:bg-white/5"
               }`}
             >
               <Icon size={18} className="flex-shrink-0" />
@@ -98,7 +124,7 @@ export default function Sidebar({ activeTab, setActiveTab, portfolio, onOpenRequ
         {/* Hardcoded visual tabs from design */}
         <button
           onClick={() => {
-            setActiveTab('activity');
+            setActiveTab("activity");
             // Auto scroll to leaderboard after mounting can be handled or implied
           }}
           className={`flex items-center gap-3.5 px-3 py-3 rounded text-left transition-all text-[#ccc3d8] hover:text-white hover:bg-white/5 cursor-pointer`}
@@ -112,21 +138,41 @@ export default function Sidebar({ activeTab, setActiveTab, portfolio, onOpenRequ
 
       {/* Footer Navigation details */}
       <div className="p-3 md:p-4 border-t border-[#262626] flex flex-col gap-1.5 mt-auto">
-        <a 
-          href="#help" 
-          onClick={(e) => { e.preventDefault(); alert('Support desk is not connected yet.'); }}
+        <a
+          href="/me/notifications"
           className="flex items-center gap-3 px-3 py-2 text-[#ccc3d8] hover:text-white transition-colors"
         >
-          <HelpCircle size={16} className="flex-shrink-0" />
-          <span className="font-mono text-[10px] uppercase tracking-wider hidden md:inline">Support</span>
+          <Bell size={16} className="flex-shrink-0" />
+          <span className="font-mono text-[10px] uppercase tracking-wider hidden md:inline">
+            Notifications
+          </span>
         </a>
-        <a 
-          href="#docs" 
-          onClick={(e) => { e.preventDefault(); alert('Docs route is not connected yet.'); }}
+        <a
+          href="/me/settings"
+          className="flex items-center gap-3 px-3 py-2 text-[#ccc3d8] hover:text-white transition-colors"
+        >
+          <Settings size={16} className="flex-shrink-0" />
+          <span className="font-mono text-[10px] uppercase tracking-wider hidden md:inline">
+            Settings
+          </span>
+        </a>
+        <a
+          href="/docs"
           className="flex items-center gap-3 px-3 py-2 text-[#ccc3d8] hover:text-white transition-colors"
         >
           <BookOpen size={16} className="flex-shrink-0 text-[#ccc3d8]" />
-          <span className="font-mono text-[10px] uppercase tracking-wider hidden md:inline">Docs</span>
+          <span className="font-mono text-[10px] uppercase tracking-wider hidden md:inline">
+            Docs
+          </span>
+        </a>
+        <a
+          href="/docs#glossary"
+          className="flex items-center gap-3 px-3 py-2 text-[#ccc3d8] hover:text-white transition-colors"
+        >
+          <HelpCircle size={16} className="flex-shrink-0" />
+          <span className="font-mono text-[10px] uppercase tracking-wider hidden md:inline">
+            Support
+          </span>
         </a>
       </div>
     </aside>

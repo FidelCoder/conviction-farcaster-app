@@ -6987,3 +6987,228 @@ body::after {
   width: 4.8rem;
   height: 4.8rem;
 }
+
+
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.profile-claim-panel {
+  display: grid;
+  gap: 1rem;
+  position: sticky;
+  top: 6rem;
+}
+
+.viction-card {
+  display: grid;
+  gap: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 1rem;
+}
+
+.viction-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.viction-card span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.viction-card strong {
+  display: block;
+  color: var(--ink);
+  font-size: 1.35rem;
+  font-weight: 950;
+  margin-top: 0.2rem;
+  overflow-wrap: anywhere;
+}
+
+.viction-card p {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 0.45rem 0 0;
+}
+
+.avatar-option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.avatar-option {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0.55rem;
+  text-align: left;
+}
+
+.avatar-option:hover,
+.avatar-option.selected {
+  border-color: rgba(249, 115, 22, 0.55);
+  background: rgba(249, 115, 22, 0.1);
+}
+
+.avatar-option img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.avatar-option span {
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.avatar-option small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.profile-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.profile-share-actions a,
+.settings-card a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 900;
+  padding: 0 0.85rem;
+  text-decoration: none;
+}
+
+.profile-share-actions a:hover,
+.settings-card a:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.profile-action-button.secondary {
+  background: transparent;
+}
+
+.settings-status-pill {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--green);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  font-weight: 900;
+  padding: 0.55rem 0.85rem;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.settings-card,
+.notification-panel {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 1rem;
+}
+
+.settings-card h2 {
+  color: var(--ink);
+  font-size: 1rem;
+  margin: 0 0 0.45rem;
+}
+
+.settings-card p {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.settings-wide-card {
+  margin-top: 1rem;
+}
+
+.notification-panel {
+  max-width: 44rem;
+  margin-top: 1rem;
+}
+
+.notification-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.notification-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 0.75rem;
+}
+
+.notification-row input {
+  margin-top: 0.2rem;
+}
+
+.notification-row strong {
+  display: block;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.notification-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 860px) {
+  .profile-layout,
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-claim-panel {
+    position: static;
+  }
+}
