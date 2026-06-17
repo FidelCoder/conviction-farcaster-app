@@ -12,7 +12,6 @@ import {
   ArrowRight,
   ShieldCheck,
   User,
-  Plus,
   Home,
 } from "lucide-react";
 
@@ -40,7 +39,7 @@ export default function Sidebar({
   ];
 
   return (
-    <aside className="fixed left-0 top-16 bottom-0 z-40 flex flex-col bg-[#0e0e0e] border-r border-[#262626] transition-all duration-300 w-20 md:w-64">
+    <aside className="hidden md:flex fixed left-0 top-16 bottom-0 z-40 flex-col bg-[#0e0e0e] border-r border-[#262626] transition-all duration-300 md:w-64">
       {/* Profile Header (Hidden on Mobile) */}
       <div className="p-4 md:p-5 border-b border-[#262626] hidden md:block">
         <button
@@ -83,17 +82,6 @@ export default function Sidebar({
         >
           <span>Open Request</span>
           <ArrowRight size={14} />
-        </button>
-      </div>
-
-      {/* Mobile-only request indicator / button */}
-      <div className="p-3 border-b border-[#262626] md:hidden flex justify-center">
-        <button
-          onClick={onOpenRequest}
-          className="p-2.5 bg-deep-orange text-black rounded-full hover:opacity-90 transition-opacity cursor-pointer"
-          title="Open request"
-        >
-          <Plus size={18} />
         </button>
       </div>
 

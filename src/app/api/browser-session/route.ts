@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { CoreApiError, createBrowserWalletSession } from "../../../lib/core-api";
+import {
+  CoreApiError,
+  createBrowserWalletSession,
+  upsertTraderProfile,
+} from "../../../lib/core-api";
 
 const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
 
@@ -19,8 +23,18 @@ export async function POST(request: Request) {
 
   try {
     const session = await createBrowserWalletSession({ walletAddress });
+    const traderProfile =
+      session.traderProfile ??
+      (await upsertTraderProfile({
+        userId: session.user.id,
+        handle: buildWalletHandle(walletAddress),
+        bio: null,
+      }));
 
-    return NextResponse.json({ ok: true, data: { session } }, { status: 201 });
+    return NextResponse.json(
+      { ok: true, data: { session: { ...session, traderProfile } } },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof CoreApiError) {
       return NextResponse.json(
@@ -65,4 +79,13 @@ function stringField(record: Record<string, unknown>, key: string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function buildWalletHandle(walletAddress: string) {
+  return (
+    "wallet" +
+    walletAddress.slice(2, 8).toLowerCase() +
+    walletAddress.slice(-4).toLowerCase() +
+    ".viction"
+  );
 }

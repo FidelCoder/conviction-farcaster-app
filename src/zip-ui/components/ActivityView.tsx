@@ -39,7 +39,7 @@ export default function ActivityView({
   }));
 
   return (
-    <main className="flex-1 ml-20 md:ml-64 bg-grid-tech overflow-y-auto relative z-10 w-full min-h-[calc(100vh-64px)]">
+    <main className="flex-1 md:ml-64 bg-grid-tech overflow-y-auto relative z-10 w-full min-h-[calc(100vh-64px)]">
       <div className="max-w-[1280px] mx-auto px-4 md:px-10 py-8 md:py-12">
         
         {/* Title Header Section */}
@@ -108,7 +108,7 @@ export default function ActivityView({
                       )}
 
                       <div className="flex-1">
-                        <div className="flex justify-between items-baseline mb-1">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1 mb-1">
                           <div className="flex items-center gap-2">
                             <span className={`font-mono text-sm font-bold ${isSystem ? 'text-deep-orange' : 'text-white'}`}>
                               {isSystem ? item.name : `@${item.username}`}
@@ -124,7 +124,7 @@ export default function ActivityView({
 
                         {/* Interactive actions for regular messages */}
                         {!isSystem && (
-                          <div className="flex items-center gap-6 text-[#ccc3d8] font-mono text-[10px] uppercase font-bold tracking-widest">
+                          <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-[#ccc3d8] font-mono text-[10px] uppercase font-bold tracking-widest">
                             <button 
                               onClick={() => onLikeActivity(item.id)}
                               className={`flex items-center gap-1.5 transition-colors group/btn cursor-pointer ${

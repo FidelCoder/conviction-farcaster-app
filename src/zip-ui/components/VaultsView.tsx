@@ -132,7 +132,7 @@ export default function VaultsView({
   const activeVault = vaults.find(v => v.id === selectedVaultId);
 
   return (
-    <main className="flex-1 ml-20 md:ml-64 bg-grid-tech pt-8 px-4 md:px-10 pb-32 max-w-[1280px] mx-auto w-full">
+    <main className="flex-1 md:ml-64 bg-grid-tech pt-8 px-4 md:px-10 pb-32 max-w-[1280px] mx-auto w-full">
       
       {/* 1. PROTOCOL HEADER METRICS */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">

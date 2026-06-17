@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
-import { FarcasterSessionPanel } from "../../../components/FarcasterSessionPanel";
-import { useFarcasterSession } from "../../../hooks/useFarcasterSession";
+import { TerminalShell } from "../../../components/TerminalShell";
+import {
+  getExecutionCapabilities,
+  listMarkets,
+  type ExecutionCapabilities,
+  type UserSession,
+} from "../../../lib/core-api";
 
 type EmailResponse =
   | { ok: true; data: { email: string } }
@@ -49,38 +54,52 @@ const defaultPreferences: Record<PreferenceKey, boolean> = {
 };
 
 export default function NotificationsPage() {
-  const sessionState = useFarcasterSession();
-  const session = sessionState.status === "ready" ? sessionState.session : null;
+  const [terminalData, setTerminalData] = useState<{
+    execution: ExecutionCapabilities;
+    marketCount: number;
+  } | null>(null);
+  const [session, setSession] = useState<UserSession | null>(null);
   const [email, setEmail] = useState("");
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [state, setState] = useState<SaveState>({ status: "idle", message: "" });
 
   useEffect(() => {
-    if (session?.user.email) {
-      setEmail(session.user.email);
+    void Promise.all([getExecutionCapabilities(), listMarkets()]).then(([execution, markets]) => {
+      setTerminalData({ execution, marketCount: markets.length });
+    });
+
+    const rawSession = window.localStorage.getItem("conviction-browser-session");
+    if (rawSession) {
+      try {
+        const storedSession = JSON.parse(rawSession) as UserSession;
+        setSession(storedSession);
+        setEmail(storedSession.user.email ?? "");
+      } catch {
+        window.localStorage.removeItem("conviction-browser-session");
+      }
     }
-  }, [session?.user.email]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const raw = window.localStorage.getItem("conviction-notification-preferences");
-
-    if (!raw) return;
-
-    try {
-      const parsed = JSON.parse(raw) as Partial<Record<PreferenceKey, boolean>>;
-      setPreferences({ ...defaultPreferences, ...parsed });
-    } catch {
-      setPreferences(defaultPreferences);
+    const rawPreferences = window.localStorage.getItem("conviction-notification-preferences");
+    if (rawPreferences) {
+      try {
+        const parsed = JSON.parse(rawPreferences) as Partial<Record<PreferenceKey, boolean>>;
+        setPreferences({ ...defaultPreferences, ...parsed });
+      } catch {
+        setPreferences(defaultPreferences);
+      }
     }
+  }, []);
+
+  const handleSessionChange = useCallback((nextSession: UserSession | null) => {
+    setSession(nextSession);
+    setEmail(nextSession?.user.email ?? "");
   }, []);
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!session) {
-      setState({ status: "error", message: "Connect a Farcaster account first." });
+      setState({ status: "error", message: "Connect a wallet from the terminal header first." });
       return;
     }
 
@@ -107,6 +126,10 @@ export default function NotificationsPage() {
         return;
       }
 
+      const nextSession = { ...session, user: { ...session.user, email: body.data.email } };
+
+      setSession(nextSession);
+      window.localStorage.setItem("conviction-browser-session", JSON.stringify(nextSession));
       window.localStorage.setItem(
         "conviction-notification-preferences",
         JSON.stringify(preferences),
@@ -122,70 +145,89 @@ export default function NotificationsPage() {
   }
 
   return (
-    <main className="page-shell wide">
-      <section className="page-heading compact split-heading">
-        <div>
-          <p className="eyebrow">Notifications</p>
-          <h1>Notification center</h1>
-          <p>Pick the updates that should follow your .viction identity.</p>
-        </div>
-        <div className="my-activity-actions">
-          <Link className="text-link" href="/me/settings">
-            Settings
-          </Link>
-          <Link className="text-link" href="/me/profile">
-            Profile
-          </Link>
-        </div>
-      </section>
+    <TerminalShell
+      activeTab="notifications"
+      execution={terminalData?.execution ?? fallbackExecution}
+      marketCount={terminalData?.marketCount ?? 0}
+      onSessionChange={handleSessionChange}
+      sessionOverride={session ?? undefined}
+    >
+      <main className="terminal-page terminal-account-page">
+        <section className="terminal-page-heading">
+          <div>
+            <p>Notifications</p>
+            <h1>Notification center</h1>
+            <span>Pick the updates that should follow your .viction identity.</span>
+          </div>
+          <div className="my-activity-actions">
+            <Link className="text-link" href="/me/settings">
+              Settings
+            </Link>
+            <Link className="text-link" href="/me/profile">
+              Profile
+            </Link>
+          </div>
+        </section>
 
-      <FarcasterSessionPanel
-        label="Farcaster account"
-        readyMessage="Notifications are attached to your core user."
-        sessionState={sessionState}
-      />
+        <section className="terminal-connect-panel">
+          <span>{session ? "Wallet profile active" : "Wallet profile required"}</span>
+          <p>Connect from the top-right wallet action. No Farcaster account is required.</p>
+        </section>
 
-      <form className="notification-panel" onSubmit={handleSave}>
-        <label className="profile-field">
-          <span>Email destination</span>
-          <input
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-            type="email"
-            value={email}
-          />
-        </label>
+        <form className="notification-panel" onSubmit={handleSave}>
+          <label className="profile-field">
+            <span>Email destination</span>
+            <input
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+              type="email"
+              value={email}
+            />
+          </label>
 
-        <div className="notification-list">
-          {preferenceLabels.map((item) => (
-            <label className="notification-row" key={item.key}>
-              <input
-                checked={preferences[item.key]}
-                onChange={() => togglePreference(item.key)}
-                type="checkbox"
-              />
-              <span>
-                <strong>{item.title}</strong>
-                <small>{item.body}</small>
-              </span>
-            </label>
-          ))}
-        </div>
+          <div className="notification-list">
+            {preferenceLabels.map((item) => (
+              <label className="notification-row" key={item.key}>
+                <input
+                  checked={preferences[item.key]}
+                  onChange={() => togglePreference(item.key)}
+                  type="checkbox"
+                />
+                <span>
+                  <strong>{item.title}</strong>
+                  <small>{item.body}</small>
+                </span>
+              </label>
+            ))}
+          </div>
 
-        <button className="profile-submit" disabled={state.status === "saving"} type="submit">
-          {state.status === "saving" ? "Saving..." : "Save notifications"}
-        </button>
+          <button className="profile-submit" disabled={state.status === "saving"} type="submit">
+            {state.status === "saving" ? "Saving..." : "Save notifications"}
+          </button>
 
-        <p
-          className={
-            "profile-message" +
-            (state.status === "error" ? " error" : "") +
-            (state.status === "saved" ? " success" : "")
-          }
-        >
-          {state.message || " "}
-        </p>
-      </form>
-    </main>
+          <p
+            className={
+              "profile-message" +
+              (state.status === "error" ? " error" : "") +
+              (state.status === "saved" ? " success" : "")
+            }
+          >
+            {state.message || " "}
+          </p>
+        </form>
+      </main>
+    </TerminalShell>
   );
 }
+
+const fallbackExecution: ExecutionCapabilities = {
+  evmOnly: true,
+  architecture: "INTENT_FIRST_MULTICHAIN_MARGIN_LAYER",
+  spotExecutionEnabled: false,
+  marginExecutionEnabled: false,
+  leverageEnabled: false,
+  leverageRequiresContracts: true,
+  activeAdapters: [],
+  recommendation: "Connect core API for live execution capabilities.",
+  chains: [],
+};

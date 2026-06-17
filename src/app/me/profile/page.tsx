@@ -3,8 +3,14 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 
-import { FarcasterSessionPanel } from "../../../components/FarcasterSessionPanel";
-import { useFarcasterSession } from "../../../hooks/useFarcasterSession";
+import { TerminalShell } from "../../../components/TerminalShell";
+import {
+  getExecutionCapabilities,
+  listMarkets,
+  type ExecutionCapabilities,
+  type TraderProfile,
+  type UserSession,
+} from "../../../lib/core-api";
 
 type ProfileEditState =
   | { status: "idle"; message: string }
@@ -16,7 +22,7 @@ type ProfileResponse =
   | {
       ok: true;
       data: {
-        traderProfile: { id: string; handle: string; bio: string | null; avatarUrl: string | null };
+        traderProfile: TraderProfile;
       };
     }
   | { ok: false; error: { code: string; message: string } };
@@ -26,11 +32,11 @@ type EmailResponse =
   | { ok: false; error: { code: string; message: string } };
 
 const avatarOptions = [
-  { id: "signal", name: "Signal Flame", note: "orange execution energy" },
-  { id: "oracle", name: "Oracle Glass", note: "clean probability lens" },
-  { id: "vault", name: "Vault Crest", note: "collateral guardian" },
-  { id: "cast", name: "Cast Ring", note: "social conviction loop" },
-  { id: "neon", name: "Neon Thesis", note: "night-market analyst" },
+  { id: "bottts", name: "Signal Bot", note: "clean Web3 robo-PFP", style: "bottts" },
+  { id: "rings", name: "Orbit Ring", note: "abstract onchain identity", style: "rings" },
+  { id: "identicon", name: "Vault Sigil", note: "wallet-native symbol", style: "identicon" },
+  { id: "shapes", name: "Market Shape", note: "bold protocol geometry", style: "shapes" },
+  { id: "adventurer", name: "Desk Avatar", note: "human trader card", style: "adventurer-neutral" },
 ] as const;
 
 type AvatarVariant = (typeof avatarOptions)[number]["id"];
@@ -38,12 +44,15 @@ type AvatarVariant = (typeof avatarOptions)[number]["id"];
 const victionSuffix = ".viction";
 
 export default function ProfilePage() {
-  const sessionState = useFarcasterSession();
+  const [terminalData, setTerminalData] = useState<{
+    execution: ExecutionCapabilities;
+    marketCount: number;
+  } | null>(null);
   const [handle, setHandle] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [email, setEmail] = useState("");
-  const [selectedAvatar, setSelectedAvatar] = useState<AvatarVariant>("signal");
+  const [selectedAvatar, setSelectedAvatar] = useState<AvatarVariant>("bottts");
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   const [state, setState] = useState<ProfileEditState>({
     status: "idle",
@@ -51,9 +60,8 @@ export default function ProfilePage() {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isReady = sessionState.status === "ready";
-  const session = isReady ? sessionState.session : null;
-  const traderProfile = session?.traderProfile;
+  const [session, setSession] = useState<UserSession | null>(null);
+  const traderProfile = session?.traderProfile ?? null;
   const fullHandle = useMemo(() => buildFullHandle(handle), [handle]);
   const generatedAvatarUrl = useMemo(
     () => buildAvatarUrl(selectedAvatar, fullHandle),
@@ -73,6 +81,21 @@ export default function ProfilePage() {
     "https://twitter.com/intent/tweet?text=" +
     encodeURIComponent(shareText) +
     (shareTarget ? "&url=" + encodeURIComponent(shareTarget) : "");
+
+  useEffect(() => {
+    void Promise.all([getExecutionCapabilities(), listMarkets()]).then(([execution, markets]) => {
+      setTerminalData({ execution, marketCount: markets.length });
+    });
+
+    const raw = window.localStorage.getItem("conviction-browser-session");
+    if (raw) {
+      try {
+        setSession(JSON.parse(raw));
+      } catch {
+        window.localStorage.removeItem("conviction-browser-session");
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (traderProfile) {
@@ -95,17 +118,15 @@ export default function ProfilePage() {
     if (session?.user.email) {
       setEmail(session.user.email);
       setShowEmailPrompt(false);
-    } else if (isReady) {
+    } else if (session) {
       setShowEmailPrompt(true);
     }
-  }, [traderProfile, session, isReady]);
+  }, [traderProfile, session]);
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const session = isReady ? sessionState.session : null;
-
     if (!session) {
-      setState({ status: "error", message: "Connect a Farcaster account first." });
+      setState({ status: "error", message: "Connect a wallet from the terminal header first." });
       return;
     }
 
@@ -140,6 +161,8 @@ export default function ProfilePage() {
         return;
       }
 
+      let nextEmail = session.user.email;
+
       if (email.trim() && email.trim() !== session.user.email) {
         const emailResponse = await fetch("/api/user-email", {
           method: "PATCH",
@@ -155,9 +178,20 @@ export default function ProfilePage() {
           });
           return;
         }
+
+        nextEmail = emailBody.data.email;
       }
 
+      const nextSession: UserSession = {
+        ...session,
+        user: { ...session.user, email: nextEmail },
+        traderProfile: profileBody.data.traderProfile,
+      };
+
+      setSession(nextSession);
+      window.localStorage.setItem("conviction-browser-session", JSON.stringify(nextSession));
       setHandle(cleanHandle);
+      setEmail(nextEmail ?? "");
       setState({ status: "success", message: "Claimed " + nextFullHandle + "." });
       setShowEmailPrompt(false);
 
@@ -201,186 +235,197 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="page-shell wide">
-      <section className="page-heading compact split-heading">
-        <div>
-          <p className="eyebrow">Profile</p>
-          <h1>Claim your .viction identity</h1>
-          <p>
-            Your handle, avatar, bio, and email become the identity layer around your signals and
-            margin intents.
-          </p>
-        </div>
-        <div className="my-activity-actions">
-          <Link className="text-link" href="/me/settings">
-            Settings
-          </Link>
-          <Link className="text-link" href="/me/notifications">
-            Notifications
-          </Link>
-        </div>
-      </section>
-
-      <FarcasterSessionPanel
-        label="Farcaster account"
-        readyMessage="Edit your trader profile below."
-        sessionState={sessionState}
-      />
-
-      <form className="profile-layout" onSubmit={handleSave}>
-        <section className="profile-form" aria-label="Profile editor">
-          <div className="profile-avatar-section">
-            <div className="profile-avatar-preview">
-              <div className="profile-avatar-img-wrapper">
-                <img
-                  alt="Profile avatar"
-                  className="profile-avatar-img"
-                  src={avatarDisplay}
-                  onError={(event) => {
-                    (event.target as HTMLElement).style.display = "none";
-                  }}
-                />
-              </div>
-            </div>
-            <div className="profile-avatar-actions">
-              <button
-                className="profile-action-button"
-                onClick={() => fileInputRef.current?.click()}
-                type="button"
-              >
-                Upload image
-              </button>
-              <button
-                className="profile-action-button secondary"
-                onClick={() => setAvatarUrl("")}
-                type="button"
-              >
-                Use generated
-              </button>
-              <input
-                accept="image/png,image/jpeg,image/gif,image/webp"
-                className="profile-file-input"
-                onChange={handleFileUpload}
-                ref={fileInputRef}
-                type="file"
-              />
-              <span className="profile-avatar-hint">Pick a culture card or bring your own.</span>
-            </div>
-          </div>
-
-          <label className="profile-field">
-            <span>Handle</span>
-            <div className="profile-handle-input">
-              <input
-                className="profile-handle-prefix"
-                onChange={(event) => setHandle(normalizeHandleInput(event.target.value))}
-                placeholder="sue"
-                type="text"
-                value={handle}
-              />
-              <span className="profile-handle-suffix">.viction</span>
-            </div>
-            <small className="profile-field-hint">
-              Your claimed tag will be <strong>{fullHandle}</strong>.
-            </small>
-          </label>
-
-          <label className="profile-field">
-            <span>Avatar URL</span>
-            <input
-              onChange={(event) => setAvatarUrl(event.target.value)}
-              placeholder="https://example.com/avatar.png"
-              type="url"
-              value={avatarUrl}
-            />
-          </label>
-
-          <label className="profile-field">
-            <span>Bio</span>
-            <textarea
-              maxLength={280}
-              onChange={(event) => setBio(event.target.value)}
-              placeholder="Prediction markets, onchain margin, high-conviction theses."
-              value={bio}
-            />
-            <small className="profile-field-hint">{bio.length}/280 characters</small>
-          </label>
-
-          <label className={"profile-field" + (showEmailPrompt ? " profile-field-highlight" : "")}>
+    <TerminalShell
+      activeTab="profile"
+      execution={terminalData?.execution ?? fallbackExecution}
+      marketCount={terminalData?.marketCount ?? 0}
+      onSessionChange={setSession}
+      sessionOverride={session ?? undefined}
+    >
+      <main className="terminal-page terminal-account-page">
+        <section className="terminal-page-heading">
+          <div>
+            <p>Profile</p>
+            <h1>Claim your .viction identity</h1>
             <span>
-              Email
-              {showEmailPrompt ? <span className="profile-email-badge">Recommended</span> : null}
+              Your handle, avatar, bio, and email become the identity layer around your signals and
+              margin intents.
             </span>
-            <input
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              type="email"
-              value={email}
-            />
-            <small className="profile-field-hint">
-              Used for position notifications, vault transaction updates, and beta access.
-            </small>
-          </label>
+          </div>
+          <div className="my-activity-actions">
+            <Link className="text-link" href="/me/settings">
+              Settings
+            </Link>
+            <Link className="text-link" href="/me/notifications">
+              Notifications
+            </Link>
+          </div>
+        </section>
 
-          <button className="profile-submit" disabled={state.status === "saving"} type="submit">
-            {state.status === "saving" ? "Claiming..." : "Claim .viction profile"}
-          </button>
-
-          <p
-            className={
-              "profile-message" +
-              (state.status === "error" ? " error" : "") +
-              (state.status === "success" ? " success" : "")
-            }
-          >
-            {state.message || " "}
+        <section className="terminal-connect-panel">
+          <span>{session ? "Wallet profile active" : "Wallet profile required"}</span>
+          <p>
+            Connect a browser wallet from the top-right action. No Farcaster connection is required.
           </p>
         </section>
 
-        <aside className="profile-claim-panel" aria-label="Claim preview">
-          <div className="viction-card">
-            <img alt="Selected .viction avatar" src={avatarDisplay} />
-            <div>
-              <span>Conviction tag</span>
-              <strong>{fullHandle}</strong>
-              <p>{bio || "Signals first. Culture follows conviction."}</p>
-            </div>
-          </div>
-
-          <div className="avatar-option-grid" aria-label="Generated avatars">
-            {avatarOptions.map((option) => {
-              const isSelected = !avatarUrl && selectedAvatar === option.id;
-
-              return (
+        <form className="profile-layout" onSubmit={handleSave}>
+          <section className="profile-form" aria-label="Profile editor">
+            <div className="profile-avatar-section">
+              <div className="profile-avatar-preview">
+                <div className="profile-avatar-img-wrapper">
+                  <img
+                    alt="Profile avatar"
+                    className="profile-avatar-img"
+                    src={avatarDisplay}
+                    onError={(event) => {
+                      (event.target as HTMLElement).style.display = "none";
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="profile-avatar-actions">
                 <button
-                  aria-pressed={isSelected}
-                  className={isSelected ? "avatar-option selected" : "avatar-option"}
-                  key={option.id}
-                  onClick={() => selectGeneratedAvatar(option.id)}
+                  className="profile-action-button"
+                  onClick={() => fileInputRef.current?.click()}
                   type="button"
                 >
-                  <img alt="" src={buildAvatarUrl(option.id, fullHandle)} />
-                  <span>{option.name}</span>
-                  <small>{option.note}</small>
+                  Upload image
                 </button>
-              );
-            })}
-          </div>
+                <button
+                  className="profile-action-button secondary"
+                  onClick={() => setAvatarUrl("")}
+                  type="button"
+                >
+                  Use generated
+                </button>
+                <input
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  className="profile-file-input"
+                  onChange={handleFileUpload}
+                  ref={fileInputRef}
+                  type="file"
+                />
+                <span className="profile-avatar-hint">Pick a culture card or bring your own.</span>
+              </div>
+            </div>
 
-          <div className="profile-share-actions">
-            <a href={castUrl} rel="noreferrer" target="_blank">
-              Cast claim
-            </a>
-            <a href={xShareUrl} rel="noreferrer" target="_blank">
-              Post to X
-            </a>
-            {traderProfile?.id ? (
-              <Link href={"/traders/" + traderProfile.id}>View public card</Link>
-            ) : null}
-          </div>
-        </aside>
-      </form>
-    </main>
+            <label className="profile-field">
+              <span>Handle</span>
+              <div className="profile-handle-input">
+                <input
+                  className="profile-handle-prefix"
+                  onChange={(event) => setHandle(normalizeHandleInput(event.target.value))}
+                  placeholder="sue"
+                  type="text"
+                  value={handle}
+                />
+                <span className="profile-handle-suffix">.viction</span>
+              </div>
+              <small className="profile-field-hint">
+                Your claimed tag will be <strong>{fullHandle}</strong>.
+              </small>
+            </label>
+
+            <label className="profile-field">
+              <span>Avatar URL</span>
+              <input
+                onChange={(event) => setAvatarUrl(event.target.value)}
+                placeholder="https://example.com/avatar.png"
+                type="url"
+                value={avatarUrl}
+              />
+            </label>
+
+            <label className="profile-field">
+              <span>Bio</span>
+              <textarea
+                maxLength={280}
+                onChange={(event) => setBio(event.target.value)}
+                placeholder="Prediction markets, onchain margin, high-conviction theses."
+                value={bio}
+              />
+              <small className="profile-field-hint">{bio.length}/280 characters</small>
+            </label>
+
+            <label
+              className={"profile-field" + (showEmailPrompt ? " profile-field-highlight" : "")}
+            >
+              <span>
+                Email
+                {showEmailPrompt ? <span className="profile-email-badge">Recommended</span> : null}
+              </span>
+              <input
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
+                type="email"
+                value={email}
+              />
+              <small className="profile-field-hint">
+                Used for position notifications, vault transaction updates, and beta access.
+              </small>
+            </label>
+
+            <button className="profile-submit" disabled={state.status === "saving"} type="submit">
+              {state.status === "saving" ? "Claiming..." : "Claim .viction profile"}
+            </button>
+
+            <p
+              className={
+                "profile-message" +
+                (state.status === "error" ? " error" : "") +
+                (state.status === "success" ? " success" : "")
+              }
+            >
+              {state.message || " "}
+            </p>
+          </section>
+
+          <aside className="profile-claim-panel" aria-label="Claim preview">
+            <div className="viction-card">
+              <img alt="Selected .viction avatar" src={avatarDisplay} />
+              <div>
+                <span>Conviction tag</span>
+                <strong>{fullHandle}</strong>
+                <p>{bio || "Signals first. Culture follows conviction."}</p>
+              </div>
+            </div>
+
+            <div className="avatar-option-grid" aria-label="Generated avatars">
+              {avatarOptions.map((option) => {
+                const isSelected = !avatarUrl && selectedAvatar === option.id;
+
+                return (
+                  <button
+                    aria-pressed={isSelected}
+                    className={isSelected ? "avatar-option selected" : "avatar-option"}
+                    key={option.id}
+                    onClick={() => selectGeneratedAvatar(option.id)}
+                    type="button"
+                  >
+                    <img alt="" src={buildAvatarUrl(option.id, fullHandle)} />
+                    <span>{option.name}</span>
+                    <small>{option.note}</small>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="profile-share-actions">
+              <a href={castUrl} rel="noreferrer" target="_blank">
+                Cast claim
+              </a>
+              <a href={xShareUrl} rel="noreferrer" target="_blank">
+                Post to X
+              </a>
+              {traderProfile?.id ? (
+                <Link href={"/traders/" + traderProfile.id}>View public card</Link>
+              ) : null}
+            </div>
+          </aside>
+        </form>
+      </main>
+    </TerminalShell>
   );
 }
 
@@ -404,11 +449,14 @@ function stripVictionSuffix(value: string) {
 }
 
 function buildAvatarUrl(variant: AvatarVariant, handle: string) {
+  const option = avatarOptions.find((item) => item.id === variant) ?? avatarOptions[0];
+
   return (
-    "/api/viction-avatar?variant=" +
-    encodeURIComponent(variant) +
-    "&handle=" +
-    encodeURIComponent(handle)
+    "https://api.dicebear.com/10.x/" +
+    option.style +
+    "/svg?seed=" +
+    encodeURIComponent(handle + "-" + variant) +
+    "&backgroundColor=0e0e0e,161616,201f1f&radius=12"
   );
 }
 
@@ -416,14 +464,24 @@ function getAvatarVariantFromUrl(value: string): AvatarVariant | null {
   try {
     const url = new URL(value, "https://conviction.local");
 
-    if (url.pathname !== "/api/viction-avatar") return null;
+    const matchedOption = avatarOptions.find((option) =>
+      url.pathname.includes("/" + option.style + "/"),
+    );
 
-    const variant = url.searchParams.get("variant");
-
-    return avatarOptions.some((option) => option.id === variant)
-      ? (variant as AvatarVariant)
-      : null;
+    return matchedOption?.id ?? null;
   } catch {
     return null;
   }
 }
+
+const fallbackExecution: ExecutionCapabilities = {
+  evmOnly: true,
+  architecture: "INTENT_FIRST_MULTICHAIN_MARGIN_LAYER",
+  spotExecutionEnabled: false,
+  marginExecutionEnabled: false,
+  leverageEnabled: false,
+  leverageRequiresContracts: true,
+  activeAdapters: [],
+  recommendation: "Connect core API for live execution capabilities.",
+  chains: [],
+};

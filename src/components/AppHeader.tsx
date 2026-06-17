@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 const navItems = [
   { href: "/markets", label: "Markets" },
   { href: "/margin", label: "Margin" },
-  { href: "/me", label: "Activity" },
+  { href: "/#activity", label: "Activity" },
   { href: "/me/notifications", label: "Notifications" },
   { href: "/me/settings", label: "Settings" },
   { href: "/social", label: "Social" },
@@ -39,7 +39,13 @@ export function AppHeader() {
     }
   }, []);
 
-  if (pathname === "/") {
+  if (
+    pathname === "/" ||
+    pathname === "/docs" ||
+    pathname === "/me/profile" ||
+    pathname === "/me/settings" ||
+    pathname === "/me/notifications"
+  ) {
     return null;
   }
 

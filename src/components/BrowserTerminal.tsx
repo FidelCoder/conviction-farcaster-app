@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type {
   ExecutionCapabilities,
@@ -82,6 +82,15 @@ export function BrowserTerminal({
 
   const currentMarket =
     displayMarkets.find((market) => market.id === activeMarket.id) ?? displayMarkets[0];
+
+  useEffect(() => {
+    const tabFromHash = window.location.hash.replace("#", "");
+
+    if (["markets", "margin-desk", "vaults", "activity"].includes(tabFromHash)) {
+      setActiveTab(tabFromHash);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
 
   function triggerAlert(type: "success" | "info", text: string) {
     setAlertMessage({ type, text });

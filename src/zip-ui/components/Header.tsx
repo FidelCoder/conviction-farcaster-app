@@ -22,17 +22,17 @@ export default function Header({
   ];
 
   return (
-    <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 md:px-10 h-16 bg-[#161616]/80 backdrop-blur-md border-b border-[#262626]">
-      <div className="flex items-center gap-6">
+    <header className="fixed top-0 w-full z-50 flex justify-between items-center gap-3 px-3 sm:px-5 md:px-10 h-16 bg-[#161616]/80 backdrop-blur-md border-b border-[#262626]">
+      <div className="flex items-center gap-3 md:gap-6 min-w-0">
         {/* Logo */}
         <button
           onClick={() => setActiveTab("landing")}
-          className="flex items-center gap-2.5 text-left group cursor-pointer"
+          className="flex items-center gap-2.5 text-left group cursor-pointer min-w-0"
         >
           <div className="w-7 h-7 bg-electric-purple rounded flex items-center justify-center transition-transform group-hover:scale-105">
             <Layers size={16} className="text-white" />
           </div>
-          <span className="text-lg font-sans font-bold text-[#e5e2e1] tracking-tight">
+          <span className="hidden sm:block text-lg font-sans font-bold text-[#e5e2e1] tracking-tight truncate">
             Conviction Markets
           </span>
         </button>
@@ -58,7 +58,7 @@ export default function Header({
         </nav>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-1.5 sm:gap-3 md:gap-4 flex-shrink-0">
         {/* Notifications → My Activity */}
         <button
           className="text-[#ccc3d8] hover:text-[#d2bbff] p-2 rounded-full hover:bg-white/5 transition-colors duration-150 relative cursor-pointer"
@@ -87,7 +87,7 @@ export default function Header({
         {/* Wallet Connector */}
         <button
           onClick={onConnectWallet}
-          className={`px-4 py-1.5 rounded text-xs font-mono font-bold tracking-wider transition-all duration-300 flex items-center gap-2 border cursor-pointer ${
+          className={`px-2.5 sm:px-4 py-1.5 rounded text-[10px] sm:text-xs font-mono font-bold tracking-wider transition-all duration-300 flex items-center gap-2 border cursor-pointer max-w-[10rem] sm:max-w-none ${
             portfolio.connected
               ? "bg-[#1c1b1b] border-deep-orange text-deep-orange shadow-[0_0_10px_rgba(249,115,22,0.1)] hover:border-white hover:text-white"
               : "bg-deep-orange border-deep-orange text-black hover:bg-white hover:border-white hover:text-black font-semibold"

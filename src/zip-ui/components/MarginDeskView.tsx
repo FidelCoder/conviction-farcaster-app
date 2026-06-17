@@ -258,10 +258,10 @@ export default function MarginDeskView({
   };
 
   return (
-    <main className="flex-1 flex flex-col lg:flex-row mt-16 ml-20 md:ml-64 p-4 md:p-6 gap-6 h-[calc(100vh-64px)] overflow-hidden">
+    <main className="flex-1 flex flex-col lg:flex-row mt-16 md:ml-64 p-4 md:p-6 gap-6 min-h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] overflow-y-auto lg:overflow-hidden pb-28 lg:pb-6">
       
       {/* 1. LEFT COLUMN: Market Tape list */}
-      <section className="w-full lg:w-64 bg-[#161616] border border-[#262626] rounded flex flex-col overflow-hidden max-h-[30%] lg:max-h-full">
+      <section className="w-full lg:w-64 bg-[#161616] border border-[#262626] rounded flex flex-col overflow-hidden max-h-72 lg:max-h-full">
         <div className="px-4 py-3 border-b border-[#262626] bg-[#0e0e0e] flex justify-between items-center">
           <h3 className="font-mono text-[10px] text-[#ccc3d8] font-bold uppercase tracking-widest flex items-center gap-1.5">
             <TrendingUp size={12} className="text-deep-orange" />
@@ -313,7 +313,7 @@ export default function MarginDeskView({
       {/* 2. CENTER COLUMN: Interactive Candlestick Chart Canvas */}
       <section className="flex-1 bg-[#161616] border border-[#262626] rounded flex flex-col overflow-hidden relative min-h-[300px]">
         {/* Market Title Details Header */}
-        <div className="px-6 py-4 border-b border-[#262626] flex justify-between items-center bg-[#0e0e0e] z-10 relative">
+        <div className="px-4 sm:px-6 py-4 border-b border-[#262626] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-[#0e0e0e] z-10 relative">
           <div>
             <h2 className="font-sans font-bold text-lg text-white leading-tight flex items-center gap-2">
               YES / NO - {activeMarket.title}
@@ -355,7 +355,7 @@ export default function MarginDeskView({
       </section>
 
       {/* 3. RIGHT COLUMN: Margin request control form */}
-      <section className="w-full lg:w-[340px] flex flex-col gap-4 overflow-y-auto max-h-[40%] lg:max-h-full">
+      <section className="w-full lg:w-[340px] flex flex-col gap-4 overflow-visible lg:overflow-y-auto lg:max-h-full">
         <form 
           onSubmit={handleOrderSubmit}
           className="bg-[#161616] border-t-2 border-t-deep-orange border-x border-b border-[#262626] rounded p-6 glow-orange transition-all duration-300"

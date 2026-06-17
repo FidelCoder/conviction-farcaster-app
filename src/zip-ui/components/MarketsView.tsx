@@ -31,7 +31,7 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
   }
 
   return (
-    <main className="flex-1 ml-20 md:ml-64 bg-grid-tech min-h-[calc(100vh-64px)] pb-32">
+    <main className="flex-1 md:ml-64 bg-grid-tech min-h-[calc(100vh-64px)] pb-32">
       <div className="max-w-[1280px] mx-auto px-4 md:px-10 py-8">
       {/* Title Header with telemetry intro */}
       <header className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end border-b border-[#262626] pb-4 gap-4">
