@@ -24,6 +24,10 @@ export interface Vault {
   asset: 'USDC' | 'WETH';
   accentColor: 'orange' | 'purple';
   userDeposited: number; // tracking user deposits locally
+  chainId?: number;
+  chainName?: string;
+  collateralTokenAddress?: string | null;
+  collateralTokenDecimals?: number | null;
 }
 
 export interface MarketTapeItem {
@@ -62,12 +66,31 @@ export interface GlobalRiskParameter {
   status: 'Active' | 'Pending Vote';
 }
 
+export type WalletBalanceStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+export interface PortfolioWalletBalance {
+  amount: number;
+  chainId: number;
+  chainName: string;
+  decimals: number;
+  error?: string;
+  formatted: string;
+  raw: string;
+  status: Exclude<WalletBalanceStatus, 'idle' | 'loading'>;
+  symbol: string;
+  tokenAddress: string;
+  updatedAt: string;
+}
+
 export interface UserPortfolio {
   connected: boolean;
   address: string | null;
   usdcBalance: number;
   wethBalance: number;
   vaultBalances: { [vaultId: string]: number };
+  walletBalances: { [vaultId: string]: PortfolioWalletBalance };
+  walletBalancesMessage?: string;
+  walletBalancesStatus: WalletBalanceStatus;
   activeRequestsCount: number;
   activePositions: ActivePosition[];
 }

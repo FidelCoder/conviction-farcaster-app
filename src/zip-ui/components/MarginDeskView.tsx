@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { getVaultAvailableBalance } from '../../lib/wallet-balances';
 import { PredictionMarket, Vault, MarketTapeItem, UserPortfolio } from '../types';
 import { TrendingUp, Info, Bolt, RefreshCw } from 'lucide-react';
 
@@ -203,7 +204,9 @@ export default function MarginDeskView({
   }, [selectedVaultId]);
 
   // Vault/Collateral settings helper
-  const maxCollateral = selectedVault.asset === 'USDC' ? portfolio.usdcBalance : portfolio.wethBalance;
+  const maxCollateral = selectedVault
+    ? getVaultAvailableBalance({ portfolio, vault: selectedVault })
+    : 0;
   
   // Dynamic trade output computations
   const currentPriceOdds = livePriceMultiplier * 100;

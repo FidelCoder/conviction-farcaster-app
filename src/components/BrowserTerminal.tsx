@@ -16,6 +16,7 @@ import type {
   UserSession,
 } from "../lib/core-api";
 import { getMarketDisplayCase, getMarketPrice } from "../lib/market-display";
+import { readVaultWalletBalances } from "../lib/wallet-balances";
 import ActivityView from "../zip-ui/components/ActivityView";
 import Header from "../zip-ui/components/Header";
 import LandingView from "../zip-ui/components/LandingView";
@@ -63,6 +64,8 @@ const emptyPortfolio: UserPortfolio = {
   usdcBalance: 0,
   wethBalance: 0,
   vaultBalances: {},
+  walletBalances: {},
+  walletBalancesStatus: "idle",
   activeRequestsCount: 0,
   activePositions: [],
 };
@@ -85,21 +88,30 @@ export function BrowserTerminal({
   const [session, setSession] = useState<UserSession | null>(null);
   const [activeMarket, setActiveMarket] = useState<PredictionMarket>(displayMarkets[0]);
   const [alertMessage, setAlertMessage] = useState<AlertMessage>(null);
+  const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
 
   const currentMarket =
     displayMarkets.find((market) => market.id === activeMarket.id) ?? displayMarkets[0];
 
   const applySession = useCallback((nextSession: UserSession | null) => {
     setSession(nextSession);
-    setPortfolio((current) =>
-      nextSession
-        ? {
-            ...current,
-            connected: true,
-            address: getSessionWalletAddress(nextSession) ?? current.address,
-          }
-        : emptyPortfolio,
-    );
+    setPortfolio((current) => {
+      if (!nextSession) {
+        return emptyPortfolio;
+      }
+
+      const nextAddress = getSessionWalletAddress(nextSession) ?? current.address;
+      const isSameWallet = current.address?.toLowerCase() === nextAddress?.toLowerCase();
+
+      return {
+        ...current,
+        connected: true,
+        address: nextAddress,
+        walletBalances: isSameWallet ? current.walletBalances : {},
+        walletBalancesMessage: nextAddress ? "Reading wallet token balances..." : undefined,
+        walletBalancesStatus: nextAddress ? "loading" : "idle",
+      };
+    });
   }, []);
 
   useEffect(() => {
@@ -117,6 +129,71 @@ export function BrowserTerminal({
       setActiveTab(tabFromHash);
       window.history.replaceState(null, "", window.location.pathname);
     }
+  }, []);
+
+  useEffect(() => {
+    if (!portfolio.connected || !portfolio.address) return;
+
+    let isCurrent = true;
+    const walletAddress = portfolio.address;
+
+    setPortfolio((current) =>
+      current.address?.toLowerCase() === walletAddress.toLowerCase()
+        ? {
+            ...current,
+            walletBalancesMessage: "Reading wallet token balances...",
+            walletBalancesStatus: "loading",
+          }
+        : current,
+    );
+
+    void readVaultWalletBalances({ address: walletAddress, execution, vaults })
+      .then((walletBalances) => {
+        if (!isCurrent) return;
+
+        const primaryUsdcBalance = Object.values(walletBalances).find(
+          (balance) => balance.status === "ready" && balance.symbol === "USDC",
+        );
+        const primaryWethBalance = Object.values(walletBalances).find(
+          (balance) => balance.status === "ready" && balance.symbol === "WETH",
+        );
+
+        setPortfolio((current) => {
+          if (current.address?.toLowerCase() !== walletAddress.toLowerCase()) {
+            return current;
+          }
+
+          return {
+            ...current,
+            usdcBalance: primaryUsdcBalance?.amount ?? current.usdcBalance,
+            wethBalance: primaryWethBalance?.amount ?? current.wethBalance,
+            walletBalances,
+            walletBalancesMessage: "Wallet token balances updated.",
+            walletBalancesStatus: "ready",
+          };
+        });
+      })
+      .catch(() => {
+        if (!isCurrent) return;
+
+        setPortfolio((current) =>
+          current.address?.toLowerCase() === walletAddress.toLowerCase()
+            ? {
+                ...current,
+                walletBalancesMessage: "Unable to read wallet token balances.",
+                walletBalancesStatus: "error",
+              }
+            : current,
+        );
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [execution, portfolio.address, portfolio.connected, vaults, walletBalanceRefreshNonce]);
+
+  const refreshWalletBalances = useCallback(() => {
+    setWalletBalanceRefreshNonce((current) => current + 1);
   }, []);
 
   function triggerAlert(type: "success" | "info", text: string) {
@@ -327,6 +404,7 @@ export function BrowserTerminal({
             onCreateVault={handleCreateVault}
             onDeposit={handleDeposit}
             onModifyRisk={handleModifyRisk}
+            onRefreshWalletBalances={refreshWalletBalances}
             onWithdraw={handleWithdraw}
             portfolio={portfolio}
             riskParameters={riskParameters}
@@ -419,6 +497,10 @@ function mapExecutionToVaults(execution: ExecutionCapabilities): Vault[] {
     asset: chain.collateralTokenSymbol === "WETH" ? "WETH" : "USDC",
     accentColor: index % 2 === 0 ? "orange" : "purple",
     userDeposited: 0,
+    chainId: chain.chainId,
+    chainName: chain.chainName,
+    collateralTokenAddress: chain.collateralTokenAddress,
+    collateralTokenDecimals: chain.collateralTokenDecimals,
   }));
 }
 

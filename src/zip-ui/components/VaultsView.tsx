@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { getVaultAvailableBalance } from '../../lib/wallet-balances';
 import { Vault, GlobalRiskParameter, UserPortfolio } from '../types';
-import { Check, Copy, Plus, QrCode, ShieldCheck, Sliders, Wallet } from 'lucide-react';
+import { Check, Copy, Plus, QrCode, RefreshCw, ShieldCheck, Sliders, Wallet } from 'lucide-react';
 
 function formatWalletAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function formatTokenAmount(amount: number, symbol: string) {
+  const formatted = amount.toLocaleString(undefined, {
+    maximumFractionDigits: amount >= 1 ? 2 : 6,
+    minimumFractionDigits: amount >= 1 ? 2 : 0,
+  });
+
+  return `${formatted} ${symbol}`;
 }
 
 interface VaultsViewProps {
@@ -15,6 +25,7 @@ interface VaultsViewProps {
   onWithdraw: (vaultId: string, amount: number) => void;
   onCreateVault: (vaultData: Omit<Vault, 'id' | 'userDeposited'>) => void;
   onModifyRisk: (index: number, vote: 'FOR' | 'AGAINST') => void;
+  onRefreshWalletBalances?: () => void;
 }
 
 export default function VaultsView({
@@ -24,7 +35,8 @@ export default function VaultsView({
   onDeposit,
   onWithdraw,
   onCreateVault,
-  onModifyRisk
+  onModifyRisk,
+  onRefreshWalletBalances
 }: VaultsViewProps) {
   // Modal configurations
   const [activeModal, setActiveModal] = useState<'none' | 'deposit' | 'withdraw' | 'create'>('none');
@@ -69,7 +81,7 @@ export default function VaultsView({
       return;
     }
 
-    const available = currentVault.asset === 'USDC' ? portfolio.usdcBalance : portfolio.wethBalance;
+    const available = getVaultAvailableBalance({ portfolio, vault: currentVault });
     if (amount > available) {
       alert(`Insufficient Funds: You only have ${available.toFixed(2)} ${currentVault.asset} available. Add funds to your connected wallet using the QR code or copy address, then try again.`);
       return;
@@ -144,9 +156,22 @@ export default function VaultsView({
   const activeVault = vaults.find(v => v.id === selectedVaultId);
   const fundingAddress = portfolio.address;
   const fundingQrValue = fundingAddress ? `ethereum:${fundingAddress}` : '';
+  const activeVaultLiveBalance = activeVault ? portfolio.walletBalances[activeVault.id] : undefined;
   const activeVaultAvailable = activeVault
-    ? activeVault.asset === 'USDC' ? portfolio.usdcBalance : portfolio.wethBalance
+    ? getVaultAvailableBalance({ portfolio, vault: activeVault })
     : 0;
+  const activeVaultBalanceLabel = activeVault
+    ? activeVaultLiveBalance?.status === 'ready'
+      ? formatTokenAmount(activeVaultLiveBalance.amount, activeVault.asset)
+      : `${activeVaultAvailable.toFixed(2)} ${activeVault.asset}`
+    : '--';
+  const activeVaultBalanceSource = activeVaultLiveBalance?.status === 'ready'
+    ? `${activeVaultLiveBalance.chainName} wallet balance`
+    : portfolio.walletBalancesStatus === 'loading'
+      ? 'Reading wallet balance...'
+      : activeVaultLiveBalance?.status === 'error'
+        ? 'Balance read failed'
+        : 'Wallet balance unavailable';
 
   const copyFundingAddress = async () => {
     if (!fundingAddress) return;
@@ -378,7 +403,7 @@ export default function VaultsView({
                 </div>
                 <h3 className="text-lg font-sans font-bold text-white">Deposit Collateral</h3>
                 <p className="text-xs text-[#ccc3d8] mt-2 max-w-xl leading-relaxed">
-                  Add {activeVault.asset} to your connected wallet, then deposit into <span className="font-bold text-white">{activeVault.name}</span>. Available: {activeVaultAvailable.toFixed(2)} {activeVault.asset}
+                  Add {activeVault.asset} to your connected wallet, then deposit into <span className="font-bold text-white">{activeVault.name}</span>. Available: {activeVaultBalanceLabel}
                 </p>
               </div>
               <div className="rounded border border-[#262626] bg-[#0A0A0A] px-3 py-2 text-left sm:text-right">
@@ -410,6 +435,15 @@ export default function VaultsView({
                     <p className="text-[11px] leading-relaxed text-[#ccc3d8]/80">
                       Scan to send funds to the connected wallet. Use the copy button if you are funding from an exchange or another wallet.
                     </p>
+                    <button
+                      type="button"
+                      onClick={onRefreshWalletBalances}
+                      disabled={!onRefreshWalletBalances || portfolio.walletBalancesStatus === 'loading'}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded border border-[#262626] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-deep-orange hover:text-deep-orange disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <RefreshCw size={13} className={portfolio.walletBalancesStatus === 'loading' ? 'animate-spin' : ''} />
+                      Refresh Balance
+                    </button>
                     <div className="mt-3 rounded border border-[#262626] bg-[#111111] p-3">
                       <div className="mb-2 font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/60">Wallet Address</div>
                       <div className="flex min-w-0 items-center gap-2">
@@ -444,12 +478,16 @@ export default function VaultsView({
                 <div className="mb-4 grid grid-cols-2 gap-3 font-mono">
                   <div className="rounded border border-[#262626] bg-[#0A0A0A] p-3">
                     <div className="text-[9px] uppercase tracking-widest text-[#ccc3d8]/60">Available</div>
-                    <div className="mt-1 text-sm font-bold text-white">{activeVaultAvailable.toFixed(2)} {activeVault.asset}</div>
+                    <div className="mt-1 text-sm font-bold text-white">{activeVaultBalanceLabel}</div>
+                    <div className="mt-1 truncate text-[9px] uppercase tracking-widest text-[#ccc3d8]/50">{activeVaultBalanceSource}</div>
                   </div>
                   <div className="rounded border border-[#262626] bg-[#0A0A0A] p-3">
                     <div className="text-[9px] uppercase tracking-widest text-[#ccc3d8]/60">Wallet</div>
                     <div className="mt-1 truncate text-sm font-bold text-white">
                       {fundingAddress ? formatWalletAddress(fundingAddress) : 'Not Connected'}
+                    </div>
+                    <div className="mt-1 truncate text-[9px] uppercase tracking-widest text-[#ccc3d8]/50">
+                      {activeVault.chainName ?? 'Vault Chain'}
                     </div>
                   </div>
                 </div>
