@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { encodeFunctionData, erc20Abi, parseAbi, parseUnits } from "viem";
 
 import {
   clearStoredBrowserWalletSession,
@@ -56,6 +57,10 @@ type MarginIntentResponse =
       };
     }
   | { ok: false; error: { code: string; message: string } };
+
+type EthereumProvider = {
+  request(args: { method: string; params?: unknown }): Promise<unknown>;
+};
 
 type AlertMessage = { type: "success" | "info"; text: string } | null;
 
@@ -319,11 +324,128 @@ export function BrowserTerminal({
     }
   }
 
-  function handleDeposit() {
-    triggerAlert(
-      "info",
-      "Vault deposits need a dedicated signer flow before they can be submitted from this deck.",
-    );
+  async function handleDeposit(vaultId: string, amount: number) {
+    if (!portfolio.connected || !portfolio.address) {
+      triggerAlert("info", "Connect an EVM wallet before depositing into a vault.");
+      return false;
+    }
+
+    const vault = vaults.find((item) => item.id === vaultId);
+
+    if (!vault?.chainId || !vault.collateralTokenAddress) {
+      triggerAlert("info", "Selected vault is missing chain or collateral token metadata.");
+      return false;
+    }
+
+    if (!vault.tvl || vault.tvl === "Not deployed") {
+      triggerAlert("info", "Selected vault is not deployed yet.");
+      return false;
+    }
+
+    const provider = getEthereumProvider();
+
+    if (!provider) {
+      triggerAlert("info", "No EVM browser wallet detected.");
+      return false;
+    }
+
+    const vaultAddress = getVaultAddress(execution, vault);
+
+    if (!vaultAddress) {
+      triggerAlert("info", "Selected vault contract address is unavailable.");
+      return false;
+    }
+
+    try {
+      triggerAlert("info", "Preparing wallet approval for " + amount.toFixed(2) + " " + vault.asset + ".");
+      const currentAccounts = normalizeAccounts(
+        await provider.request({ method: "eth_requestAccounts" }),
+      );
+      const walletAddress = currentAccounts[0];
+
+      if (!walletAddress || walletAddress.toLowerCase() !== portfolio.address.toLowerCase()) {
+        triggerAlert("info", "Connected wallet does not match the active Conviction session.");
+        return false;
+      }
+
+      await ensureWalletChain(provider, vault.chainId);
+
+      const amountUnits = parseUnits(String(amount), vault.collateralTokenDecimals ?? 6);
+      const approvalHash = normalizeTransactionHash(
+        await provider.request({
+          method: "eth_sendTransaction",
+          params: [
+            {
+              data: encodeFunctionData({
+                abi: erc20Abi,
+                functionName: "approve",
+                args: [vaultAddress as `0x${string}`, amountUnits],
+              }),
+              from: walletAddress,
+              to: vault.collateralTokenAddress,
+            },
+          ],
+        }),
+      );
+
+      if (!approvalHash) {
+        triggerAlert("info", "Wallet did not return an approval transaction hash.");
+        return false;
+      }
+
+      triggerAlert("success", "Approval submitted. Waiting for confirmation before deposit.");
+      const approvalReceipt = await waitForTransactionReceipt(provider, approvalHash);
+
+      if (approvalReceipt?.status && approvalReceipt.status !== "0x1") {
+        triggerAlert("info", "Approval transaction failed onchain.");
+        return false;
+      }
+
+      triggerAlert("info", "Approval confirmed. Submit the vault deposit in your wallet.");
+      const depositHash = normalizeTransactionHash(
+        await provider.request({
+          method: "eth_sendTransaction",
+          params: [
+            {
+              data: encodeFunctionData({
+                abi: parseAbi(["function deposit(address collateralToken, uint256 amount)"]),
+                functionName: "deposit",
+                args: [vault.collateralTokenAddress as `0x${string}`, amountUnits],
+              }),
+              from: walletAddress,
+              to: vaultAddress,
+            },
+          ],
+        }),
+      );
+
+      if (!depositHash) {
+        triggerAlert("info", "Wallet did not return a deposit transaction hash.");
+        return false;
+      }
+
+      triggerAlert("success", "Deposit submitted. Waiting for chain confirmation.");
+      const depositReceipt = await waitForTransactionReceipt(provider, depositHash);
+
+      if (depositReceipt?.status && depositReceipt.status !== "0x1") {
+        triggerAlert("info", "Vault deposit failed onchain.");
+        return false;
+      }
+
+      setPortfolio((current) => ({
+        ...current,
+        vaultBalances: {
+          ...current.vaultBalances,
+          [vaultId]: (current.vaultBalances[vaultId] ?? 0) + amount,
+        },
+      }));
+      refreshWalletBalances();
+      triggerAlert("success", "Vault deposit confirmed.");
+      return true;
+    } catch (error) {
+      triggerAlert("info", getWalletErrorMessage(error));
+      return false;
+    }
   }
 
   function handleWithdraw() {
@@ -618,11 +740,131 @@ function getEthereumProvider() {
     return null;
   }
 
-  return (
-    (
-      window as Window & {
-        ethereum?: { request: (input: { method: string; params?: unknown[] }) => Promise<unknown> };
-      }
-    ).ethereum ?? null
-  );
+  return (window as Window & { ethereum?: EthereumProvider }).ethereum ?? null;
+}
+
+function getVaultAddress(execution: ExecutionCapabilities, vault: Vault) {
+  if (!vault.chainId) return null;
+
+  return execution.chains.find((chain) => chain.chainId === vault.chainId)?.vaultAddress ?? null;
+}
+
+async function ensureWalletChain(provider: EthereumProvider, chainId: number) {
+  const currentChain = normalizeChainId(await provider.request({ method: "eth_chainId" }));
+
+  if (currentChain === chainId) {
+    return;
+  }
+
+  const chainConfig = getWalletChainConfig(chainId);
+
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: "0x" + chainId.toString(16) }],
+    });
+  } catch (error) {
+    if (!isUnknownChainError(error) || !chainConfig) {
+      throw error;
+    }
+
+    await provider.request({
+      method: "wallet_addEthereumChain",
+      params: [chainConfig],
+    });
+  }
+}
+
+function getWalletChainConfig(chainId: number) {
+  const configs: Record<
+    number,
+    {
+      blockExplorerUrls: string[];
+      chainId: string;
+      chainName: string;
+      nativeCurrency: { decimals: number; name: string; symbol: string };
+      rpcUrls: string[];
+    }
+  > = {
+    84532: {
+      blockExplorerUrls: ["https://sepolia.basescan.org"],
+      chainId: "0x14a34",
+      chainName: "Base Sepolia",
+      nativeCurrency: { decimals: 18, name: "Sepolia Ether", symbol: "ETH" },
+      rpcUrls: ["https://sepolia.base.org"],
+    },
+    11155111: {
+      blockExplorerUrls: ["https://sepolia.etherscan.io"],
+      chainId: "0xaa36a7",
+      chainName: "Ethereum Sepolia",
+      nativeCurrency: { decimals: 18, name: "Sepolia Ether", symbol: "ETH" },
+      rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
+    },
+    421614: {
+      blockExplorerUrls: ["https://sepolia.arbiscan.io"],
+      chainId: "0x66eee",
+      chainName: "Arbitrum Sepolia",
+      nativeCurrency: { decimals: 18, name: "Arbitrum Sepolia Ether", symbol: "ETH" },
+      rpcUrls: ["https://sepolia-rollup.arbitrum.io/rpc"],
+    },
+  };
+
+  return configs[chainId] ?? null;
+}
+
+function isUnknownChainError(error: unknown) {
+  return typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    Number((error as { code?: unknown }).code) === 4902;
+}
+
+async function waitForTransactionReceipt(provider: EthereumProvider, transactionHash: string) {
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const receipt = await provider.request({
+      method: "eth_getTransactionReceipt",
+      params: [transactionHash],
+    });
+
+    if (isTransactionReceipt(receipt)) {
+      return receipt;
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, 2500));
+  }
+
+  return null;
+}
+
+function isTransactionReceipt(value: unknown): value is { status?: string } {
+  return typeof value === "object" && value !== null && "transactionHash" in value;
+}
+
+function normalizeAccounts(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((account): account is string => typeof account === "string")
+    : [];
+}
+
+function normalizeChainId(value: unknown) {
+  if (typeof value === "number") return value;
+  if (typeof value !== "string") return null;
+
+  return value.startsWith("0x") ? Number.parseInt(value, 16) : Number(value);
+}
+
+function normalizeTransactionHash(value: unknown) {
+  return typeof value === "string" && /^0x[a-fA-F0-9]{64}$/.test(value) ? value : null;
+}
+
+function getWalletErrorMessage(error: unknown) {
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = String((error as { message?: unknown }).message ?? "");
+
+    if (message) {
+      return message;
+    }
+  }
+
+  return "Wallet transaction was not submitted.";
 }

@@ -21,7 +21,7 @@ interface VaultsViewProps {
   vaults: Vault[];
   riskParameters: GlobalRiskParameter[];
   portfolio: UserPortfolio;
-  onDeposit: (vaultId: string, amount: number) => void;
+  onDeposit: (vaultId: string, amount: number) => Promise<boolean> | boolean | void;
   onWithdraw: (vaultId: string, amount: number) => void;
   onCreateVault: (vaultData: Omit<Vault, 'id' | 'userDeposited'>) => void;
   onModifyRisk: (index: number, vote: 'FOR' | 'AGAINST') => void;
@@ -43,6 +43,7 @@ export default function VaultsView({
   const [selectedVaultId, setSelectedVaultId] = useState<string>('');
   const [transactionAmount, setTransactionAmount] = useState<string>('');
   const [fundingCopyState, setFundingCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [isDepositing, setIsDepositing] = useState(false);
 
   // Create vault states
   const [newVaultName, setNewVaultName] = useState<string>('');
@@ -66,8 +67,9 @@ export default function VaultsView({
     setActiveModal('withdraw');
   };
 
-  const handleDepositSubmit = (e: React.FormEvent) => {
+  const handleDepositSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDepositing) return;
     const amount = parseFloat(transactionAmount);
     if (isNaN(amount) || amount <= 0) {
       alert('Please enter a positive numeric collateral amount.');
@@ -87,8 +89,17 @@ export default function VaultsView({
       return;
     }
 
-    onDeposit(selectedVaultId, amount);
-    setActiveModal('none');
+    setIsDepositing(true);
+
+    try {
+      const result = await onDeposit(selectedVaultId, amount);
+
+      if (result !== false) {
+        setActiveModal('none');
+      }
+    } finally {
+      setIsDepositing(false);
+    }
   };
 
   const handleWithdrawSubmit = (e: React.FormEvent) => {
@@ -514,10 +525,10 @@ export default function VaultsView({
                 <div className="mt-auto flex flex-col gap-3 sm:flex-row">
                   <button
                     type="submit"
-                    disabled={!portfolio.connected || !fundingAddress}
+                    disabled={!portfolio.connected || !fundingAddress || isDepositing}
                     className="flex-1 bg-deep-orange text-black font-sans font-bold text-xs py-3 rounded tracking-wider uppercase hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Confirm Deposit
+                    {isDepositing ? 'Deposit Pending' : 'Confirm Deposit'}
                   </button>
                   <button
                     type="button"
