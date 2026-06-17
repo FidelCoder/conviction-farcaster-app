@@ -2,6 +2,7 @@ import { createPublicClient, erc20Abi, formatUnits, http, isAddress, type Addres
 import { arbitrumSepolia, base, baseSepolia, sepolia } from "viem/chains";
 
 import type { ExecutionCapabilities } from "./core-api";
+import { resolveVaultCollateral } from "./vault-token-config";
 import type { PortfolioWalletBalance, Vault } from "../zip-ui/types";
 
 type TokenBalanceResult = {
@@ -63,11 +64,18 @@ async function readVaultTokenBalance(
   execution: ExecutionCapabilities,
 ): Promise<TokenBalanceResult> {
   const chain = findExecutionChain(execution, vault);
-  const tokenAddress = normalizeAddress(vault.collateralTokenAddress ?? undefined);
   const chainId = vault.chainId ?? chain?.chainId ?? 0;
-  const chainName = vault.chainName ?? chain?.chainName ?? "Unknown chain";
-  const decimals = vault.collateralTokenDecimals ?? chain?.collateralTokenDecimals ?? 18;
-  const symbol = vault.asset;
+  const collateral = resolveVaultCollateral({
+    chainId,
+    chainName: vault.chainName ?? chain?.chainName,
+    tokenAddress: vault.collateralTokenAddress ?? chain?.collateralTokenAddress,
+    tokenDecimals: vault.collateralTokenDecimals ?? chain?.collateralTokenDecimals,
+    tokenSymbol: vault.asset ?? chain?.collateralTokenSymbol,
+  });
+  const tokenAddress = normalizeAddress(collateral.tokenAddress ?? undefined);
+  const chainName = collateral.chainName;
+  const decimals = collateral.tokenDecimals ?? 18;
+  const symbol = collateral.tokenSymbol === "WETH" ? "WETH" : "USDC";
 
   if (!tokenAddress || !chainId) {
     return {
@@ -78,7 +86,7 @@ async function readVaultTokenBalance(
         decimals,
         message: "Vault token metadata is missing.",
         symbol,
-        tokenAddress: vault.collateralTokenAddress ?? "",
+        tokenAddress: collateral.tokenAddress ?? "",
       }),
     };
   }

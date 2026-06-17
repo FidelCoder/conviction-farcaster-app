@@ -16,6 +16,7 @@ import type {
   UserSession,
 } from "../lib/core-api";
 import { getMarketDisplayCase, getMarketPrice } from "../lib/market-display";
+import { resolveVaultCollateral } from "../lib/vault-token-config";
 import { readVaultWalletBalances } from "../lib/wallet-balances";
 import ActivityView from "../zip-ui/components/ActivityView";
 import Header from "../zip-ui/components/Header";
@@ -484,24 +485,35 @@ function mapMarketToPredictionMarket(market: Market): PredictionMarket {
 function mapExecutionToVaults(execution: ExecutionCapabilities): Vault[] {
   const chains = execution.chains.filter((chain) => chain.walletFlowEnabled || chain.vaultAddress);
 
-  return chains.map((chain, index) => ({
-    id: "chain-" + chain.chainId,
-    name: chain.chainName + " " + (chain.collateralTokenSymbol ?? "Collateral") + " Vault",
-    riskTag: chain.network === "mainnet" ? "Low Risk" : "High Risk",
-    apy: 0,
-    apyType: chain.marginExecutionEnabled ? "Variable Yield" : "Base Yield",
-    tvl: chain.vaultAddress ? "Configured" : "Not deployed",
-    utilization: 0,
-    healthRatio: 0,
-    maxLeverage: execution.maxPendingMarginLeverage ?? 10,
-    asset: chain.collateralTokenSymbol === "WETH" ? "WETH" : "USDC",
-    accentColor: index % 2 === 0 ? "orange" : "purple",
-    userDeposited: 0,
-    chainId: chain.chainId,
-    chainName: chain.chainName,
-    collateralTokenAddress: chain.collateralTokenAddress,
-    collateralTokenDecimals: chain.collateralTokenDecimals,
-  }));
+  return chains.map((chain, index) => {
+    const collateral = resolveVaultCollateral({
+      chainId: chain.chainId,
+      chainName: chain.chainName,
+      tokenAddress: chain.collateralTokenAddress,
+      tokenDecimals: chain.collateralTokenDecimals,
+      tokenSymbol: chain.collateralTokenSymbol,
+    });
+    const collateralSymbol = collateral.tokenSymbol ?? chain.collateralTokenSymbol ?? "USDC";
+
+    return {
+      id: "chain-" + chain.chainId,
+      name: chain.chainName + " " + collateralSymbol + " Vault",
+      riskTag: chain.network === "mainnet" ? "Low Risk" : "High Risk",
+      apy: 0,
+      apyType: chain.marginExecutionEnabled ? "Variable Yield" : "Base Yield",
+      tvl: chain.vaultAddress ? "Configured" : "Not deployed",
+      utilization: 0,
+      healthRatio: 0,
+      maxLeverage: execution.maxPendingMarginLeverage ?? 10,
+      asset: collateralSymbol === "WETH" ? "WETH" : "USDC",
+      accentColor: index % 2 === 0 ? "orange" : "purple",
+      userDeposited: 0,
+      chainId: chain.chainId,
+      chainName: collateral.chainName,
+      collateralTokenAddress: collateral.tokenAddress,
+      collateralTokenDecimals: collateral.tokenDecimals,
+    };
+  });
 }
 
 function mapMarketsToTape(markets: Market[]): MarketTapeItem[] {
