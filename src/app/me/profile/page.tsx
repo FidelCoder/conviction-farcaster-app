@@ -22,13 +22,14 @@ type ProfileResponse =
   | {
       ok: true;
       data: {
+        session: UserSession;
         traderProfile: TraderProfile;
       };
     }
   | { ok: false; error: { code: string; message: string } };
 
 type EmailResponse =
-  | { ok: true; data: { email: string } }
+  | { ok: true; data: { email: string; session: UserSession } }
   | { ok: false; error: { code: string; message: string } };
 
 const avatarOptions = [
@@ -61,7 +62,9 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [session, setSession] = useState<UserSession | null>(null);
-  const traderProfile = session?.traderProfile ?? null;
+  const walletAddress = getConnectedWalletAddress(session);
+  const isWalletConnected = Boolean(walletAddress);
+  const traderProfile = isWalletConnected ? (session?.traderProfile ?? null) : null;
   const fullHandle = useMemo(() => buildFullHandle(handle), [handle]);
   const generatedAvatarUrl = useMemo(
     () => buildAvatarUrl(selectedAvatar, fullHandle),
@@ -98,6 +101,15 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
+    if (!isWalletConnected) {
+      setHandle("");
+      setBio("");
+      setAvatarUrl("");
+      setEmail("");
+      setShowEmailPrompt(false);
+      return;
+    }
+
     if (traderProfile) {
       const profileHandle = stripVictionSuffix(traderProfile.handle);
       setHandle(profileHandle);
@@ -121,11 +133,11 @@ export default function ProfilePage() {
     } else if (session) {
       setShowEmailPrompt(true);
     }
-  }, [traderProfile, session]);
+  }, [isWalletConnected, traderProfile, session]);
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!session) {
+    if (!session || !walletAddress) {
       setState({ status: "error", message: "Connect a wallet from the terminal header first." });
       return;
     }
@@ -145,7 +157,7 @@ export default function ProfilePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: session.user.id,
+          walletAddress,
           handle: nextFullHandle,
           bio: bio.trim() || null,
           avatarUrl: avatarUrl.trim() || buildAvatarUrl(selectedAvatar, nextFullHandle),
@@ -167,7 +179,7 @@ export default function ProfilePage() {
         const emailResponse = await fetch("/api/user-email", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: session.user.id, email: email.trim() }),
+          body: JSON.stringify({ walletAddress, email: email.trim() }),
         });
         const emailBody = (await emailResponse.json()) as EmailResponse;
 
@@ -183,8 +195,8 @@ export default function ProfilePage() {
       }
 
       const nextSession: UserSession = {
-        ...session,
-        user: { ...session.user, email: nextEmail },
+        ...profileBody.data.session,
+        user: { ...profileBody.data.session.user, email: nextEmail },
         traderProfile: profileBody.data.traderProfile,
       };
 
@@ -207,6 +219,12 @@ export default function ProfilePage() {
 
   async function handleFileUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    if (!isWalletConnected) {
+      setState({ status: "error", message: "Connect a wallet before setting a profile picture." });
+      event.target.value = "";
+      return;
+    }
+
     if (!file) return;
 
     const formData = new FormData();
@@ -229,7 +247,16 @@ export default function ProfilePage() {
     }
   }
 
+  function promptWalletConnection(message = "Connect a wallet from the terminal header first.") {
+    setState({ status: "error", message });
+  }
+
   function selectGeneratedAvatar(variant: AvatarVariant) {
+    if (!isWalletConnected) {
+      promptWalletConnection("Connect a wallet before choosing a profile picture.");
+      return;
+    }
+
     setSelectedAvatar(variant);
     setAvatarUrl("");
   }
@@ -263,14 +290,21 @@ export default function ProfilePage() {
         </section>
 
         <section className="terminal-connect-panel">
-          <span>{session ? "Wallet profile active" : "Wallet profile required"}</span>
+          <span>{isWalletConnected ? "Wallet profile active" : "Wallet profile required"}</span>
           <p>
-            Connect a browser wallet from the top-right action. No Farcaster connection is required.
+            Connect a browser wallet from the top-right action before editing. Profile and email
+            records are keyed to that wallet address.
           </p>
         </section>
 
         <form className="profile-layout" onSubmit={handleSave}>
           <section className="profile-form" aria-label="Profile editor">
+            {!isWalletConnected ? (
+              <div className="profile-wallet-lock">
+                <strong>Wallet connection required</strong>
+                <span>Profile, email, and avatar changes unlock after wallet connection.</span>
+              </div>
+            ) : null}
             <div className="profile-avatar-section">
               <div className="profile-avatar-preview">
                 <div className="profile-avatar-img-wrapper">
@@ -287,14 +321,30 @@ export default function ProfilePage() {
               <div className="profile-avatar-actions">
                 <button
                   className="profile-action-button"
-                  onClick={() => fileInputRef.current?.click()}
+                  aria-disabled={!isWalletConnected}
+                  onClick={() => {
+                    if (!isWalletConnected) {
+                      promptWalletConnection("Connect a wallet before setting a profile picture.");
+                      return;
+                    }
+
+                    fileInputRef.current?.click();
+                  }}
                   type="button"
                 >
                   Upload image
                 </button>
                 <button
                   className="profile-action-button secondary"
-                  onClick={() => setAvatarUrl("")}
+                  aria-disabled={!isWalletConnected}
+                  onClick={() => {
+                    if (!isWalletConnected) {
+                      promptWalletConnection("Connect a wallet before choosing a generated avatar.");
+                      return;
+                    }
+
+                    setAvatarUrl("");
+                  }}
                   type="button"
                 >
                   Use generated
@@ -315,8 +365,12 @@ export default function ProfilePage() {
               <div className="profile-handle-input">
                 <input
                   className="profile-handle-prefix"
+                  onFocus={() => {
+                    if (!isWalletConnected) promptWalletConnection();
+                  }}
                   onChange={(event) => setHandle(normalizeHandleInput(event.target.value))}
                   placeholder="sue"
+                  readOnly={!isWalletConnected}
                   type="text"
                   value={handle}
                 />
@@ -330,8 +384,12 @@ export default function ProfilePage() {
             <label className="profile-field">
               <span>Avatar URL</span>
               <input
+                onFocus={() => {
+                  if (!isWalletConnected) promptWalletConnection();
+                }}
                 onChange={(event) => setAvatarUrl(event.target.value)}
                 placeholder="https://example.com/avatar.png"
+                readOnly={!isWalletConnected}
                 type="url"
                 value={avatarUrl}
               />
@@ -341,7 +399,11 @@ export default function ProfilePage() {
               <span>Bio</span>
               <textarea
                 maxLength={280}
+                onFocus={() => {
+                  if (!isWalletConnected) promptWalletConnection();
+                }}
                 onChange={(event) => setBio(event.target.value)}
+                readOnly={!isWalletConnected}
                 placeholder="Prediction markets, onchain margin, high-conviction theses."
                 value={bio}
               />
@@ -356,8 +418,12 @@ export default function ProfilePage() {
                 {showEmailPrompt ? <span className="profile-email-badge">Recommended</span> : null}
               </span>
               <input
+                onFocus={() => {
+                  if (!isWalletConnected) promptWalletConnection();
+                }}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@example.com"
+                readOnly={!isWalletConnected}
                 type="email"
                 value={email}
               />
@@ -367,7 +433,11 @@ export default function ProfilePage() {
             </label>
 
             <button className="profile-submit" disabled={state.status === "saving"} type="submit">
-              {state.status === "saving" ? "Claiming..." : "Claim .viction profile"}
+              {state.status === "saving"
+                ? "Claiming..."
+                : isWalletConnected
+                  ? "Claim .viction profile"
+                  : "Connect wallet to claim"}
             </button>
 
             <p
@@ -400,6 +470,7 @@ export default function ProfilePage() {
                     aria-pressed={isSelected}
                     className={isSelected ? "avatar-option selected" : "avatar-option"}
                     key={option.id}
+                    aria-disabled={!isWalletConnected}
                     onClick={() => selectGeneratedAvatar(option.id)}
                     type="button"
                   >
@@ -412,21 +483,35 @@ export default function ProfilePage() {
             </div>
 
             <div className="profile-share-actions">
-              <a href={castUrl} rel="noreferrer" target="_blank">
-                Cast claim
-              </a>
-              <a href={xShareUrl} rel="noreferrer" target="_blank">
-                Post to X
-              </a>
-              {traderProfile?.id ? (
-                <Link href={"/traders/" + traderProfile.id}>View public card</Link>
-              ) : null}
+              {isWalletConnected && traderProfile?.id ? (
+                <>
+                  <a href={castUrl} rel="noreferrer" target="_blank">
+                    Cast claim
+                  </a>
+                  <a href={xShareUrl} rel="noreferrer" target="_blank">
+                    Post to X
+                  </a>
+                  <Link href={"/traders/" + traderProfile.id}>View public card</Link>
+                </>
+              ) : (
+                <button onClick={() => promptWalletConnection()} type="button">
+                  Connect wallet to share
+                </button>
+              )}
             </div>
           </aside>
         </form>
       </main>
     </TerminalShell>
   );
+}
+
+function getConnectedWalletAddress(session: UserSession | null) {
+  if (session?.socialAccount.platform !== "WEB") return null;
+
+  const walletAddress = session.socialAccount.platformUserId.trim();
+
+  return /^0x[a-fA-F0-9]{40}$/.test(walletAddress) ? walletAddress : null;
 }
 
 function normalizeHandleInput(value: string) {

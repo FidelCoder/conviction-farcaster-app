@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { CoreApiError, upsertTraderProfile } from "../../../lib/core-api";
+import {
+  CoreApiError,
+  createBrowserWalletSession,
+  upsertTraderProfile,
+} from "../../../lib/core-api";
+
+const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
 
 export async function POST(request: Request) {
   const body = await parseBody(request);
@@ -9,13 +15,13 @@ export async function POST(request: Request) {
     return validationError("Request body must be a JSON object.");
   }
 
-  const userId = stringField(body, "userId");
+  const walletAddress = stringField(body, "walletAddress");
   const handle = stringField(body, "handle");
   const bio = optionalString(body.bio);
   const avatarUrl = optionalString(body.avatarUrl);
 
-  if (!userId) {
-    return validationError("A core user id is required.");
+  if (!evmAddressPattern.test(walletAddress)) {
+    return validationError("Connect a valid EVM wallet before updating a profile.");
   }
 
   if (!handle || handle.length < 2) {
@@ -23,14 +29,18 @@ export async function POST(request: Request) {
   }
 
   try {
+    const session = await createBrowserWalletSession({ walletAddress });
     const traderProfile = await upsertTraderProfile({
-      userId,
+      userId: session.user.id,
       handle,
       bio,
       avatarUrl,
     });
 
-    return NextResponse.json({ ok: true, data: { traderProfile } }, { status: 201 });
+    return NextResponse.json(
+      { ok: true, data: { session: { ...session, traderProfile }, traderProfile } },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof CoreApiError) {
       return NextResponse.json(
@@ -44,7 +54,7 @@ export async function POST(request: Request) {
         ok: false,
         error: {
           code: "TRADER_PROFILE_FAILED",
-          message: "Core API did not accept the profile update.",
+          message: "Core API did not accept the wallet profile update.",
         },
       },
       { status: 502 },

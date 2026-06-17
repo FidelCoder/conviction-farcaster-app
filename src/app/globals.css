@@ -7312,6 +7312,7 @@ body::after {
 .terminal-page .text-link,
 .terminal-page .settings-card a,
 .terminal-page .profile-share-actions a,
+.terminal-page .profile-share-actions button,
 .terminal-page .profile-action-button {
   min-height: 2.35rem;
   border: 1px solid rgba(249, 115, 22, 0.38);
@@ -7328,6 +7329,7 @@ body::after {
 .terminal-page .text-link:hover,
 .terminal-page .settings-card a:hover,
 .terminal-page .profile-share-actions a:hover,
+.terminal-page .profile-share-actions button:hover,
 .terminal-page .profile-action-button:hover {
   border-color: #f97316;
   background: #f97316;
@@ -7381,6 +7383,29 @@ body::after {
   max-width: none;
   margin-top: 0;
   border-top: 2px solid #f97316;
+}
+
+.terminal-page .profile-wallet-lock {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  border-radius: 8px;
+  background: rgba(249, 115, 22, 0.08);
+  padding: 0.85rem;
+}
+
+.terminal-page .profile-wallet-lock strong {
+  color: #f97316;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.terminal-page .profile-wallet-lock span {
+  color: rgba(204, 195, 216, 0.8);
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 .terminal-page .profile-avatar-section {

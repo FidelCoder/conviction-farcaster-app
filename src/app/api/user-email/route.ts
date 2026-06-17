@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { CoreApiError, updateUserEmail } from "../../../lib/core-api";
+import { CoreApiError, createBrowserWalletSession, updateUserEmail } from "../../../lib/core-api";
+
+const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
 
 export async function PATCH(request: Request) {
   const body = await parseBody(request);
@@ -9,11 +11,11 @@ export async function PATCH(request: Request) {
     return validationError("Request body must be a JSON object.");
   }
 
-  const userId = stringField(body, "userId");
+  const walletAddress = stringField(body, "walletAddress");
   const email = stringField(body, "email");
 
-  if (!userId) {
-    return validationError("A core user id is required.");
+  if (!evmAddressPattern.test(walletAddress)) {
+    return validationError("Connect a valid EVM wallet before updating email.");
   }
 
   if (!email || !email.includes("@")) {
@@ -21,9 +23,11 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const result = await updateUserEmail(userId, email);
+    const session = await createBrowserWalletSession({ walletAddress });
+    const result = await updateUserEmail(session.user.id, email);
+    const nextSession = { ...session, user: { ...session.user, email: result.email } };
 
-    return NextResponse.json({ ok: true, data: { email: result.email } });
+    return NextResponse.json({ ok: true, data: { email: result.email, session: nextSession } });
   } catch (error) {
     if (error instanceof CoreApiError) {
       return NextResponse.json(
@@ -37,7 +41,7 @@ export async function PATCH(request: Request) {
         ok: false,
         error: {
           code: "EMAIL_UPDATE_FAILED",
-          message: "Core API did not accept the email update.",
+          message: "Core API did not accept the wallet email update.",
         },
       },
       { status: 502 },

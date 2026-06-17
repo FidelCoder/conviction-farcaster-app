@@ -12,7 +12,7 @@ import {
 } from "../../../lib/core-api";
 
 type EmailResponse =
-  | { ok: true; data: { email: string } }
+  | { ok: true; data: { email: string; session: UserSession } }
   | { ok: false; error: { code: string; message: string } };
 
 type PreferenceKey = "positions" | "vaults" | "social" | "culture";
@@ -95,10 +95,13 @@ export default function NotificationsPage() {
     setEmail(nextSession?.user.email ?? "");
   }, []);
 
+  const walletAddress = getConnectedWalletAddress(session);
+  const isWalletConnected = Boolean(walletAddress);
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!session) {
+    if (!session || !walletAddress) {
       setState({ status: "error", message: "Connect a wallet from the terminal header first." });
       return;
     }
@@ -114,7 +117,7 @@ export default function NotificationsPage() {
       const response = await fetch("/api/user-email", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: session.user.id, email: email.trim() }),
+        body: JSON.stringify({ walletAddress, email: email.trim() }),
       });
       const body = (await response.json()) as EmailResponse;
 
@@ -126,7 +129,7 @@ export default function NotificationsPage() {
         return;
       }
 
-      const nextSession = { ...session, user: { ...session.user, email: body.data.email } };
+      const nextSession = body.data.session;
 
       setSession(nextSession);
       window.localStorage.setItem("conviction-browser-session", JSON.stringify(nextSession));
@@ -140,7 +143,16 @@ export default function NotificationsPage() {
     }
   }
 
+  function promptWalletConnection() {
+    setState({ status: "error", message: "Connect a wallet from the terminal header first." });
+  }
+
   function togglePreference(key: PreferenceKey) {
+    if (!isWalletConnected) {
+      promptWalletConnection();
+      return;
+    }
+
     setPreferences((current) => ({ ...current, [key]: !current[key] }));
   }
 
@@ -170,16 +182,26 @@ export default function NotificationsPage() {
         </section>
 
         <section className="terminal-connect-panel">
-          <span>{session ? "Wallet profile active" : "Wallet profile required"}</span>
-          <p>Connect from the top-right wallet action. No Farcaster account is required.</p>
+          <span>{isWalletConnected ? "Wallet profile active" : "Wallet profile required"}</span>
+          <p>Connect from the top-right wallet action before editing notification email.</p>
         </section>
 
         <form className="notification-panel" onSubmit={handleSave}>
+          {!isWalletConnected ? (
+            <div className="profile-wallet-lock">
+              <strong>Wallet connection required</strong>
+              <span>Email and preference changes are saved against the connected wallet.</span>
+            </div>
+          ) : null}
           <label className="profile-field">
             <span>Email destination</span>
             <input
+              onFocus={() => {
+                if (!isWalletConnected) promptWalletConnection();
+              }}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@example.com"
+              readOnly={!isWalletConnected}
               type="email"
               value={email}
             />
@@ -202,7 +224,11 @@ export default function NotificationsPage() {
           </div>
 
           <button className="profile-submit" disabled={state.status === "saving"} type="submit">
-            {state.status === "saving" ? "Saving..." : "Save notifications"}
+            {state.status === "saving"
+              ? "Saving..."
+              : isWalletConnected
+                ? "Save notifications"
+                : "Connect wallet to save"}
           </button>
 
           <p
@@ -218,6 +244,14 @@ export default function NotificationsPage() {
       </main>
     </TerminalShell>
   );
+}
+
+function getConnectedWalletAddress(session: UserSession | null) {
+  if (session?.socialAccount.platform !== "WEB") return null;
+
+  const walletAddress = session.socialAccount.platformUserId.trim();
+
+  return /^0x[a-fA-F0-9]{40}$/.test(walletAddress) ? walletAddress : null;
 }
 
 const fallbackExecution: ExecutionCapabilities = {
