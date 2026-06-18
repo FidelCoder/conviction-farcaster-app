@@ -6,11 +6,31 @@ import { resolveVaultCollateral } from "./vault-token-config";
 import type { PortfolioWalletBalance, Vault } from "../zip-ui/types";
 
 type TokenBalanceResult = {
-  balance: PortfolioWalletBalance;
+  availableBalance: PortfolioWalletBalance;
+  depositedBalance: PortfolioWalletBalance;
   vaultId: string;
 };
 
+type BalanceCacheEntry = {
+  expiresAt: number;
+  result: TokenBalanceResult;
+};
+
 const supportedChains = [baseSepolia, sepolia, arbitrumSepolia, base] as const;
+const balanceCache = new Map<string, BalanceCacheEntry>();
+const BALANCE_CACHE_MS = 30000;
+const VAULT_ACCOUNTING_ABI = [
+  {
+    inputs: [
+      { name: "", type: "address" },
+      { name: "", type: "address" },
+    ],
+    name: "availableBalance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
 
 export async function readVaultWalletBalances(input: {
   address: string;
@@ -20,7 +40,10 @@ export async function readVaultWalletBalances(input: {
   const walletAddress = normalizeAddress(input.address);
 
   if (!walletAddress) {
-    return {} as Record<string, PortfolioWalletBalance>;
+    return {
+      depositedBalances: {} as Record<string, PortfolioWalletBalance>,
+      walletBalances: {} as Record<string, PortfolioWalletBalance>,
+    };
   }
 
   const supportedVaults = input.vaults.filter((vault) => {
@@ -31,14 +54,21 @@ export async function readVaultWalletBalances(input: {
     );
   });
 
-  const results = await Promise.all(
-    supportedVaults.map((vault) => readVaultTokenBalance(vault, walletAddress, input.execution)),
+  const results = await mapWithConcurrency(supportedVaults, 2, (vault) =>
+    readVaultTokenBalance(vault, walletAddress, input.execution),
   );
 
-  return results.reduce<Record<string, PortfolioWalletBalance>>((balances, result) => {
-    balances[result.vaultId] = result.balance;
-    return balances;
-  }, {});
+  return results.reduce<{
+    depositedBalances: Record<string, PortfolioWalletBalance>;
+    walletBalances: Record<string, PortfolioWalletBalance>;
+  }>(
+    (balances, result) => {
+      balances.walletBalances[result.vaultId] = result.availableBalance;
+      balances.depositedBalances[result.vaultId] = result.depositedBalance;
+      return balances;
+    },
+    { depositedBalances: {}, walletBalances: {} },
+  );
 }
 
 export function getVaultAvailableBalance(input: {
@@ -63,6 +93,13 @@ async function readVaultTokenBalance(
   walletAddress: Address,
   execution: ExecutionCapabilities,
 ): Promise<TokenBalanceResult> {
+  const cacheKey = [walletAddress, vault.id, vault.chainId, vault.collateralTokenAddress].join(":").toLowerCase();
+  const cached = balanceCache.get(cacheKey);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.result;
+  }
+
   const chain = findExecutionChain(execution, vault);
   const chainId = vault.chainId ?? chain?.chainId ?? 0;
   const collateral = resolveVaultCollateral({
@@ -73,6 +110,7 @@ async function readVaultTokenBalance(
     tokenSymbol: vault.asset ?? chain?.collateralTokenSymbol,
   });
   const tokenAddress = normalizeAddress(collateral.tokenAddress ?? undefined);
+  const vaultAddress = normalizeAddress(chain?.vaultAddress ?? undefined);
   const chainName = collateral.chainName;
   const decimals = collateral.tokenDecimals ?? 18;
   const symbol = collateral.tokenSymbol === "WETH" ? "WETH" : "USDC";
@@ -80,7 +118,15 @@ async function readVaultTokenBalance(
   if (!tokenAddress || !chainId) {
     return {
       vaultId: vault.id,
-      balance: createErrorBalance({
+      availableBalance: createErrorBalance({
+        chainId,
+        chainName,
+        decimals,
+        message: "Vault token metadata is missing.",
+        symbol,
+        tokenAddress: collateral.tokenAddress ?? "",
+      }),
+      depositedBalance: createErrorBalance({
         chainId,
         chainName,
         decimals,
@@ -96,7 +142,15 @@ async function readVaultTokenBalance(
   if (!viemChain) {
     return {
       vaultId: vault.id,
-      balance: createErrorBalance({
+      availableBalance: createErrorBalance({
+        chainId,
+        chainName,
+        decimals,
+        message: "No public RPC route is configured for this vault chain.",
+        symbol,
+        tokenAddress,
+      }),
+      depositedBalance: createErrorBalance({
         chainId,
         chainName,
         decimals,
@@ -108,44 +162,95 @@ async function readVaultTokenBalance(
   }
 
   try {
-    const client = createPublicClient({ chain: viemChain, transport: http() });
-    const rawBalance = await client.readContract({
-      address: tokenAddress,
-      abi: erc20Abi,
-      functionName: "balanceOf",
-      args: [walletAddress],
-    });
-    const formatted = formatUnits(rawBalance, decimals);
-    const amount = Number(formatted);
+    const client = createPublicClient({ chain: viemChain, transport: http(getRpcUrl(chainId)) });
+    const [rawWalletBalance, rawDepositedBalance] = await Promise.all([
+      client.readContract({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [walletAddress],
+      }),
+      vaultAddress
+        ? client.readContract({
+            address: vaultAddress,
+            abi: VAULT_ACCOUNTING_ABI,
+            functionName: "availableBalance",
+            args: [walletAddress, tokenAddress],
+          })
+        : Promise.resolve(BigInt(0)),
+    ]);
+
+    const result = {
+      vaultId: vault.id,
+      availableBalance: createReadyBalance({
+        amount: rawWalletBalance,
+        chainId,
+        chainName,
+        decimals,
+        symbol,
+        tokenAddress,
+      }),
+      depositedBalance: createReadyBalance({
+        amount: rawDepositedBalance,
+        chainId,
+        chainName,
+        decimals,
+        symbol,
+        tokenAddress,
+      }),
+    };
+
+    balanceCache.set(cacheKey, { expiresAt: Date.now() + BALANCE_CACHE_MS, result });
+
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Token balance read failed.";
 
     return {
       vaultId: vault.id,
-      balance: {
-        amount: Number.isFinite(amount) ? amount : 0,
+      availableBalance: createErrorBalance({
         chainId,
         chainName,
         decimals,
-        formatted,
-        raw: rawBalance.toString(),
-        status: "ready",
+        message,
         symbol,
         tokenAddress,
-        updatedAt: new Date().toISOString(),
-      },
-    };
-  } catch (error) {
-    return {
-      vaultId: vault.id,
-      balance: createErrorBalance({
+      }),
+      depositedBalance: createErrorBalance({
         chainId,
         chainName,
         decimals,
-        message: error instanceof Error ? error.message : "Token balance read failed.",
+        message,
         symbol,
         tokenAddress,
       }),
     };
   }
+}
+
+function createReadyBalance(input: {
+  amount: bigint;
+  chainId: number;
+  chainName: string;
+  decimals: number;
+  symbol: string;
+  tokenAddress: string;
+}): PortfolioWalletBalance {
+  const formatted = formatUnits(input.amount, input.decimals);
+  const amount = Number(formatted);
+
+  return {
+    amount: Number.isFinite(amount) ? amount : 0,
+    chainId: input.chainId,
+    chainName: input.chainName,
+    decimals: input.decimals,
+    formatted,
+    raw: input.amount.toString(),
+    status: "ready",
+    symbol: input.symbol,
+    tokenAddress: input.tokenAddress,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function createErrorBalance(input: {
@@ -169,6 +274,31 @@ function createErrorBalance(input: {
     tokenAddress: input.tokenAddress,
     updatedAt: new Date().toISOString(),
   };
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>,
+) {
+  const results: R[] = [];
+
+  for (let index = 0; index < items.length; index += limit) {
+    const chunk = items.slice(index, index + limit);
+    results.push(...(await Promise.all(chunk.map(mapper))));
+  }
+
+  return results;
+}
+
+function getRpcUrl(chainId: number) {
+  const urls: Record<number, string> = {
+    84532: "https://sepolia.base.org",
+    11155111: "https://ethereum-sepolia-rpc.publicnode.com",
+    421614: "https://sepolia-rollup.arbitrum.io/rpc",
+  };
+
+  return urls[chainId];
 }
 
 function findExecutionChain(execution: ExecutionCapabilities, vault: Vault) {

@@ -40,6 +40,7 @@ const emptyPortfolio: UserPortfolio = {
   wethBalance: 0,
   vaultBalances: {},
   walletBalances: {},
+  vaultTransactions: [],
   walletBalancesStatus: "idle",
   activeRequestsCount: 0,
   activePositions: [],

@@ -42,6 +42,7 @@ import type {
   PredictionMarket,
   UserPortfolio,
   Vault,
+  VaultDepositTransaction,
 } from "../zip-ui/types";
 
 type BrowserTerminalProps = {
@@ -66,6 +67,10 @@ type MarginIntentResponse =
   | { ok: false; error: { code: string; message: string } };
 
 type AlertMessage = { type: "success" | "info"; text: string } | null;
+type DepositResult = VaultDepositTransaction | false;
+
+const TERMINAL_TABS = ["landing", "markets", "margin-desk", "vaults", "activity"] as const;
+const TERMINAL_TAB_STORAGE_KEY = "conviction-active-terminal-tab";
 
 const emptyPortfolio: UserPortfolio = {
   connected: false,
@@ -74,6 +79,7 @@ const emptyPortfolio: UserPortfolio = {
   wethBalance: 0,
   vaultBalances: {},
   walletBalances: {},
+  vaultTransactions: [],
   walletBalancesStatus: "idle",
   activeRequestsCount: 0,
   activePositions: [],
@@ -92,7 +98,7 @@ export function BrowserTerminal({
   const tape = useMemo(() => mapMarketsToTape(markets), [markets]);
   const socialActivity = useMemo(() => mapSocialFeedToActivity(socialFeed), [socialFeed]);
   const leaderboardItems = useMemo(() => mapLeaderboard(leaderboard), [leaderboard]);
-  const [activeTab, setActiveTab] = useState("landing");
+  const [activeTab, setActiveTabState] = useState("landing");
   const [portfolio, setPortfolio] = useState<UserPortfolio>(emptyPortfolio);
   const [session, setSession] = useState<UserSession | null>(null);
   const [activeMarket, setActiveMarket] = useState<PredictionMarket>(displayMarkets[0]);
@@ -102,6 +108,19 @@ export function BrowserTerminal({
 
   const currentMarket =
     displayMarkets.find((market) => market.id === activeMarket.id) ?? displayMarkets[0];
+
+  const setActiveTab = useCallback((tab: string) => {
+    if (!isTerminalTab(tab)) return;
+
+    setActiveTabState(tab);
+
+    if (typeof window === "undefined") return;
+
+    window.localStorage.setItem(TERMINAL_TAB_STORAGE_KEY, tab);
+
+    const nextUrl = tab === "landing" ? window.location.pathname : window.location.pathname + "#" + tab;
+    window.history.replaceState(null, "", nextUrl);
+  }, []);
 
   const applySession = useCallback((nextSession: UserSession | null) => {
     setSession(nextSession);
@@ -117,7 +136,9 @@ export function BrowserTerminal({
         ...current,
         connected: true,
         address: nextAddress,
+        vaultBalances: isSameWallet ? current.vaultBalances : {},
         walletBalances: isSameWallet ? current.walletBalances : {},
+        vaultTransactions: isSameWallet ? current.vaultTransactions : [],
         walletBalancesMessage: nextAddress ? "Reading wallet token balances..." : undefined,
         walletBalancesStatus: nextAddress ? "loading" : "idle",
       };
@@ -134,12 +155,15 @@ export function BrowserTerminal({
 
   useEffect(() => {
     const tabFromHash = window.location.hash.replace("#", "");
+    const storedTab = window.localStorage.getItem(TERMINAL_TAB_STORAGE_KEY);
+    const nextTab = isTerminalTab(tabFromHash)
+      ? tabFromHash
+      : isTerminalTab(storedTab)
+        ? storedTab
+        : "landing";
 
-    if (["markets", "margin-desk", "vaults", "activity"].includes(tabFromHash)) {
-      setActiveTab(tabFromHash);
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-  }, []);
+    setActiveTab(nextTab);
+  }, [setActiveTab]);
 
   useEffect(() => {
     if (!portfolio.connected || !portfolio.address) return;
@@ -158,7 +182,7 @@ export function BrowserTerminal({
     );
 
     void readVaultWalletBalances({ address: walletAddress, execution, vaults })
-      .then((walletBalances) => {
+      .then(({ depositedBalances, walletBalances }) => {
         if (!isCurrent) return;
 
         const primaryUsdcBalance = Object.values(walletBalances).find(
@@ -177,6 +201,7 @@ export function BrowserTerminal({
             ...current,
             usdcBalance: primaryUsdcBalance?.amount ?? current.usdcBalance,
             wethBalance: primaryWethBalance?.amount ?? current.wethBalance,
+            vaultBalances: mergeReadyVaultBalances(current.vaultBalances, depositedBalances),
             walletBalances,
             walletBalancesMessage: "Wallet token balances updated.",
             walletBalancesStatus: "ready",
@@ -337,7 +362,7 @@ export function BrowserTerminal({
     }
   }
 
-  async function handleDeposit(vaultId: string, amount: number) {
+  async function handleDeposit(vaultId: string, amount: number): Promise<DepositResult> {
     if (!portfolio.connected || !portfolio.address) {
       triggerAlert("info", "Connect an EVM wallet before depositing into a vault.");
       return false;
@@ -384,37 +409,48 @@ export function BrowserTerminal({
       await ensureWalletChain(provider, vault.chainId);
 
       const amountUnits = parseUnits(String(amount), vault.collateralTokenDecimals ?? 6);
-      const approvalHash = normalizeTransactionHash(
-        await provider.request({
-          method: "eth_sendTransaction",
-          params: [
-            {
-              data: encodeFunctionData({
-                abi: erc20Abi,
-                functionName: "approve",
-                args: [vaultAddress as `0x${string}`, amountUnits],
-              }),
-              from: walletAddress,
-              to: vault.collateralTokenAddress,
-            },
-          ],
-        }),
-      );
+      const currentAllowance = await readCollateralAllowance({
+        owner: walletAddress,
+        provider,
+        spender: vaultAddress,
+        tokenAddress: vault.collateralTokenAddress,
+      });
+      let approvalHash: string | null = null;
 
-      if (!approvalHash) {
-        triggerAlert("info", "Wallet did not return an approval transaction hash.");
-        return false;
+      if (currentAllowance < amountUnits) {
+        triggerAlert("info", "Approve vault access once, then submit the deposit.");
+        approvalHash = normalizeTransactionHash(
+          await provider.request({
+            method: "eth_sendTransaction",
+            params: [
+              {
+                data: encodeFunctionData({
+                  abi: erc20Abi,
+                  functionName: "approve",
+                  args: [vaultAddress as `0x${string}`, amountUnits],
+                }),
+                from: walletAddress,
+                to: vault.collateralTokenAddress,
+              },
+            ],
+          }),
+        );
+
+        if (!approvalHash) {
+          triggerAlert("info", "Wallet did not return an approval transaction hash.");
+          return false;
+        }
+
+        triggerAlert("success", "Approval submitted. Waiting for confirmation before deposit.");
+        const approvalReceipt = await waitForTransactionReceipt(provider, approvalHash);
+
+        if (approvalReceipt?.status && approvalReceipt.status !== "0x1") {
+          triggerAlert("info", "Approval transaction failed onchain.");
+          return false;
+        }
       }
 
-      triggerAlert("success", "Approval submitted. Waiting for confirmation before deposit.");
-      const approvalReceipt = await waitForTransactionReceipt(provider, approvalHash);
-
-      if (approvalReceipt?.status && approvalReceipt.status !== "0x1") {
-        triggerAlert("info", "Approval transaction failed onchain.");
-        return false;
-      }
-
-      triggerAlert("info", "Approval confirmed. Submit the vault deposit in your wallet.");
+      triggerAlert("info", "Submit the vault deposit in your wallet.");
       const depositHash = normalizeTransactionHash(
         await provider.request({
           method: "eth_sendTransaction",
@@ -445,16 +481,31 @@ export function BrowserTerminal({
         return false;
       }
 
+      const transaction: VaultDepositTransaction = {
+        id: depositHash,
+        amount,
+        approvalHash,
+        asset: vault.asset,
+        chainId: vault.chainId,
+        chainName: vault.chainName,
+        depositHash,
+        status: "confirmed" as const,
+        timestamp: new Date().toISOString(),
+        vaultId,
+        vaultName: vault.name,
+      };
+
       setPortfolio((current) => ({
         ...current,
         vaultBalances: {
           ...current.vaultBalances,
           [vaultId]: (current.vaultBalances[vaultId] ?? 0) + amount,
         },
+        vaultTransactions: [transaction, ...current.vaultTransactions].slice(0, 20),
       }));
       refreshWalletBalances();
       triggerAlert("success", "Vault deposit confirmed.");
-      return true;
+      return transaction;
     } catch (error) {
       triggerAlert("info", getWalletErrorMessage(error));
       return false;
@@ -603,6 +654,44 @@ const emptyPredictionMarket: PredictionMarket = {
   description: "Sync real provider markets from core before opening margin.",
 };
 
+
+function isTerminalTab(value: string | null | undefined): value is (typeof TERMINAL_TABS)[number] {
+  return typeof value === "string" && TERMINAL_TABS.includes(value as (typeof TERMINAL_TABS)[number]);
+}
+
+function inferDiscoveryTopic(market: Market) {
+  const text = getMarketDiscoveryText(market);
+
+  if (hasTerm(text, ["nba", "nfl", "nhl", "mlb", "champion", "finals", "cup", "league", "ufc", "soccer", "football"])) return "Sports";
+  if (hasTerm(text, ["bitcoin", "btc", "ethereum", "eth", "airdrop", "token", "crypto", "defi", "chain"])) return "Crypto";
+  if (hasTerm(text, ["election", "president", "senate", "congress", "minister", "policy", "government"])) return "Politics";
+  if (hasTerm(text, ["fed", "rates", "inflation", "gdp", "recession", "oil", "stocks", "market"])) return "Macro";
+  if (hasTerm(text, ["album", "movie", "music", "gta", "celebrity", "award", "streaming"])) return "Culture";
+  if (hasTerm(text, ["ai", "openai", "nvidia", "apple", "tesla", "spacex", "startup", "tech"])) return "Technology";
+
+  return "General";
+}
+
+function inferDiscoveryRegion(market: Market) {
+  const text = getMarketDiscoveryText(market);
+
+  if (hasTerm(text, ["nba", "nfl", "nhl", "mlb", "new york", "san antonio", "oklahoma", "vegas", "u.s.", "usa", "america"])) return "United States";
+  if (hasTerm(text, ["canada", "montreal", "toronto", "stanley"])) return "Canada";
+  if (hasTerm(text, ["uk", "britain", "london", "europe", "eu ", "france", "germany", "spain", "italy"])) return "Europe";
+  if (hasTerm(text, ["nigeria", "kenya", "ghana", "south africa", "egypt", "africa"])) return "Africa";
+  if (hasTerm(text, ["china", "india", "japan", "korea", "singapore", "asia"])) return "Asia";
+
+  return "Global";
+}
+
+function getMarketDiscoveryText(market: Market) {
+  return [market.title, market.description, market.category, market.source].filter(Boolean).join(" ").toLowerCase();
+}
+
+function hasTerm(text: string, terms: string[]) {
+  return terms.some((term) => text.includes(term));
+}
+
 function mapMarketToPredictionMarket(market: Market): PredictionMarket {
   const price = getMarketPrice(market);
   const numericPrice = price ? Number(price) : Number.NaN;
@@ -620,6 +709,8 @@ function mapMarketToPredictionMarket(market: Market): PredictionMarket {
     convictionValue: Math.max(0, Math.min(score, 100)),
     category: market.category ?? market.source,
     description: market.description ?? "Provider description unavailable.",
+    discoveryRegion: inferDiscoveryRegion(market),
+    discoveryTopic: inferDiscoveryTopic(market),
   };
 }
 
@@ -754,10 +845,52 @@ function formatRelativeTime(value: string) {
   return Math.floor(hours / 24) + "d ago";
 }
 
+function mergeReadyVaultBalances(
+  currentBalances: Record<string, number>,
+  depositedBalances: Record<string, { amount: number; status: string }>,
+) {
+  return Object.entries(depositedBalances).reduce(
+    (balances, [vaultId, balance]) => {
+      if (balance.status === "ready") {
+        balances[vaultId] = balance.amount;
+      }
+
+      return balances;
+    },
+    { ...currentBalances },
+  );
+}
+
 function getVaultAddress(execution: ExecutionCapabilities, vault: Vault) {
   if (!vault.chainId) return null;
 
   return execution.chains.find((chain) => chain.chainId === vault.chainId)?.vaultAddress ?? null;
+}
+
+
+async function readCollateralAllowance(input: {
+  owner: string;
+  provider: EthereumProvider;
+  spender: string;
+  tokenAddress: string;
+}) {
+  const data = encodeFunctionData({
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: [input.owner as `0x${string}`, input.spender as `0x${string}`],
+  });
+  const rawAllowance = await input.provider.request({
+    method: "eth_call",
+    params: [{ data, to: input.tokenAddress }, "latest"],
+  });
+
+  if (typeof rawAllowance !== "string") return BigInt(0);
+
+  try {
+    return BigInt(rawAllowance);
+  } catch {
+    return BigInt(0);
+  }
 }
 
 async function ensureWalletChain(provider: EthereumProvider, chainId: number) {

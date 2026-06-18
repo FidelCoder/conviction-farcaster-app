@@ -9,6 +9,22 @@ export interface PredictionMarket {
   convictionValue: number; // percentage value for bar width (e.g. 85)
   category: string;
   description: string;
+  discoveryRegion?: string;
+  discoveryTopic?: string;
+}
+
+export interface VaultDepositTransaction {
+  id: string;
+  amount: number;
+  approvalHash?: string | null;
+  asset: 'USDC' | 'WETH';
+  chainId?: number;
+  chainName?: string;
+  depositHash: string;
+  status: 'confirmed' | 'pending' | 'failed';
+  timestamp: string;
+  vaultId: string;
+  vaultName: string;
 }
 
 export interface Vault {
@@ -89,6 +105,7 @@ export interface UserPortfolio {
   wethBalance: number;
   vaultBalances: { [vaultId: string]: number };
   walletBalances: { [vaultId: string]: PortfolioWalletBalance };
+  vaultTransactions: VaultDepositTransaction[];
   walletBalancesMessage?: string;
   walletBalancesStatus: WalletBalanceStatus;
   activeRequestsCount: number;
