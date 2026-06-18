@@ -1,5 +1,5 @@
 const DEFAULT_APP_NAME = "Conviction Markets";
-const DEFAULT_APP_URL = "http://localhost:3001";
+const DEFAULT_APP_URL = "https://convictionmarkets.xyz";
 const SPLASH_BACKGROUND_COLOR = "#f7f7f2";
 const MANIFEST_TAGS = ["markets", "signals", "copytrade"] as const;
 
