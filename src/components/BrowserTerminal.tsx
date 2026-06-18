@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { encodeFunctionData, erc20Abi, parseAbi, parseUnits } from "viem";
 
+import { MobileWalletLauncher } from "./MobileWalletLauncher";
 import {
   clearStoredBrowserWalletSession,
   getSessionWalletAddress,
@@ -19,6 +20,7 @@ import type {
 import { getMarketDisplayCase, getMarketPrice } from "../lib/market-display";
 import {
   getNoWalletDetectedMessage,
+  isMobileWalletEnvironment,
   resolveEvmWalletProvider,
   type EthereumProvider,
 } from "../lib/evm-wallet-provider";
@@ -95,6 +97,7 @@ export function BrowserTerminal({
   const [session, setSession] = useState<UserSession | null>(null);
   const [activeMarket, setActiveMarket] = useState<PredictionMarket>(displayMarkets[0]);
   const [alertMessage, setAlertMessage] = useState<AlertMessage>(null);
+  const [mobileWalletMessage, setMobileWalletMessage] = useState<string | null>(null);
   const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
 
   const currentMarket =
@@ -208,6 +211,15 @@ export function BrowserTerminal({
     window.setTimeout(() => setAlertMessage(null), 4500);
   }
 
+  function promptMobileWallet(message = getNoWalletDetectedMessage()) {
+    if (isMobileWalletEnvironment()) {
+      setMobileWalletMessage(message);
+      return;
+    }
+
+    triggerAlert("info", message);
+  }
+
   async function handleConnectWallet() {
     if (portfolio.connected) {
       applySession(null);
@@ -219,7 +231,7 @@ export function BrowserTerminal({
     const provider = await resolveEvmWalletProvider();
 
     if (!provider) {
-      triggerAlert("info", getNoWalletDetectedMessage());
+      promptMobileWallet();
       return;
     }
 
@@ -346,7 +358,7 @@ export function BrowserTerminal({
     const provider = await resolveEvmWalletProvider();
 
     if (!provider) {
-      triggerAlert("info", getNoWalletDetectedMessage());
+      promptMobileWallet();
       return false;
     }
 
@@ -551,6 +563,12 @@ export function BrowserTerminal({
         contractStatus={execution.contractLayer?.status ?? "Configured"}
         executionMode={execution.marginExecutionEnabled ? "Live" : "Request"}
         marketCount={markets.length}
+      />
+
+      <MobileWalletLauncher
+        message={mobileWalletMessage ?? undefined}
+        onClose={() => setMobileWalletMessage(null)}
+        open={Boolean(mobileWalletMessage)}
       />
 
       {alertMessage ? (

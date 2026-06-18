@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
+import { MobileWalletLauncher } from "./MobileWalletLauncher";
 import {
   clearStoredBrowserWalletSession,
   getSessionWalletAddress,
@@ -9,7 +10,11 @@ import {
   setStoredBrowserWalletSession,
 } from "../lib/browser-wallet-session";
 import type { ExecutionCapabilities, UserSession } from "../lib/core-api";
-import { getNoWalletDetectedMessage, resolveEvmWalletProvider } from "../lib/evm-wallet-provider";
+import {
+  getNoWalletDetectedMessage,
+  isMobileWalletEnvironment,
+  resolveEvmWalletProvider,
+} from "../lib/evm-wallet-provider";
 import Header from "../zip-ui/components/Header";
 import Sidebar from "../zip-ui/components/Sidebar";
 import StatusBar from "../zip-ui/components/StatusBar";
@@ -53,6 +58,7 @@ export function TerminalShell({
   const [portfolio, setPortfolio] = useState<UserPortfolio>(emptyPortfolio);
   const [session, setSession] = useState<UserSession | null>(null);
   const [alertMessage, setAlertMessage] = useState<AlertMessage>(null);
+  const [mobileWalletMessage, setMobileWalletMessage] = useState<string | null>(null);
 
   const applySession = useCallback((nextSession: UserSession | null) => {
     setSession(nextSession);
@@ -87,6 +93,15 @@ export function TerminalShell({
     window.setTimeout(() => setAlertMessage(null), 4500);
   }
 
+  function promptMobileWallet(message = getNoWalletDetectedMessage()) {
+    if (isMobileWalletEnvironment()) {
+      setMobileWalletMessage(message);
+      return;
+    }
+
+    triggerAlert("info", message);
+  }
+
   async function handleConnectWallet() {
     if (portfolio.connected) {
       applySession(null);
@@ -99,7 +114,7 @@ export function TerminalShell({
     const provider = await resolveEvmWalletProvider();
 
     if (!provider) {
-      triggerAlert("info", getNoWalletDetectedMessage());
+      promptMobileWallet();
       return;
     }
 
@@ -157,6 +172,12 @@ export function TerminalShell({
         contractStatus={execution.contractLayer?.status ?? "Configured"}
         executionMode={execution.marginExecutionEnabled ? "Live" : "Request"}
         marketCount={marketCount}
+      />
+
+      <MobileWalletLauncher
+        message={mobileWalletMessage ?? undefined}
+        onClose={() => setMobileWalletMessage(null)}
+        open={Boolean(mobileWalletMessage)}
       />
 
       {alertMessage ? (

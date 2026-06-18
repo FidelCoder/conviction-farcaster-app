@@ -7762,6 +7762,159 @@ body::after {
   background: rgba(22, 22, 22, 0.7);
 }
 
+
+.mobile-wallet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: end center;
+  background: rgba(0, 0, 0, 0.68);
+  padding: 1rem;
+}
+
+.mobile-wallet-sheet {
+  position: relative;
+  width: min(100%, 28rem);
+  border: 1px solid #262626;
+  border-top: 2px solid #f97316;
+  border-radius: 8px;
+  background: rgba(22, 22, 22, 0.98);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.46);
+  padding: 1.1rem;
+  color: #e5e2e1;
+}
+
+.mobile-wallet-close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid #262626;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #ccc3d8;
+  cursor: pointer;
+}
+
+.mobile-wallet-close:hover {
+  border-color: rgba(249, 115, 22, 0.6);
+  color: #ffffff;
+}
+
+.mobile-wallet-eyebrow {
+  display: block;
+  color: #f97316;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mobile-wallet-sheet h2 {
+  margin: 0.45rem 2.2rem 0 0;
+  color: #ffffff;
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.mobile-wallet-sheet p {
+  margin: 0.65rem 0 0;
+  color: rgba(204, 195, 216, 0.82);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.mobile-wallet-options {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.mobile-wallet-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  min-height: 3.75rem;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  background: rgba(10, 10, 10, 0.82);
+  color: #ffffff;
+  padding: 0.75rem 0.85rem;
+  text-decoration: none;
+}
+
+.mobile-wallet-option:hover {
+  border-color: rgba(249, 115, 22, 0.66);
+  background: rgba(249, 115, 22, 0.1);
+}
+
+.mobile-wallet-option span {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.mobile-wallet-option strong {
+  color: #ffffff;
+  font-size: 0.92rem;
+}
+
+.mobile-wallet-option small {
+  color: rgba(204, 195, 216, 0.78);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.mobile-wallet-option svg {
+  flex: 0 0 auto;
+  color: #f97316;
+}
+
+.mobile-wallet-copy-row {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  border-top: 1px solid #262626;
+  padding-top: 1rem;
+}
+
+.mobile-wallet-copy-row > span {
+  color: rgba(204, 195, 216, 0.72);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.mobile-wallet-copy-row button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.45rem;
+  border: 1px solid rgba(249, 115, 22, 0.46);
+  border-radius: 6px;
+  background: #f97316;
+  color: #000000;
+  cursor: pointer;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (min-width: 720px) {
+  .mobile-wallet-overlay {
+    place-items: center;
+  }
+}
+
 .terminal-alert {
   position: fixed;
   top: 5rem;

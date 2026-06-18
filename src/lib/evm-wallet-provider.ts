@@ -21,6 +21,13 @@ type ProviderCandidate = {
   source: "farcaster" | "eip6963" | "injected";
 };
 
+export type MobileWalletOption = {
+  id: string;
+  name: string;
+  description: string;
+  href: string;
+};
+
 export async function resolveEvmWalletProvider() {
   const candidates = await getEvmWalletProviders();
 
@@ -63,7 +70,72 @@ export async function getEvmWalletProviders() {
 }
 
 export function getNoWalletDetectedMessage() {
-  return "No EVM wallet provider was detected. Open this page inside Coinbase Wallet, MetaMask, Rabby, Trust Wallet, Rainbow, OKX Wallet, or a Farcaster client with wallet support, then try again.";
+  if (isMobileWalletEnvironment()) {
+    return "This mobile browser cannot access an injected EVM wallet. Open Conviction Markets inside a wallet browser, then tap Connect Wallet again.";
+  }
+
+  return "No EVM wallet provider was detected. Open this page inside Coinbase Wallet, MetaMask, Rabby, Trust Wallet, Phantom, OKX Wallet, or another browser wallet, then try again.";
+}
+
+export function isMobileWalletEnvironment() {
+  if (typeof navigator === "undefined") return false;
+
+  const userAgent = navigator.userAgent ?? "";
+  const platform = navigator.platform ?? "";
+  const maxTouchPoints = navigator.maxTouchPoints ?? 0;
+
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(userAgent) ||
+    (/Macintosh/i.test(platform) && maxTouchPoints > 1);
+}
+
+export function getMobileWalletOptions(appUrl = getCurrentAppUrl()) {
+  const cleanAppUrl = appUrl.trim();
+  const encodedUrl = encodeURIComponent(cleanAppUrl);
+  const appUrlWithoutProtocol = cleanAppUrl.replace(/^https?:\/\//, "");
+  const encodedRef = encodeURIComponent(getAppOrigin(cleanAppUrl));
+
+  return [
+    {
+      id: "metamask",
+      name: "MetaMask",
+      description: "Open in MetaMask mobile browser",
+      href: "https://metamask.app.link/dapp/" + appUrlWithoutProtocol,
+    },
+    {
+      id: "coinbase",
+      name: "Coinbase Wallet",
+      description: "Open in Coinbase Wallet browser",
+      href: "https://go.cb-w.com/dapp?cb_url=" + encodedUrl,
+    },
+    {
+      id: "trust",
+      name: "Trust Wallet",
+      description: "Open in Trust Wallet browser",
+      href: "https://link.trustwallet.com/open_url?coin_id=60&url=" + encodedUrl,
+    },
+    {
+      id: "phantom",
+      name: "Phantom",
+      description: "Open in Phantom browser",
+      href: "https://phantom.app/ul/browse/" + encodedUrl + "?ref=" + encodedRef,
+    },
+  ] satisfies MobileWalletOption[];
+}
+
+function getCurrentAppUrl() {
+  if (typeof window === "undefined") {
+    return "https://convictionmarkets.xyz";
+  }
+
+  return window.location.href;
+}
+
+function getAppOrigin(appUrl: string) {
+  try {
+    return new URL(appUrl).origin;
+  } catch {
+    return "https://convictionmarkets.xyz";
+  }
 }
 
 async function getFarcasterProvider() {
@@ -106,7 +178,7 @@ async function getEip6963Providers() {
     window.setTimeout(() => {
       window.removeEventListener("eip6963:announceProvider", onAnnounce as EventListener);
       resolve();
-    }, 250);
+    }, isMobileWalletEnvironment() ? 700 : 300);
   });
 
   return providers;
