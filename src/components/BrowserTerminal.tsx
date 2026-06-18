@@ -17,6 +17,11 @@ import type {
   UserSession,
 } from "../lib/core-api";
 import { getMarketDisplayCase, getMarketPrice } from "../lib/market-display";
+import {
+  getNoWalletDetectedMessage,
+  resolveEvmWalletProvider,
+  type EthereumProvider,
+} from "../lib/evm-wallet-provider";
 import { resolveVaultCollateral } from "../lib/vault-token-config";
 import { readVaultWalletBalances } from "../lib/wallet-balances";
 import ActivityView from "../zip-ui/components/ActivityView";
@@ -57,10 +62,6 @@ type MarginIntentResponse =
       };
     }
   | { ok: false; error: { code: string; message: string } };
-
-type EthereumProvider = {
-  request(args: { method: string; params?: unknown }): Promise<unknown>;
-};
 
 type AlertMessage = { type: "success" | "info"; text: string } | null;
 
@@ -215,10 +216,10 @@ export function BrowserTerminal({
       return;
     }
 
-    const provider = getEthereumProvider();
+    const provider = await resolveEvmWalletProvider();
 
     if (!provider) {
-      triggerAlert("info", "No EVM browser wallet detected.");
+      triggerAlert("info", getNoWalletDetectedMessage());
       return;
     }
 
@@ -342,10 +343,10 @@ export function BrowserTerminal({
       return false;
     }
 
-    const provider = getEthereumProvider();
+    const provider = await resolveEvmWalletProvider();
 
     if (!provider) {
-      triggerAlert("info", "No EVM browser wallet detected.");
+      triggerAlert("info", getNoWalletDetectedMessage());
       return false;
     }
 
@@ -733,14 +734,6 @@ function formatRelativeTime(value: string) {
   }
 
   return Math.floor(hours / 24) + "d ago";
-}
-
-function getEthereumProvider() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return (window as Window & { ethereum?: EthereumProvider }).ethereum ?? null;
 }
 
 function getVaultAddress(execution: ExecutionCapabilities, vault: Vault) {

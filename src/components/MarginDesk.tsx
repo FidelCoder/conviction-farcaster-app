@@ -14,6 +14,11 @@ import type {
   ContractTransaction,
 } from "../lib/core-api";
 import { executionStatusLabel, formatDate } from "../lib/display";
+import {
+  getNoWalletDetectedMessage,
+  resolveEvmWalletProvider,
+  type EthereumProvider,
+} from "../lib/evm-wallet-provider";
 import { type FarcasterSessionState, useFarcasterSession } from "../hooks/useFarcasterSession";
 
 const leverageOptions = [1, 2, 3, 5, 10] as const;
@@ -114,10 +119,6 @@ type WalletState =
   | { status: "unavailable"; message: string }
   | { status: "error"; message: string };
 
-type EthereumProvider = {
-  request(args: { method: string; params?: unknown }): Promise<unknown>;
-};
-
 type MarginDeskProps = {
   execution: ExecutionCapabilities;
   markets: Market[];
@@ -187,16 +188,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
 
     async function detectWallet() {
       try {
-        const { sdk } = await import("@farcaster/miniapp-sdk");
-        const isInMiniApp = await sdk.isInMiniApp();
-
-        if (!isMounted) {
-          return;
-        }
-
-        const provider = isInMiniApp
-          ? ((await sdk.wallet.getEthereumProvider()) as EthereumProvider | undefined)
-          : getBrowserEthereumProvider();
+        const provider = await resolveEvmWalletProvider();
 
         if (!isMounted) {
           return;
@@ -205,9 +197,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
         if (!provider) {
           setWalletState({
             status: "unavailable",
-            message: isInMiniApp
-              ? "No EVM wallet provider is available in this Farcaster client."
-              : "No EVM browser wallet was detected.",
+            message: getNoWalletDetectedMessage(),
           });
           return;
         }
@@ -1317,14 +1307,6 @@ function formatUsd(value: number) {
     maximumFractionDigits: 2,
     style: "currency",
   }).format(value);
-}
-
-function getBrowserEthereumProvider(): EthereumProvider | undefined {
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-
-  return (window as Window & { ethereum?: EthereumProvider }).ethereum;
 }
 
 function normalizeAccounts(value: unknown) {

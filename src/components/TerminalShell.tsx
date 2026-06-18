@@ -9,6 +9,7 @@ import {
   setStoredBrowserWalletSession,
 } from "../lib/browser-wallet-session";
 import type { ExecutionCapabilities, UserSession } from "../lib/core-api";
+import { getNoWalletDetectedMessage, resolveEvmWalletProvider } from "../lib/evm-wallet-provider";
 import Header from "../zip-ui/components/Header";
 import Sidebar from "../zip-ui/components/Sidebar";
 import StatusBar from "../zip-ui/components/StatusBar";
@@ -17,10 +18,6 @@ import type { UserPortfolio } from "../zip-ui/types";
 type BrowserSessionResponse =
   | { ok: true; data: { session: UserSession } }
   | { ok: false; error: { code: string; message: string } };
-
-type EthereumProvider = {
-  request(args: { method: string; params?: unknown[] }): Promise<unknown>;
-};
 
 type TerminalShellProps = {
   activeTab: string;
@@ -99,10 +96,10 @@ export function TerminalShell({
       return;
     }
 
-    const provider = getEthereumProvider();
+    const provider = await resolveEvmWalletProvider();
 
     if (!provider) {
-      triggerAlert("info", "No EVM browser wallet detected.");
+      triggerAlert("info", getNoWalletDetectedMessage());
       return;
     }
 
@@ -194,8 +191,3 @@ function navigateFromTab(tab: string) {
   window.location.href = hrefByTab[tab] ?? "/";
 }
 
-function getEthereumProvider() {
-  if (typeof window === "undefined") return null;
-
-  return (window as Window & { ethereum?: EthereumProvider }).ethereum ?? null;
-}
