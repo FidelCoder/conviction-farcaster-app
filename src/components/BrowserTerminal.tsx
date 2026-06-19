@@ -11,9 +11,11 @@ import {
   setStoredBrowserWalletSession,
 } from "../lib/browser-wallet-session";
 import type {
+  ContractTransaction,
   ExecutionCapabilities,
   LeaderboardEntry,
   Market,
+  PreparedContractTransaction,
   SocialFeedItem,
   UserSession,
 } from "../lib/core-api";
@@ -69,6 +71,14 @@ type MarginIntentResponse =
 
 type AlertMessage = { type: "success" | "info"; text: string } | null;
 type DepositResult = VaultDepositTransaction | false;
+
+type VaultPrepareResponse =
+  | { ok: true; data: PreparedContractTransaction }
+  | { ok: false; error: { code: string; message: string } };
+
+type ContractTransactionResponse =
+  | { ok: true; data: { transaction: ContractTransaction } }
+  | { ok: false; error: { code: string; message: string } };
 
 const TERMINAL_TABS = ["landing", "markets", "margin-desk", "vaults", "activity"] as const;
 const TERMINAL_TAB_STORAGE_KEY = "conviction-active-terminal-tab";
@@ -337,6 +347,68 @@ export function BrowserTerminal({
         return;
       }
 
+      const provider = await resolveEvmWalletProvider();
+
+      if (!provider) {
+        promptMobileWallet("Margin request recorded. Open this page in a wallet browser to submit the onchain call.");
+        return;
+      }
+
+      const vault = vaults.find((item) => item.id === vaultId);
+
+      if (!vault?.chainId) {
+        triggerAlert("info", "Margin request recorded, but the selected vault is missing a chain id.");
+        return;
+      }
+
+      const accounts = normalizeAccounts(await provider.request({ method: "eth_requestAccounts" }));
+      const walletAddress = accounts[0];
+
+      if (!walletAddress || walletAddress.toLowerCase() !== portfolio.address.toLowerCase()) {
+        triggerAlert("info", "Margin request recorded, but your wallet does not match the active Conviction session.");
+        return;
+      }
+
+      await ensureWalletChain(provider, vault.chainId);
+      triggerAlert("info", "Preparing onchain margin request from core.");
+      const prepared = await prepareTerminalMarginIntent(body.data.position.id);
+      triggerAlert("info", "Confirm the margin request in your wallet.");
+      const marginHash = normalizeTransactionHash(
+        await provider.request({
+          method: "eth_sendTransaction",
+          params: [
+            {
+              data: encodePreparedContractCall(prepared),
+              from: walletAddress,
+              to: prepared.contractCall.contractAddress,
+            },
+          ],
+        }),
+      );
+
+      if (!marginHash) {
+        triggerAlert("info", "Wallet did not return a margin transaction hash.");
+        return;
+      }
+
+      await recordTerminalContractTransaction(prepared.transaction.id, {
+        status: "SUBMITTED",
+        transactionHash: marginHash,
+      });
+      triggerAlert("success", "Margin transaction submitted. Waiting for chain confirmation.");
+      const receipt = await waitForTransactionReceipt(provider, marginHash);
+      const confirmedStatus = receipt?.status === "0x1" ? "CONFIRMED" : receipt ? "FAILED" : "SUBMITTED";
+      await recordTerminalContractTransaction(prepared.transaction.id, {
+        responsePayload: receipt,
+        status: confirmedStatus,
+        transactionHash: marginHash,
+      });
+
+      if (confirmedStatus === "FAILED") {
+        triggerAlert("info", "Margin transaction failed onchain. Prepare and submit again.");
+        return;
+      }
+
       setPortfolio((current) => ({
         ...current,
         activeRequestsCount: current.activeRequestsCount + 1,
@@ -345,21 +417,23 @@ export function BrowserTerminal({
           {
             id: body.data.position.id,
             marketTitle: "[" + outcomeType + "] " + activeMarket.title,
-            vaultName: vaults.find((vault) => vault.id === vaultId)?.name ?? "Vault",
+            vaultName: vault.name,
             leverage,
             marginAmount: marginAmt,
             estimatedPosition: estPosition,
             liquidationPrice: liqPrice,
-            timestamp: "recorded now",
+            timestamp: confirmedStatus === "CONFIRMED" ? "confirmed now" : "submitted now",
           },
         ],
       }));
       triggerAlert(
         "success",
-        "Core recorded the margin intent. Execution remains pending until wallet contract calls are submitted.",
+        confirmedStatus === "CONFIRMED"
+          ? "Margin request confirmed onchain. Execution can now settle through the vault rail."
+          : "Margin transaction submitted. Keep this page open or check activity for confirmation.",
       );
-    } catch {
-      triggerAlert("info", "Core API did not accept the margin request.");
+    } catch (error) {
+      triggerAlert("info", getWalletErrorMessage(error));
     }
   }
 
@@ -572,7 +646,14 @@ export function BrowserTerminal({
         ) : null}
 
         {activeTab === "markets" ? (
-          <MarketsView markets={displayMarkets} onOpenMargin={handleOpenMargin} />
+          <MarketsView
+            markets={displayMarkets}
+            onOpenMargin={handleOpenMargin}
+            onRequireWallet={() => {
+              void handleConnectWallet();
+            }}
+            walletConnected={portfolio.connected}
+          />
         ) : null}
 
         {activeTab === "margin-desk" ? (
@@ -860,6 +941,68 @@ function mergeReadyVaultBalances(
     },
     { ...currentBalances },
   );
+}
+
+
+async function prepareTerminalMarginIntent(positionId: string) {
+  const response = await fetch("/api/contracts/margin-intents/prepare", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ maxSlippageBps: 100, positionId }),
+  });
+  const body = (await response.json()) as VaultPrepareResponse;
+
+  if (!response.ok || !body.ok) {
+    throw new Error(body.ok ? "Margin request was not prepared." : body.error.message);
+  }
+
+  return body.data;
+}
+
+async function recordTerminalContractTransaction(
+  transactionId: string,
+  input: {
+    responsePayload?: unknown;
+    status?: ContractTransaction["status"];
+    transactionHash?: string;
+  },
+) {
+  const response = await fetch("/api/contracts/transactions/" + transactionId, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const body = (await response.json()) as ContractTransactionResponse;
+
+  if (!response.ok || !body.ok) {
+    throw new Error(body.ok ? "Transaction status was not recorded." : body.error.message);
+  }
+
+  return body.data.transaction;
+}
+
+function encodePreparedContractCall(prepared: PreparedContractTransaction) {
+  const args = prepared.contractCall.namedArgs;
+  const abi = parseAbi(prepared.contractCall.abi);
+
+  if (prepared.contractCall.functionName === "createMarginIntent") {
+    return encodeFunctionData({
+      abi,
+      functionName: "createMarginIntent",
+      args: [
+        args.collateralToken as `0x${string}`,
+        args.marketId as `0x${string}`,
+        Number(args.side),
+        BigInt(String(args.collateralAmount)),
+        BigInt(String(args.leverageBps)),
+        BigInt(String(args.maxSlippageBps)),
+        BigInt(String(args.deadline)),
+        args.offchainPositionId as `0x${string}`,
+      ],
+    });
+  }
+
+  throw new Error("Unsupported prepared contract call.");
 }
 
 function getVaultAddress(execution: ExecutionCapabilities, vault: Vault) {

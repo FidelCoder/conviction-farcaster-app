@@ -1,23 +1,27 @@
 import { useMemo, useState } from 'react';
 import { PredictionMarket } from '../types';
-import { ArrowRight, ArrowUpDown, BookOpen, Filter, Globe2, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowUpDown, BookOpen, Filter, Flame, Globe2, Search, Sparkles } from 'lucide-react';
 
 interface MarketsViewProps {
   markets: PredictionMarket[];
   onOpenMargin: (market: PredictionMarket) => void;
+  onRequireWallet?: () => void;
+  walletConnected?: boolean;
 }
 
-type SortOrder = 'relevance' | 'conviction' | 'odds' | 'volume';
+type SortOrder = 'trending' | 'relevance' | 'conviction' | 'odds' | 'volume';
 
-const FEATURED_TOPICS = ['All', 'Crypto', 'Sports', 'Geopolitics', 'Politics', 'Social', 'Culture', 'Economics', 'Tech', 'Climate'];
+const FEATURED_TOPICS = ['All', 'Trending', 'World Cup', 'Breaking', 'Politics', 'Sports', 'Crypto', 'Esports', 'Iran', 'Finance', 'Geopolitics', 'Tech', 'Culture', 'Economy', 'Weather', 'Mentions', 'Elections'];
 const FEATURED_REGIONS = ['All', 'Global', 'Africa', 'Asia', 'Europe', 'Latin America', 'Middle East', 'United States', 'Crypto-native'];
+const GUEST_MARKET_LIMIT = 12;
 
-export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps) {
+export default function MarketsView({ markets, onOpenMargin, onRequireWallet, walletConnected = false }: MarketsViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedTopic, setSelectedTopic] = useState<string>('All');
   const [selectedRegion, setSelectedRegion] = useState<string>('All');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('relevance');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('trending');
   const [searchQuery, setSearchQuery] = useState('');
+  const [visibleLimit, setVisibleLimit] = useState(GUEST_MARKET_LIMIT);
 
   const categories = useMemo(() => buildOptions(markets.map((market) => market.category)), [markets]);
   const topics = useMemo(
@@ -29,14 +33,16 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
     [markets],
   );
 
+  const curatedTopics = useMemo(() => FEATURED_TOPICS.filter((topic) => topic !== 'All'), []);
+
   const filteredMarkets = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
     return markets
       .filter((market) => selectedCategory === 'All' || market.category === selectedCategory)
       .filter((market) => {
-        const topic = market.discoveryTopic ?? inferMarketTopic(market);
-        return selectedTopic === 'All' || topic === selectedTopic;
+        const topics = getMarketTopics(market);
+        return selectedTopic === 'All' || topics.includes(selectedTopic);
       })
       .filter((market) => {
         const region = market.discoveryRegion ?? inferMarketRegion(market);
@@ -60,6 +66,18 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
       .sort((a, b) => compareMarkets(a, b, sortOrder, searchQuery));
   }, [markets, searchQuery, selectedCategory, selectedRegion, selectedTopic, sortOrder]);
 
+  const visibleMarkets = walletConnected ? filteredMarkets : filteredMarkets.slice(0, visibleLimit);
+  const hiddenMarketCount = Math.max(0, filteredMarkets.length - visibleMarkets.length);
+
+  function handleLoadMore() {
+    if (!walletConnected) {
+      onRequireWallet?.();
+      return;
+    }
+
+    setVisibleLimit((current) => current + 18);
+  }
+
   return (
     <main className="flex-1 md:ml-64 bg-grid-tech min-h-[calc(100vh-64px)] pb-32">
       <div className="max-w-[1280px] mx-auto px-4 md:px-10 py-8">
@@ -72,7 +90,7 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
               </p>
               <h1 className="text-3xl md:text-4xl font-sans font-bold text-white mb-2">Active Markets</h1>
               <p className="max-w-2xl text-sm text-[#ccc3d8]">
-                Find real synced prediction markets by topic, region, and resolution context before opening a margin request.
+                Configure discovery by sport, region, politics, crypto, breaking news, weather, culture, and other interests before opening a margin request.
               </p>
             </div>
 
@@ -102,11 +120,30 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/70">
-            <span className="rounded border border-[#262626] bg-[#111111] px-2 py-1">{filteredMarkets.length} shown</span>
+            <span className="rounded border border-[#262626] bg-[#111111] px-2 py-1">{visibleMarkets.length} shown</span>
             {selectedTopic !== 'All' ? <span className="rounded border border-deep-orange/30 bg-deep-orange/10 px-2 py-1 text-deep-orange">{selectedTopic}</span> : null}
             {selectedRegion !== 'All' ? <span className="rounded border border-electric-purple/40 bg-electric-purple/10 px-2 py-1 text-[#d2bbff]">{selectedRegion}</span> : null}
           </div>
         </header>
+
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+            {curatedTopics.map((topic) => (
+              <button
+                key={topic}
+                type="button"
+                onClick={() => setSelectedTopic(topic)}
+                aria-pressed={selectedTopic === topic}
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                  selectedTopic === topic
+                    ? 'border-deep-orange bg-deep-orange text-black'
+                    : 'border-[#262626] bg-[#111111] text-[#ccc3d8] hover:border-white/40 hover:text-white'
+                }`}
+              >
+                {topic === 'Trending' ? <Flame size={12} /> : null}
+                <span>{topic}</span>
+              </button>
+            ))}
+          </div>
 
         {filteredMarkets.length === 0 ? (
           <section className="rounded-lg border border-[#262626] bg-[#161616] p-8 text-center">
@@ -118,7 +155,7 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
           </section>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredMarkets.map((market) => {
+            {visibleMarkets.map((market) => {
               const isHalted = market.status === 'HALTED';
               const topic = market.discoveryTopic ?? inferMarketTopic(market);
               const region = market.discoveryRegion ?? inferMarketRegion(market);
@@ -242,6 +279,18 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
             })}
           </div>
         )}
+
+          {hiddenMarketCount > 0 ? (
+            <div className="mt-8 flex justify-center">
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                className="rounded border border-deep-orange/60 bg-deep-orange px-6 py-3 font-sans text-xs font-bold uppercase tracking-widest text-black transition-colors hover:bg-white"
+              >
+                {walletConnected ? 'Load more markets' : 'Connect wallet to load more markets'}
+              </button>
+            </div>
+          ) : null}
       </div>
     </main>
   );
@@ -301,6 +350,7 @@ function mergeFeaturedOptions(featured: string[], values: string[]) {
 
 function compareMarkets(a: PredictionMarket, b: PredictionMarket, sortOrder: SortOrder, query: string) {
   if (sortOrder === 'volume') return parseVolume(b.vol24h) - parseVolume(a.vol24h);
+  if (sortOrder === 'trending') return getTrendingScore(b) - getTrendingScore(a);
   if (sortOrder === 'conviction') return b.convictionValue - a.convictionValue;
   if (sortOrder === 'odds') return b.currentOdds - a.currentOdds;
 
@@ -308,21 +358,31 @@ function compareMarkets(a: PredictionMarket, b: PredictionMarket, sortOrder: Sor
 }
 
 function getNextSortOrder(current: SortOrder): SortOrder {
+  if (current === 'trending') return 'relevance';
   if (current === 'relevance') return 'conviction';
   if (current === 'conviction') return 'odds';
   if (current === 'odds') return 'volume';
-  return 'relevance';
+  return 'trending';
 }
 
 function getSortLabel(sortOrder: SortOrder) {
   if (sortOrder === 'conviction') return 'Conviction';
   if (sortOrder === 'odds') return 'YES Chance';
   if (sortOrder === 'volume') return 'Volume';
-  return 'Relevance';
+  if (sortOrder === 'relevance') return 'Relevance';
+  return 'Trending';
+}
+
+function getTrendingScore(market: PredictionMarket) {
+  const liveBonus = market.status === 'LIVE' ? 35 : 0;
+  const urgencyBonus = isBreakingMarket(market) ? 20 : 0;
+  const sportBonus = getMarketTopics(market).includes('Sports') || getMarketTopics(market).includes('World Cup') ? 12 : 0;
+
+  return market.convictionValue + liveBonus + urgencyBonus + sportBonus + Math.min(parseVolume(market.vol24h) / 75000, 30);
 }
 
 function getMarketRelevanceScore(market: PredictionMarket, query: string) {
-  const searchable = `${market.title} ${market.description} ${market.category} ${market.discoveryTopic ?? ''} ${market.discoveryRegion ?? ''} ${market.source ?? ''}`.toLowerCase();
+  const searchable = `${market.title} ${market.description} ${market.category} ${getMarketTopics(market).join(' ')} ${market.discoveryRegion ?? ''} ${market.source ?? ''}`.toLowerCase();
   const queryTokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const queryScore = queryTokens.reduce((score, token) => score + (searchable.includes(token) ? 20 : 0), 0);
   const liveBonus = market.status === 'LIVE' ? 10 : 0;
@@ -338,20 +398,38 @@ function parseVolume(volume: string) {
   return num;
 }
 
+function getMarketTopics(market: PredictionMarket) {
+  const text = `${market.title} ${market.description} ${market.category}`.toLowerCase();
+  const topics = new Set<string>();
+
+  topics.add(market.discoveryTopic ?? inferMarketTopic(market));
+  if (isBreakingMarket(market)) topics.add('Breaking');
+  if (matches(text, ['world cup', 'fifa'])) topics.add('World Cup');
+  if (matches(text, ['esports', 'league of legends', 'valorant', 'cs2', 'counter-strike', 'dota'])) topics.add('Esports');
+  if (matches(text, ['iran', 'hormuz', 'tehran'])) topics.add('Iran');
+  if (matches(text, ['finance', 'stock', 'stocks', 'nasdaq', 's&p', 'dow', 'yield', 'bond'])) topics.add('Finance');
+  if (matches(text, ['economy', 'inflation', 'gdp', 'recession', 'cpi', 'fed rates'])) topics.add('Economy');
+  if (matches(text, ['weather', 'hurricane', 'temperature', 'rain', 'flood', 'wildfire'])) topics.add('Weather');
+  if (matches(text, ['mentions', 'mentioned', 'tweet', 'post', 'social media'])) topics.add('Mentions');
+  if (matches(text, ['election', 'ballot', 'vote', 'voting'])) topics.add('Elections');
+
+  return Array.from(topics);
+}
+
 function inferMarketTopic(market: PredictionMarket) {
   const text = `${market.title} ${market.description} ${market.category}`.toLowerCase();
 
-  if (matches(text, ['war', 'ceasefire', 'nato', 'taiwan', 'gaza', 'israel', 'iran', 'russia', 'ukraine', 'sanction'])) return 'Geopolitics';
-  if (matches(text, ['nba', 'nfl', 'nhl', 'mlb', 'champion', 'finals', 'cup', 'league', 'ufc', 'soccer', 'football', 'cricket', 'formula 1'])) return 'Sports';
+  if (matches(text, ['war', 'ceasefire', 'nato', 'taiwan', 'gaza', 'israel', 'iran', 'russia', 'ukraine', 'sanction', 'hormuz'])) return 'Geopolitics';
+  if (matches(text, ['nba', 'nfl', 'nhl', 'mlb', 'champion', 'finals', 'cup', 'league', 'ufc', 'soccer', 'football', 'cricket', 'formula 1', 'world cup'])) return 'Sports';
   if (matches(text, ['bitcoin', 'btc', 'ethereum', 'eth', 'airdrop', 'token', 'crypto', 'defi', 'chain', 'solana'])) return 'Crypto';
   if (matches(text, ['election', 'president', 'senate', 'congress', 'minister', 'policy', 'government', 'parliament'])) return 'Politics';
-  if (matches(text, ['trend', 'tiktok', 'twitter', 'meme', 'protest', 'strike', 'trial'])) return 'Social';
-  if (matches(text, ['fed', 'rates', 'inflation', 'gdp', 'recession', 'oil', 'stocks', 'market', 'tariff'])) return 'Economics';
-  if (matches(text, ['climate', 'weather', 'hurricane', 'temperature', 'rain', 'flood', 'wildfire'])) return 'Climate';
-  if (matches(text, ['album', 'movie', 'music', 'gta', 'celebrity', 'award', 'streaming'])) return 'Culture';
+  if (matches(text, ['trend', 'tiktok', 'twitter', 'meme', 'protest', 'strike', 'trial', 'mentions'])) return 'Social';
+  if (matches(text, ['fed', 'rates', 'inflation', 'gdp', 'recession', 'oil', 'stocks', 'market', 'tariff', 'finance'])) return 'Economy';
+  if (matches(text, ['climate', 'weather', 'hurricane', 'temperature', 'rain', 'flood', 'wildfire'])) return 'Weather';
+  if (matches(text, ['album', 'movie', 'music', 'gta', 'celebrity', 'award', 'streaming', 'art', 'pop culture'])) return 'Culture';
   if (matches(text, ['ai', 'openai', 'nvidia', 'apple', 'tesla', 'spacex', 'startup', 'tech'])) return 'Tech';
 
-  return 'World';
+  return 'Trending';
 }
 
 function inferMarketRegion(market: PredictionMarket) {
@@ -366,6 +444,11 @@ function inferMarketRegion(market: PredictionMarket) {
   if (matches(text, ['nba', 'nfl', 'mlb', 'new york', 'san antonio', 'oklahoma', 'vegas', 'u.s.', 'usa', 'america', 'united states'])) return 'United States';
 
   return 'Global';
+}
+
+function isBreakingMarket(market: PredictionMarket) {
+  const text = `${market.title} ${market.description} ${market.category}`.toLowerCase();
+  return matches(text, ['breaking', 'by end of', 'today', 'tomorrow', 'this week', 'ceasefire', 'attack', 'traffic', 'returns to normal']);
 }
 
 function matches(text: string, terms: string[]) {

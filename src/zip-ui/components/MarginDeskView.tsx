@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getVaultAvailableBalance } from '../../lib/wallet-balances';
 import { PredictionMarket, Vault, MarketTapeItem, UserPortfolio } from '../types';
-import { Info, Bolt, RefreshCw, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Info, Bolt, BookOpen, RefreshCw, TrendingUp, X } from 'lucide-react';
 
 
 type MarketCandle = {
@@ -26,7 +26,7 @@ interface MarginDeskViewProps {
   activeMarket: PredictionMarket;
   setActiveMarket: (market: PredictionMarket) => void;
   portfolio: UserPortfolio;
-  onRequestMargin: (vaultId: string, marginAmt: number, leverage: number, estPosition: number, liqPrice: number, outcomeType?: 'YES' | 'NO') => void;
+  onRequestMargin: (vaultId: string, marginAmt: number, leverage: number, estPosition: number, liqPrice: number, outcomeType?: 'YES' | 'NO') => Promise<void> | void;
 }
 
 export default function MarginDeskView({
@@ -43,6 +43,7 @@ export default function MarginDeskView({
   const [marginAmount, setMarginAmount] = useState<string>('');
   const [outcomeType, setOutcomeType] = useState<'YES' | 'NO'>('YES');
   const [isRequesting, setIsRequesting] = useState<boolean>(false);
+  const [isRulesOpen, setIsRulesOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [historyState, setHistoryState] = useState<MarketHistoryState>({
     status: 'loading',
@@ -116,7 +117,7 @@ export default function MarginDeskView({
     setMarginAmount(maxCollateral.toFixed(2));
   };
 
-  const handleOrderSubmit = (e: React.FormEvent) => {
+  const handleOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!portfolio.connected) {
@@ -135,8 +136,9 @@ export default function MarginDeskView({
     }
 
     setIsRequesting(true);
-    setTimeout(() => {
-      onRequestMargin(
+
+    try {
+      await onRequestMargin(
         selectedVault.id,
         numericAmount,
         leverage,
@@ -144,9 +146,10 @@ export default function MarginDeskView({
         liquidationOdds,
         outcomeType
       );
-      setIsRequesting(false);
       setMarginAmount('');
-    }, 900);
+    } finally {
+      setIsRequesting(false);
+    }
   };
 
   return (
@@ -226,43 +229,7 @@ export default function MarginDeskView({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#0A0A0A]">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(18rem,0.92fr)]">
-            <article className="rounded border border-[#262626] bg-[#161616] p-5">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Event Details</p>
-                  <h3 className="mt-1 text-xl font-bold text-white">What this market resolves on</h3>
-                </div>
-                <span className={`rounded border px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest ${
-                  activeMarket.status === 'LIVE'
-                    ? 'border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]'
-                    : 'border-[#EF4444]/30 bg-[#EF4444]/10 text-[#EF4444]'
-                }`}>
-                  {activeMarket.status}
-                </span>
-              </div>
-
-              <p className="text-sm leading-relaxed text-[#ccc3d8]">{activeMarket.description}</p>
-
-              <dl className="mt-5 grid gap-3 sm:grid-cols-2">
-                {reviewRows.map((row) => (
-                  <div key={row.label} className="rounded border border-[#262626] bg-[#0e0e0e] p-3">
-                    <dt className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">{row.label}</dt>
-                    <dd className="mt-1 text-sm font-semibold text-white">{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              <div className="mt-5 rounded border border-deep-orange/30 bg-deep-orange/10 p-4">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Conviction Rules View</p>
-                <ul className="mt-3 space-y-2 text-xs leading-relaxed text-[#ccc3d8]">
-                  <li>Resolution is judged by the event rules and credible evidence stored with the market.</li>
-                  <li>Margin requests use Conviction vault rails and do not send users out to an external venue page.</li>
-                  <li>Feed identifiers stay internal so the product feels like Conviction, not a wrapper.</li>
-                </ul>
-              </div>
-            </article>
-
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
             <article className="rounded border border-[#262626] bg-[#161616] p-5">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
@@ -274,7 +241,7 @@ export default function MarginDeskView({
                 </span>
               </div>
 
-              <div className="relative h-72 overflow-hidden rounded border border-[#262626] bg-[#050505]">
+              <div className="relative h-[420px] min-h-[320px] overflow-hidden rounded border border-[#262626] bg-[#050505]">
                 <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
                 {historyState.status === 'loading' ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-[#050505]/70 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]">
@@ -288,27 +255,87 @@ export default function MarginDeskView({
                 ) : null}
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <PriceTile label="YES chance" value={formatPercent(activeMarket.currentOdds)} tone="yes" />
                 <PriceTile label="NO chance" value={formatPercent(100 - activeMarket.currentOdds)} tone="no" />
                 <PriceTile label="Last trade" value={formatRawProbability(activeMarket.lastTradePrice)} />
-                <PriceTile label="Best ask" value={formatRawProbability(activeMarket.bestAsk)} />
                 <PriceTile label="Best bid" value={formatRawProbability(activeMarket.bestBid)} />
+                <PriceTile label="Best ask" value={formatRawProbability(activeMarket.bestAsk)} />
                 <PriceTile label="Min order" value={activeMarket.orderMinSize ? activeMarket.orderMinSize + ' contracts' : 'Pending'} />
               </div>
+            </article>
 
-              <div className="mt-5 rounded border border-electric-purple/30 bg-electric-purple/10 p-4">
-                <div className="flex items-start gap-3">
-                  <ShieldCheck size={18} className="mt-0.5 flex-shrink-0 text-electric-purple" />
-                  <p className="text-xs leading-relaxed text-[#ccc3d8]">
-                    This chart is a Conviction market view. It uses synced price history when available and otherwise shows the latest bid, ask, and trade snapshot without inventing fake price movement.
-                  </p>
+            <article className="rounded border border-[#262626] bg-[#161616] p-5">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Event Details</p>
+                  <h3 className="mt-1 text-xl font-bold text-white">Resolution summary</h3>
                 </div>
+                <span className={`rounded border px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest ${
+                  activeMarket.status === 'LIVE'
+                    ? 'border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]'
+                    : 'border-[#EF4444]/30 bg-[#EF4444]/10 text-[#EF4444]'
+                }`}>
+                  {activeMarket.status}
+                </span>
               </div>
+
+              <p className="line-clamp-6 text-sm leading-relaxed text-[#ccc3d8]">{activeMarket.description}</p>
+
+              <dl className="mt-5 grid gap-3">
+                {reviewRows.slice(1, 5).map((row) => (
+                  <div key={row.label} className="rounded border border-[#262626] bg-[#0e0e0e] p-3">
+                    <dt className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">{row.label}</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              <button
+                type="button"
+                onClick={() => setIsRulesOpen(true)}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded border border-deep-orange/50 bg-deep-orange/10 px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange transition-colors hover:bg-deep-orange hover:text-black"
+              >
+                <BookOpen size={14} />
+                <span>View rules</span>
+              </button>
             </article>
           </div>
         </div>
       </section>
+
+
+      {isRulesOpen ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Market rules">
+          <section className="max-h-[86vh] w-full max-w-3xl overflow-y-auto rounded border border-[#262626] bg-[#161616] shadow-2xl">
+            <div className="sticky top-0 flex items-start justify-between gap-4 border-b border-[#262626] bg-[#0e0e0e] p-5">
+              <div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Market rules</p>
+                <h3 className="mt-1 text-xl font-bold text-white">{activeMarket.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRulesOpen(false)}
+                className="grid h-9 w-9 flex-shrink-0 place-items-center rounded border border-[#262626] bg-[#161616] text-[#ccc3d8] hover:border-white/40 hover:text-white"
+                aria-label="Close market rules"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm leading-relaxed text-[#ccc3d8]">{activeMarket.description}</p>
+              <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+                {reviewRows.map((row) => (
+                  <div key={row.label} className="rounded border border-[#262626] bg-[#0e0e0e] p-3">
+                    <dt className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">{row.label}</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       <section className="w-full lg:w-[340px] flex flex-col gap-4 overflow-visible lg:overflow-y-auto lg:max-h-full">
         <form
@@ -439,7 +466,7 @@ export default function MarginDeskView({
               {isRequesting ? (
                 <>
                   <RefreshCw className="animate-spin" size={14} />
-                  <span>Recording request...</span>
+                  <span>Submitting request...</span>
                 </>
               ) : (
                 <>
