@@ -699,7 +699,7 @@ export function BrowserTerminal({
       </div>
 
       <StatusBar
-        contractStatus="TESTNET(TESTNET_VAULTS_CONNECTED_INTENT_ONLY)"
+        contractStatus="TESTNET"
         executionMode={execution.marginExecutionEnabled ? "Live" : "Request"}
         marketCount={markets.length}
       />

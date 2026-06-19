@@ -69,7 +69,7 @@ export default function LandingView({
 
           {/* Subheading */}
           <p className="text-sm md:text-base text-[#ccc3d8] leading-relaxed mb-10 max-w-2xl mx-auto font-sans">
-            Discover live event markets by topic and region, read the rules, and back your strongest calls with margin powered by vault liquidity.
+            Discover live event markets and back your strongest calls with margin powered by vault liquidity.
           </p>
 
           {/* CTAs */}
@@ -284,11 +284,11 @@ export default function LandingView({
             </div>
 
             {/* Explanatory text */}
-            <div className="p-4.5 bg-[#201f1f] rounded border border-[#262626] text-xs text-[#ccc3d8] leading-relaxed flex gap-3.5 items-start">
+            <div className="p-4.5 bg-[#201f1f] rounded border border-[#262626] text-sm text-[#ccc3d8] leading-relaxed flex gap-3.5 items-start">
               <ShieldCheck size={20} className="text-deep-orange flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-sans font-bold text-white block mb-0.5">Automated Collateral Guard:</span>
-                Your contract position resolves to $1.00 per share if outcome is correct. If the price falls to 82% of entry value, the system triggers partial settlement protection to pay back USDC Pool depositors without full system default.
+                <span className="font-sans text-base font-bold text-white block mb-1">Automated Collateral Guard:</span>
+                Your position resolves to $1.00 per share when the outcome is correct. Risk controls monitor drawdowns and help protect vault liquidity from runaway losses.
               </div>
             </div>
           </div>
@@ -302,9 +302,9 @@ export default function LandingView({
             <Coins size={18} />
           </div>
           <div>
-            <h4 className="text-sm font-sans font-bold text-white mb-1.5">Leveraged Margins</h4>
-            <p className="text-xs text-[#ccc3d8]/80 leading-relaxed font-sans">
-              Enter synced prediction markets with configured margin multipliers. Open large positions with tight spreads utilizing smart USDC and WETH borrow accounts.
+            <h4 className="text-base font-sans font-bold text-white mb-2">Leveraged Margins</h4>
+            <p className="text-sm text-[#ccc3d8]/85 leading-relaxed font-sans">
+              Open larger YES/NO positions with configured margin multipliers and clear collateral requirements before you submit.
             </p>
           </div>
         </div>
@@ -314,9 +314,9 @@ export default function LandingView({
             <Lock size={18} />
           </div>
           <div>
-            <h4 className="text-sm font-sans font-bold text-white mb-1.5">High-Yield Pools</h4>
-            <p className="text-xs text-[#ccc3d8]/80 leading-relaxed font-sans">
-              USDC and WETH vault rails are displayed only when core has contract metadata for supported chains.
+            <h4 className="text-base font-sans font-bold text-white mb-2">High-Yield Pools</h4>
+            <p className="text-sm text-[#ccc3d8]/85 leading-relaxed font-sans">
+              Supply vault liquidity and earn from fees and risk premiums as traders borrow from the pool.
             </p>
           </div>
         </div>
@@ -326,9 +326,9 @@ export default function LandingView({
             <Activity size={18} />
           </div>
           <div>
-            <h4 className="text-sm font-sans font-bold text-white mb-1.5">Delta-Neutral Hedging</h4>
-            <p className="text-xs text-[#ccc3d8]/80 leading-relaxed font-sans">
-              Keep market views, wallet sessions, and social signal records connected through the same core API.
+            <h4 className="text-base font-sans font-bold text-white mb-2">Delta-Neutral Hedging</h4>
+            <p className="text-sm text-[#ccc3d8]/85 leading-relaxed font-sans">
+              Track market exposure, wallet activity, and social signals in one Conviction profile.
             </p>
           </div>
         </div>
