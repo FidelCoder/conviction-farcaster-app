@@ -289,8 +289,8 @@ export default function MarginDeskView({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#0A0A0A]">
-          <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_20rem]">
-            <article className="rounded border border-[#262626] bg-[#161616] p-5">
+          <div className="grid gap-4 min-[1500px]:grid-cols-[minmax(720px,1fr)_20rem]">
+            <article className="min-w-0 rounded border border-[#262626] bg-[#161616] p-4 sm:p-5">
               <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Market Flow</p>
@@ -319,7 +319,7 @@ export default function MarginDeskView({
               </div>
 
               <div
-                className="relative h-[520px] min-h-[360px] overflow-hidden rounded border border-[#262626] bg-[#050505]"
+                className="relative h-[560px] min-h-[420px] overflow-hidden rounded border border-[#262626] bg-[#050505]"
                 onPointerLeave={handleChartPointerLeave}
                 onPointerMove={handleChartPointerMove}
               >
@@ -654,8 +654,8 @@ function drawCandlestickChart(
   if (!canvas) return [];
 
   const parent = canvas.parentElement;
-  const width = Math.max(320, parent?.clientWidth ?? 640);
-  const height = Math.max(240, parent?.clientHeight ?? 300);
+  const width = Math.max(360, parent?.clientWidth ?? 760);
+  const height = Math.max(420, parent?.clientHeight ?? 520);
   const pixelRatio = window.devicePixelRatio || 1;
   const context = canvas.getContext('2d');
 
@@ -671,26 +671,30 @@ function drawCandlestickChart(
   drawChartBackground(context, width, height);
 
   if (candles.length === 0) {
-    drawChartEmptyState(context, width, height, 'Awaiting synced market price');
+    drawChartEmptyState(context, width, height, 'Awaiting market price history');
     return [];
   }
 
-  const plot = { left: 58, right: 64, top: 28, bottom: 48 };
+  const displayCandles = getReadableCandles(candles, width);
+  const plot = { left: 58, right: 78, top: 30, bottom: 56 };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
-  const values = candles.flatMap((candle) => [candle.high, candle.low, candle.open, candle.close]);
-  const min = Math.max(0, Math.min(...values) - 2);
-  const max = Math.min(100, Math.max(...values) + 2);
+  const values = displayCandles.flatMap((candle) => [candle.high, candle.low, candle.open, candle.close]);
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const padding = Math.max(1.5, (rawMax - rawMin) * 0.16);
+  const min = Math.max(0, rawMin - padding);
+  const max = Math.min(100, rawMax + padding);
   const range = Math.max(1, max - min);
-  const yFor = (value: number) => plot.top + (max - value) / range * plotHeight;
+  const yFor = (value: number) => plot.top + ((max - value) / range) * plotHeight;
 
   drawChartAxis(context, width, height, plot, min, max);
 
-  const candleGap = candles.length > 1 ? plotWidth / candles.length : plotWidth;
-  const candleWidth = Math.max(6, Math.min(22, candleGap * 0.58));
+  const candleGap = displayCandles.length > 1 ? plotWidth / displayCandles.length : plotWidth;
+  const candleWidth = Math.max(8, Math.min(18, candleGap * 0.66));
   const targets: ChartHitTarget[] = [];
 
-  candles.forEach((candle, index) => {
+  displayCandles.forEach((candle, index) => {
     const x = plot.left + candleGap * index + candleGap / 2;
     const openY = yFor(candle.open);
     const closeY = yFor(candle.close);
@@ -698,15 +702,15 @@ function drawCandlestickChart(
     const lowY = yFor(candle.low);
     const isUp = candle.close >= candle.open;
     const isHovered = hoveredIndex === index;
-    const color = isUp ? '#10B981' : '#EF4444';
-    const fill = isUp ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+    const color = isUp ? '#00d69f' : '#ff4545';
+    const fill = isUp ? 'rgba(0, 214, 159, 0.32)' : 'rgba(255, 69, 69, 0.28)';
     const bodyTop = Math.min(openY, closeY);
-    const bodyHeight = Math.max(2, Math.abs(closeY - openY));
+    const bodyHeight = Math.max(3, Math.abs(closeY - openY));
 
     if (isHovered) {
-      context.fillStyle = 'rgba(249, 115, 22, 0.08)';
+      context.fillStyle = 'rgba(249, 115, 22, 0.09)';
       context.fillRect(x - candleGap / 2, plot.top, candleGap, plotHeight);
-      context.strokeStyle = 'rgba(249, 115, 22, 0.55)';
+      context.strokeStyle = 'rgba(249, 115, 22, 0.72)';
       context.setLineDash([4, 5]);
       context.beginPath();
       context.moveTo(x, plot.top);
@@ -716,7 +720,7 @@ function drawCandlestickChart(
     }
 
     context.strokeStyle = color;
-    context.lineWidth = isHovered ? 2 : 1.4;
+    context.lineWidth = isHovered ? 2.3 : 1.6;
     context.beginPath();
     context.moveTo(x, highY);
     context.lineTo(x, lowY);
@@ -724,6 +728,7 @@ function drawCandlestickChart(
 
     context.fillStyle = isHovered ? color : fill;
     context.strokeStyle = color;
+    context.lineWidth = isHovered ? 2 : 1.4;
     context.fillRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
     context.strokeRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
 
@@ -739,9 +744,10 @@ function drawCandlestickChart(
     });
   });
 
-  const lastCandle = candles[candles.length - 1];
+  const lastCandle = displayCandles[displayCandles.length - 1];
   const lastY = yFor(lastCandle.close);
   context.strokeStyle = '#F97316';
+  context.lineWidth = 1;
   context.setLineDash([4, 4]);
   context.beginPath();
   context.moveTo(plot.left, lastY);
@@ -750,31 +756,39 @@ function drawCandlestickChart(
   context.setLineDash([]);
 
   context.fillStyle = '#F97316';
-  context.font = '700 11px JetBrains Mono, monospace';
+  context.font = '800 11px JetBrains Mono, monospace';
   context.textAlign = 'right';
-  context.fillText(formatPercent(lastCandle.close), width - 8, Math.max(18, lastY - 6));
+  context.fillText(formatPercent(lastCandle.close), width - 10, Math.max(18, Math.min(height - plot.bottom - 8, lastY - 6)));
   context.textAlign = 'start';
 
-  context.fillStyle = 'rgba(204, 195, 216, 0.55)';
-  context.font = '700 10px JetBrains Mono, monospace';
-  context.fillText('CONVICTION YES FLOW', plot.left, height - 12);
+  context.fillStyle = 'rgba(204, 195, 216, 0.58)';
+  context.font = '800 10px JetBrains Mono, monospace';
+  context.fillText('CONVICTION YES FLOW', plot.left, height - 16);
 
   return targets;
 }
+function getReadableCandles(candles: MarketCandle[], width: number) {
+  const maxCandles = Math.max(26, Math.floor(width / 13));
+
+  if (candles.length <= maxCandles) return candles;
+
+  return candles.slice(candles.length - maxCandles);
+}
+
 function drawChartBackground(context: CanvasRenderingContext2D, width: number, height: number) {
   context.fillStyle = '#050505';
   context.fillRect(0, 0, width, height);
-  context.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+  context.strokeStyle = 'rgba(255, 255, 255, 0.032)';
   context.lineWidth = 1;
 
-  for (let x = 0; x < width; x += 32) {
+  for (let x = 0; x < width; x += 40) {
     context.beginPath();
     context.moveTo(x, 0);
     context.lineTo(x, height);
     context.stroke();
   }
 
-  for (let y = 0; y < height; y += 32) {
+  for (let y = 0; y < height; y += 40) {
     context.beginPath();
     context.moveTo(0, y);
     context.lineTo(width, y);
@@ -790,15 +804,26 @@ function drawChartAxis(
   min: number,
   max: number,
 ) {
-  context.strokeStyle = 'rgba(204, 195, 216, 0.18)';
-  context.lineWidth = 1;
-  context.strokeRect(plot.left, plot.top, width - plot.left - plot.right, height - plot.top - plot.bottom);
-  context.fillStyle = 'rgba(204, 195, 216, 0.64)';
-  context.font = '700 9px JetBrains Mono, monospace';
+  const plotWidth = width - plot.left - plot.right;
+  const plotHeight = height - plot.top - plot.bottom;
 
-  [max, (max + min) / 2, min].forEach((value, index) => {
-    const y = index === 0 ? plot.top + 10 : index === 1 ? height / 2 : height - plot.bottom - 4;
-    context.fillText(formatPercent(value), 6, y);
+  context.strokeStyle = 'rgba(204, 195, 216, 0.2)';
+  context.lineWidth = 1;
+  context.strokeRect(plot.left, plot.top, plotWidth, plotHeight);
+  context.fillStyle = 'rgba(204, 195, 216, 0.68)';
+  context.font = '800 9px JetBrains Mono, monospace';
+
+  [max, max - (max - min) * 0.25, (max + min) / 2, min + (max - min) * 0.25, min].forEach((value) => {
+    const y = plot.top + ((max - value) / Math.max(1, max - min)) * plotHeight;
+
+    context.strokeStyle = 'rgba(204, 195, 216, 0.075)';
+    context.beginPath();
+    context.moveTo(plot.left, y);
+    context.lineTo(width - plot.right, y);
+    context.stroke();
+
+    context.fillStyle = 'rgba(204, 195, 216, 0.68)';
+    context.fillText(formatPercent(value), 8, Math.max(plot.top + 10, Math.min(height - plot.bottom - 4, y + 3)));
   });
 }
 

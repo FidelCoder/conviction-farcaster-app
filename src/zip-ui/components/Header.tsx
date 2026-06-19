@@ -1,11 +1,12 @@
 import { UserPortfolio } from "../types";
-import { Bell, Settings, Wallet, Layers } from "lucide-react";
+import { Bell, Menu, Settings, Wallet, Layers } from "lucide-react";
 
 interface HeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   portfolio: UserPortfolio;
   onConnectWallet: () => void;
+  onOpenMenu?: () => void;
 }
 
 export default function Header({
@@ -13,6 +14,7 @@ export default function Header({
   setActiveTab,
   portfolio,
   onConnectWallet,
+  onOpenMenu,
 }: HeaderProps) {
   const tabs = [
     { id: "markets", label: "Markets" },
@@ -24,6 +26,17 @@ export default function Header({
   return (
     <header className="fixed top-0 w-full z-50 flex justify-between items-center gap-3 px-3 sm:px-5 md:px-10 h-16 bg-[#161616]/80 backdrop-blur-md border-b border-[#262626]">
       <div className="flex items-center gap-3 md:gap-6 min-w-0">
+        {onOpenMenu ? (
+          <button
+            aria-label="Open navigation menu"
+            className="md:hidden w-10 h-10 rounded border border-[#262626] bg-[#0e0e0e] text-[#ccc3d8] hover:border-deep-orange hover:text-white flex items-center justify-center transition-colors"
+            onClick={onOpenMenu}
+            type="button"
+          >
+            <Menu size={18} />
+          </button>
+        ) : null}
+
         {/* Logo */}
         <button
           onClick={() => setActiveTab("landing")}

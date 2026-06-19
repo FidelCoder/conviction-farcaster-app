@@ -116,6 +116,7 @@ export function BrowserTerminal({
   const [alertMessage, setAlertMessage] = useState<AlertMessage>(null);
   const [mobileWalletMessage, setMobileWalletMessage] = useState<string | null>(null);
   const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const currentMarket =
     displayMarkets.find((market) => market.id === activeMarket.id) ?? displayMarkets[0];
@@ -623,11 +624,14 @@ export function BrowserTerminal({
       <Header
         activeTab={activeTab}
         onConnectWallet={handleConnectWallet}
+        onOpenMenu={() => setIsMobileMenuOpen(true)}
         portfolio={portfolio}
         setActiveTab={setActiveTab}
       />
       <Sidebar
         activeTab={activeTab}
+        mobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
         onOpenRequest={() => setActiveTab("margin-desk")}
         portfolio={portfolio}
         session={session}
@@ -695,7 +699,7 @@ export function BrowserTerminal({
       </div>
 
       <StatusBar
-        contractStatus={execution.contractLayer?.status ?? "Configured"}
+        contractStatus="TESTNET(TESTNET_VAULTS_CONNECTED_INTENT_ONLY)"
         executionMode={execution.marginExecutionEnabled ? "Live" : "Request"}
         marketCount={markets.length}
       />

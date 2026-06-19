@@ -64,12 +64,12 @@ export default function LandingView({
 
           {/* Heading */}
           <h1 className="text-4xl md:text-6xl font-sans font-extrabold tracking-tight text-white mb-6 leading-tight">
-            Find Markets. Review Details. <span className="text-transparent bg-clip-text bg-gradient-to-r from-deep-orange to-[#a78bfa]">Trade With Margin</span>
+            Find Markets. <span className="text-transparent bg-clip-text bg-gradient-to-r from-deep-orange to-[#a78bfa]">Trade With Margin</span>
           </h1>
 
           {/* Subheading */}
           <p className="text-sm md:text-base text-[#ccc3d8] leading-relaxed mb-10 max-w-2xl mx-auto font-sans">
-            Browse synced prediction markets by topic and region, review the event rules, then request margin using liquidity supplied by vault depositors.
+            Discover live event markets by topic and region, read the rules, and back your strongest calls with margin powered by vault liquidity.
           </p>
 
           {/* CTAs */}
@@ -78,7 +78,7 @@ export default function LandingView({
               onClick={onLaunchTerminal}
               className="w-full sm:w-auto bg-deep-orange text-black font-sans font-extrabold text-xs tracking-widest uppercase px-8 py-4 rounded hover:bg-white transition-all duration-200 shadow-lg shadow-deep-orange/10 flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Browse Markets</span>
+              <span>Find Markets</span>
               <ArrowRight size={14} />
             </button>
             <button
@@ -86,7 +86,7 @@ export default function LandingView({
               className="w-full sm:w-auto border border-[#ccc3d8]/40 text-[#ccc3d8] hover:text-white hover:border-white hover:bg-white/5 font-sans font-bold text-xs tracking-widest uppercase px-8 py-4 rounded transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
             >
               <Coins size={14} />
-              <span>Deposit Liquidity</span>
+              <span>Earn Yield</span>
             </button>
           </div>
         </div>
@@ -99,7 +99,7 @@ export default function LandingView({
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-70">
             <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
               <span className="w-2 h-2 rounded-full bg-[#3B82F6]" />
-              <span>SYNCED MARKET FEEDS</span>
+              <span>LIVE MARKET FEEDS</span>
             </div>
             <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
               <span className="w-2 h-2 rounded-full bg-[#10B981]" />
