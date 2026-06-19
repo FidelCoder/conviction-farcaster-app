@@ -65,18 +65,33 @@ export interface MarketTapeItem {
   isPositive: boolean;
 }
 
+export interface ActivityReplyItem {
+  id: string;
+  author: string;
+  text: string;
+  time: string;
+}
+
 export interface ActivityItem {
   id: string;
+  signalId?: string;
   username: string;
   name: string;
   avatarUrl?: string;
   time: string;
   text: string;
   type: 'request' | 'system';
+  kind?: 'signal' | 'news' | 'trade' | 'post';
   likes: number;
   commentsCount: number;
   repeats: number;
   likedByUser?: boolean;
+  marketId?: string;
+  marketTitle?: string;
+  marketPrice?: string;
+  replies?: ActivityReplyItem[];
+  repostedByUser?: boolean;
+  topic?: string;
 }
 
 export interface LeaderboardItem {

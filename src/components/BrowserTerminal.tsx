@@ -80,6 +80,10 @@ type ContractTransactionResponse =
   | { ok: true; data: { transaction: ContractTransaction } }
   | { ok: false; error: { code: string; message: string } };
 
+type ActivitySignalResponse =
+  | { ok: true; data: { signal: { id: string; createdAt: string } } }
+  | { ok: false; error: { code: string; message: string } };
+
 const TERMINAL_TABS = ["landing", "markets", "margin-desk", "vaults", "activity"] as const;
 const TERMINAL_TAB_STORAGE_KEY = "conviction-active-terminal-tab";
 
@@ -605,18 +609,59 @@ export function BrowserTerminal({
     triggerAlert("info", "Risk voting is display-only until governance contracts are connected.");
   }
 
-  function handlePostActivity() {
-    triggerAlert(
-      "info",
-      "Standalone social broadcasts need a core API route before posting is enabled.",
-    );
+  function requireActivityWallet() {
+    if (portfolio.connected) {
+      triggerAlert("info", "Wallet session is active. Wait a moment for the profile session to finish loading.");
+      return;
+    }
+
+    void handleConnectWallet();
   }
 
-  function handleLikeActivity() {
-    triggerAlert(
-      "info",
-      "Connect a core social session from a signal page to react to real posts.",
-    );
+  async function handleCreateActivitySignal(input: { marketId: string; side: "YES" | "NO"; thesis: string }) {
+    if (!portfolio.connected) {
+      void handleConnectWallet();
+      return null;
+    }
+
+    if (!session) {
+      triggerAlert("info", "Wallet session is still loading. Try again in a moment.");
+      return null;
+    }
+
+    const traderProfile = session.traderProfile;
+
+    if (!traderProfile) {
+      triggerAlert("info", "Finish your .viction profile before publishing a market signal.");
+      return null;
+    }
+
+    try {
+      const response = await fetch("/api/signals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          traderProfileId: traderProfile.id,
+          marketId: input.marketId,
+          side: input.side,
+          thesis: input.thesis,
+          convictionLevel: 70,
+          source: "WEB",
+        }),
+      });
+      const body = (await response.json()) as ActivitySignalResponse;
+
+      if (!response.ok || !body.ok) {
+        triggerAlert("info", body.ok ? "Signal creation failed." : body.error.message);
+        return null;
+      }
+
+      triggerAlert("success", "Signal published to Market Pulse.");
+      return { id: body.data.signal.id, createdAt: body.data.signal.createdAt };
+    } catch {
+      triggerAlert("info", "Core API did not accept the signal.");
+      return null;
+    }
   }
 
   return (
@@ -691,9 +736,12 @@ export function BrowserTerminal({
           <ActivityView
             activity={socialActivity}
             leaderboard={leaderboardItems}
-            onLikeActivity={handleLikeActivity}
-            onPostActivity={handlePostActivity}
+            markets={displayMarkets}
+            onCreateSignal={handleCreateActivitySignal}
+            onOpenMarket={handleOpenMargin}
+            onRequireWallet={requireActivityWallet}
             portfolio={portfolio}
+            session={session}
           />
         ) : null}
       </div>
@@ -888,16 +936,59 @@ function getTapeMarketLabel(market: Market) {
 function mapSocialFeedToActivity(feed: SocialFeedItem[]): ActivityItem[] {
   return feed.map((item) => ({
     id: item.signal.id,
-    username: item.author.username ?? item.author.handle ?? item.author.displayName ?? "trader",
-    name: item.author.displayName ?? item.author.username ?? "Conviction trader",
+    signalId: item.signal.id,
+    username: getSocialUsername(item),
+    name: item.author.displayName ?? item.author.username ?? item.trader?.handle ?? "Conviction trader",
     time: formatRelativeTime(item.signal.createdAt),
-    text: item.signal.thesis + "\n\n" + (item.market?.title ?? "Market unavailable"),
+    text: buildSignalFeedText(item),
     type: "request",
+    kind: "signal",
     likes: item.counts.reactions,
     commentsCount: item.counts.replies,
     repeats: item.counts.bookmarks,
     likedByUser: item.viewer?.reacted ?? false,
+    marketId: item.market?.id,
+    marketPrice: formatSocialMarketPrice(item.market),
+    marketTitle: item.market?.title ?? "Market unavailable",
+    replies: item.recentReplies.map((reply) => ({
+      id: reply.id,
+      author: reply.author.username ?? reply.author.handle ?? reply.author.displayName ?? "trader",
+      text: reply.body,
+      time: formatRelativeTime(reply.createdAt),
+    })),
+    repostedByUser: item.viewer?.bookmarked ?? false,
+    topic: item.market?.providerMetadata?.primaryTag ?? item.market?.category ?? "Signal",
   }));
+}
+
+function getSocialUsername(item: SocialFeedItem) {
+  return (
+    item.author.username ??
+    item.author.handle ??
+    item.trader?.handle ??
+    item.author.displayName ??
+    "trader"
+  );
+}
+
+function buildSignalFeedText(item: SocialFeedItem) {
+  const side = item.signal.side === "NO" ? "NO" : "YES";
+  const conviction = item.signal.convictionLevel ? " / conviction " + item.signal.convictionLevel + "%" : "";
+
+  return side + " thesis" + conviction + ": " + item.signal.thesis;
+}
+
+function formatSocialMarketPrice(market: Market | null) {
+  if (!market) return undefined;
+
+  const price = getMarketPrice(market);
+  const numericPrice = price ? Number(price) : Number.NaN;
+
+  if (Number.isFinite(numericPrice)) {
+    return "YES " + (numericPrice * 100).toFixed(1) + "%";
+  }
+
+  return undefined;
 }
 
 function mapLeaderboard(leaderboard: LeaderboardEntry[]): LeaderboardItem[] {

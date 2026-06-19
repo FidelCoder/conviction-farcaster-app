@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { CoreApiError, createTradeSignal } from "../../../lib/core-api";
 
 const signalSides = new Set(["YES", "NO"]);
+const signalSources = new Set(["TELEGRAM", "FARCASTER", "WEB"]);
 
 export async function POST(request: Request) {
   const body = await parseBody(request);
@@ -15,6 +16,7 @@ export async function POST(request: Request) {
   const marketId = stringField(body, "marketId");
   const side = stringField(body, "side");
   const thesis = stringField(body, "thesis");
+  const source = stringField(body, "source") || "FARCASTER";
   const convictionLevel = optionalInteger(body.convictionLevel);
 
   if (!traderProfileId || !marketId || !side || !thesis) {
@@ -23,6 +25,10 @@ export async function POST(request: Request) {
 
   if (!signalSides.has(side)) {
     return validationError("Side must be YES or NO.");
+  }
+
+  if (!signalSources.has(source)) {
+    return validationError("Source must be TELEGRAM, FARCASTER, or WEB.");
   }
 
   if (thesis.length > 5000) {
@@ -43,7 +49,7 @@ export async function POST(request: Request) {
       side: side as "YES" | "NO",
       thesis,
       convictionLevel,
-      source: "FARCASTER",
+      source: source as "TELEGRAM" | "FARCASTER" | "WEB",
     });
 
     return NextResponse.json({ ok: true, data: { signal } }, { status: 201 });
