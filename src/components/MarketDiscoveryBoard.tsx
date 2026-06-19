@@ -39,10 +39,13 @@ const TOPIC_OPTIONS: DiscoveryTopic[] = [
   "ALL",
   "CRYPTO",
   "SPORTS",
+  "GEOPOLITICS",
   "POLITICS",
+  "SOCIAL",
   "CULTURE",
-  "TECH",
   "ECONOMICS",
+  "TECH",
+  "CLIMATE",
   "WORLD",
 ];
 const SCOPE_OPTIONS: Array<{ label: string; value: DiscoveryScope }> = [
@@ -125,7 +128,7 @@ export function MarketDiscoveryBoard({ markets }: MarketDiscoveryBoardProps) {
       <section className="markets-browse-header" aria-labelledby="markets-title">
         <div>
           <p className="eyebrow">Browse markets</p>
-          <h1 id="markets-title">Prediction markets with a point of view.</h1>
+          <h1 id="markets-title">Prediction markets sorted by interest and region.</h1>
         </div>
         <dl className="browse-stat-strip" aria-label="Market board composition">
           <div>
@@ -150,7 +153,7 @@ export function MarketDiscoveryBoard({ markets }: MarketDiscoveryBoardProps) {
       <section className="discovery-preferences-panel" aria-label="Discovery preferences">
         <div className="discovery-preferences-copy">
           <span>Market lens</span>
-          <strong>Choose what feels close, global, or worth debating.</strong>
+          <strong>Choose the topics and regions that match your world.</strong>
         </div>
         <div className="preference-grid">
           <label className="preference-field">

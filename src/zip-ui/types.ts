@@ -4,13 +4,24 @@ export interface PredictionMarket {
   status: 'LIVE' | 'HALTED';
   vol24h: string;
   liquidity: string;
+  liquidityLabel?: string;
   currentOdds: number; // e.g. 64.2
   convictionIndex: 'High' | 'Moderate' | 'Low' | 'N/A';
   convictionValue: number; // percentage value for bar width (e.g. 85)
   category: string;
   description: string;
+  bestAsk?: string | null;
+  bestBid?: string | null;
   discoveryRegion?: string;
   discoveryTopic?: string;
+  externalUrl?: string | null;
+  lastTradePrice?: string | null;
+  noTokenId?: string | null;
+  orderMinSize?: string | null;
+  resolutionDate?: string | null;
+  source?: string;
+  syncedAt?: string | null;
+  yesTokenId?: string | null;
 }
 
 export interface VaultDepositTransaction {

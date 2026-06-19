@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PredictionMarket } from '../types';
-import { ArrowRight, ArrowUpDown, Filter, Globe2, Search } from 'lucide-react';
+import { ArrowRight, ArrowUpDown, ExternalLink, Filter, Globe2, Search, Sparkles } from 'lucide-react';
 
 interface MarketsViewProps {
   markets: PredictionMarket[];
@@ -8,6 +8,9 @@ interface MarketsViewProps {
 }
 
 type SortOrder = 'relevance' | 'conviction' | 'odds' | 'volume';
+
+const FEATURED_TOPICS = ['All', 'Crypto', 'Sports', 'Geopolitics', 'Politics', 'Social', 'Culture', 'Economics', 'Tech', 'Climate'];
+const FEATURED_REGIONS = ['All', 'Global', 'Africa', 'Asia', 'Europe', 'Latin America', 'Middle East', 'United States', 'Crypto-native'];
 
 export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -18,11 +21,11 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
 
   const categories = useMemo(() => buildOptions(markets.map((market) => market.category)), [markets]);
   const topics = useMemo(
-    () => buildOptions(markets.map((market) => market.discoveryTopic ?? inferMarketTopic(market))),
+    () => mergeFeaturedOptions(FEATURED_TOPICS, markets.map((market) => market.discoveryTopic ?? inferMarketTopic(market))),
     [markets],
   );
   const regions = useMemo(
-    () => buildOptions(markets.map((market) => market.discoveryRegion ?? inferMarketRegion(market))),
+    () => mergeFeaturedOptions(FEATURED_REGIONS, markets.map((market) => market.discoveryRegion ?? inferMarketRegion(market))),
     [markets],
   );
 
@@ -48,6 +51,7 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
           market.category,
           market.discoveryTopic ?? inferMarketTopic(market),
           market.discoveryRegion ?? inferMarketRegion(market),
+          market.source,
         ]
           .join(' ')
           .toLowerCase()
@@ -62,8 +66,14 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
         <header className="mb-6 border-b border-[#262626] pb-4">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
+              <p className="mb-2 inline-flex items-center gap-2 rounded border border-deep-orange/30 bg-deep-orange/10 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">
+                <Sparkles size={12} />
+                Market discovery
+              </p>
               <h1 className="text-3xl md:text-4xl font-sans font-bold text-white mb-2">Active Markets</h1>
-              <p className="text-sm text-[#ccc3d8]">Find markets by topic, region, and signal relevance.</p>
+              <p className="max-w-2xl text-sm text-[#ccc3d8]">
+                Find real synced prediction markets by topic, region, source, and resolution context before opening a margin request.
+              </p>
             </div>
 
             <div className="grid w-full gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(12rem,1fr)_auto_auto_auto_auto] xl:max-w-5xl">
@@ -72,7 +82,7 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
                 <input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search markets"
+                  placeholder="Search sports, geopolitics, crypto..."
                   className="min-w-0 flex-1 border-none bg-transparent font-mono text-xs font-bold text-white placeholder:text-[#ccc3d8]/50 focus:outline-none"
                 />
               </label>
@@ -101,7 +111,10 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
         {filteredMarkets.length === 0 ? (
           <section className="rounded-lg border border-[#262626] bg-[#161616] p-8 text-center">
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">No matching markets</p>
-            <h2 className="mt-2 text-xl font-bold text-white">Try another topic, region, or keyword.</h2>
+            <h2 className="mt-2 text-xl font-bold text-white">Try another topic, region, source, or keyword.</h2>
+            <p className="mx-auto mt-2 max-w-xl text-sm text-[#ccc3d8]">
+              The board only filters markets returned by core. As more provider feeds are synced, this engine can surface more local and global markets.
+            </p>
           </section>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -126,6 +139,9 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
                       </span>
                       <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-[#ccc3d8]">
                         {region}
+                      </span>
+                      <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-[#ccc3d8]">
+                        {market.source ?? 'Provider'}
                       </span>
                     </div>
 
@@ -152,17 +168,19 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
                         <span className="block font-sans font-semibold text-lg text-white">{market.vol24h}</span>
                       </div>
                       <div>
-                        <span className="block font-mono text-[10px] uppercase tracking-wider text-[#ccc3d8] mb-1">Liquidity</span>
-                        <span className="block font-sans font-semibold text-lg text-white">{market.liquidity}</span>
+                        <span className="block font-mono text-[10px] uppercase tracking-wider text-[#ccc3d8] mb-1">Min Order</span>
+                        <span className="block font-sans font-semibold text-lg text-white" title={market.liquidityLabel}>
+                          {market.liquidity}
+                        </span>
                       </div>
                     </div>
 
                     <div className="mb-6 p-3.5 bg-[#0e0e0e]/90 border border-[#262626] rounded flex justify-between items-center">
                       <span className="font-mono text-[10px] text-[#ccc3d8]/80 uppercase tracking-widest">
-                        Current Odds <span className="text-deep-orange">(YES)</span>
+                        Implied chance <span className="text-deep-orange">(YES)</span>
                       </span>
                       <span className={`font-mono text-xl font-bold ${isHalted ? 'text-[#958da1]' : 'text-electric-purple'}`}>
-                        ¢{market.currentOdds.toFixed(1)}
+                        {market.currentOdds.toFixed(1)}%
                       </span>
                     </div>
 
@@ -190,22 +208,37 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
                       </div>
                     </div>
 
-                    {isHalted ? (
-                      <button
-                        disabled
-                        className="w-full bg-[#2a2a2a] text-[#4a4455] font-mono text-xs font-bold py-3 rounded flex justify-center items-center gap-1.5 cursor-not-allowed"
-                      >
-                        Market Halted
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => onOpenMargin(market)}
-                        className="w-full bg-deep-orange text-black font-sans font-bold text-xs py-3 rounded hover:bg-white transition-all flex justify-center items-center gap-2 glow-orange cursor-pointer"
-                      >
-                        <span>Open Margin</span>
-                        <ArrowRight size={14} />
-                      </button>
-                    )}
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                      {isHalted ? (
+                        <button
+                          disabled
+                          className="w-full bg-[#2a2a2a] text-[#4a4455] font-mono text-xs font-bold py-3 rounded flex justify-center items-center gap-1.5 cursor-not-allowed"
+                        >
+                          Market Halted
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => onOpenMargin(market)}
+                          className="w-full bg-deep-orange text-black font-sans font-bold text-xs py-3 rounded hover:bg-white transition-all flex justify-center items-center gap-2 glow-orange cursor-pointer"
+                        >
+                          <span>Review Market</span>
+                          <ArrowRight size={14} />
+                        </button>
+                      )}
+
+                      {market.externalUrl ? (
+                        <a
+                          href={market.externalUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center justify-center rounded border border-[#262626] bg-[#0e0e0e] px-3 text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
+                          aria-label="Open source market"
+                          title="Open source market"
+                        >
+                          <ExternalLink size={15} />
+                        </a>
+                      ) : null}
+                    </div>
                   </div>
                 </article>
               );
@@ -255,6 +288,20 @@ function buildOptions(values: string[]) {
   return ['All', ...Array.from(new Set(values.filter(Boolean))).sort((a, b) => a.localeCompare(b))];
 }
 
+function mergeFeaturedOptions(featured: string[], values: string[]) {
+  const allValues = Array.from(new Set([...featured, ...values.filter(Boolean)]));
+  return ['All', ...allValues.filter((value) => value !== 'All').sort((a, b) => {
+    const leftFeatured = featured.indexOf(a);
+    const rightFeatured = featured.indexOf(b);
+
+    if (leftFeatured !== -1 || rightFeatured !== -1) {
+      return (leftFeatured === -1 ? 999 : leftFeatured) - (rightFeatured === -1 ? 999 : rightFeatured);
+    }
+
+    return a.localeCompare(b);
+  })];
+}
+
 function compareMarkets(a: PredictionMarket, b: PredictionMarket, sortOrder: SortOrder, query: string) {
   if (sortOrder === 'volume') return parseVolume(b.vol24h) - parseVolume(a.vol24h);
   if (sortOrder === 'conviction') return b.convictionValue - a.convictionValue;
@@ -272,13 +319,13 @@ function getNextSortOrder(current: SortOrder): SortOrder {
 
 function getSortLabel(sortOrder: SortOrder) {
   if (sortOrder === 'conviction') return 'Conviction';
-  if (sortOrder === 'odds') return 'Odds';
+  if (sortOrder === 'odds') return 'YES Chance';
   if (sortOrder === 'volume') return 'Volume';
   return 'Relevance';
 }
 
 function getMarketRelevanceScore(market: PredictionMarket, query: string) {
-  const searchable = `${market.title} ${market.description} ${market.category}`.toLowerCase();
+  const searchable = `${market.title} ${market.description} ${market.category} ${market.discoveryTopic ?? ''} ${market.discoveryRegion ?? ''} ${market.source ?? ''}`.toLowerCase();
   const queryTokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const queryScore = queryTokens.reduce((score, token) => score + (searchable.includes(token) ? 20 : 0), 0);
   const liveBonus = market.status === 'LIVE' ? 10 : 0;
@@ -297,24 +344,29 @@ function parseVolume(volume: string) {
 function inferMarketTopic(market: PredictionMarket) {
   const text = `${market.title} ${market.description} ${market.category}`.toLowerCase();
 
-  if (matches(text, ['nba', 'nfl', 'nhl', 'mlb', 'champion', 'finals', 'cup', 'league', 'ufc', 'soccer', 'football'])) return 'Sports';
-  if (matches(text, ['bitcoin', 'btc', 'ethereum', 'eth', 'airdrop', 'token', 'crypto', 'defi', 'chain'])) return 'Crypto';
-  if (matches(text, ['election', 'president', 'senate', 'congress', 'minister', 'policy', 'government'])) return 'Politics';
-  if (matches(text, ['fed', 'rates', 'inflation', 'gdp', 'recession', 'oil', 'stocks', 'market'])) return 'Macro';
+  if (matches(text, ['war', 'ceasefire', 'nato', 'taiwan', 'gaza', 'israel', 'iran', 'russia', 'ukraine', 'sanction'])) return 'Geopolitics';
+  if (matches(text, ['nba', 'nfl', 'nhl', 'mlb', 'champion', 'finals', 'cup', 'league', 'ufc', 'soccer', 'football', 'cricket', 'formula 1'])) return 'Sports';
+  if (matches(text, ['bitcoin', 'btc', 'ethereum', 'eth', 'airdrop', 'token', 'crypto', 'defi', 'chain', 'solana'])) return 'Crypto';
+  if (matches(text, ['election', 'president', 'senate', 'congress', 'minister', 'policy', 'government', 'parliament'])) return 'Politics';
+  if (matches(text, ['trend', 'tiktok', 'twitter', 'meme', 'protest', 'strike', 'trial'])) return 'Social';
+  if (matches(text, ['fed', 'rates', 'inflation', 'gdp', 'recession', 'oil', 'stocks', 'market', 'tariff'])) return 'Economics';
+  if (matches(text, ['climate', 'weather', 'hurricane', 'temperature', 'rain', 'flood', 'wildfire'])) return 'Climate';
   if (matches(text, ['album', 'movie', 'music', 'gta', 'celebrity', 'award', 'streaming'])) return 'Culture';
-  if (matches(text, ['ai', 'openai', 'nvidia', 'apple', 'tesla', 'spacex', 'startup', 'tech'])) return 'Technology';
+  if (matches(text, ['ai', 'openai', 'nvidia', 'apple', 'tesla', 'spacex', 'startup', 'tech'])) return 'Tech';
 
-  return 'General';
+  return 'World';
 }
 
 function inferMarketRegion(market: PredictionMarket) {
   const text = `${market.title} ${market.description} ${market.category}`.toLowerCase();
 
-  if (matches(text, ['nba', 'nfl', 'nhl', 'mlb', 'new york', 'san antonio', 'oklahoma', 'vegas', 'us ', 'u.s.', 'usa', 'america'])) return 'United States';
-  if (matches(text, ['canada', 'montreal', 'toronto', 'stanley'])) return 'Canada';
-  if (matches(text, ['uk', 'britain', 'london', 'europe', 'eu ', 'france', 'germany', 'spain', 'italy'])) return 'Europe';
-  if (matches(text, ['nigeria', 'kenya', 'ghana', 'south africa', 'egypt', 'africa'])) return 'Africa';
-  if (matches(text, ['china', 'india', 'japan', 'korea', 'singapore', 'asia'])) return 'Asia';
+  if (matches(text, ['crypto', 'bitcoin', 'ethereum', 'airdrop', 'token', 'defi', 'solana', 'onchain', 'on-chain'])) return 'Crypto-native';
+  if (matches(text, ['nigeria', 'kenya', 'ghana', 'south africa', 'ethiopia', 'egypt', 'morocco', 'africa'])) return 'Africa';
+  if (matches(text, ['china', 'india', 'japan', 'korea', 'singapore', 'taiwan', 'asia', 'indonesia'])) return 'Asia';
+  if (matches(text, ['uk', 'britain', 'london', 'europe', 'eu ', 'france', 'germany', 'spain', 'italy', 'russia', 'ukraine'])) return 'Europe';
+  if (matches(text, ['brazil', 'argentina', 'mexico', 'colombia', 'chile', 'latin america', 'latam'])) return 'Latin America';
+  if (matches(text, ['israel', 'iran', 'saudi', 'uae', 'qatar', 'gaza', 'middle east', 'palestine'])) return 'Middle East';
+  if (matches(text, ['nba', 'nfl', 'mlb', 'new york', 'san antonio', 'oklahoma', 'vegas', 'u.s.', 'usa', 'america', 'united states'])) return 'United States';
 
   return 'Global';
 }

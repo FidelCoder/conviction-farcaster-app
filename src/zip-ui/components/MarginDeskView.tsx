@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { getVaultAvailableBalance } from '../../lib/wallet-balances';
 import { PredictionMarket, Vault, MarketTapeItem, UserPortfolio } from '../types';
-import { TrendingUp, Info, Bolt, RefreshCw } from 'lucide-react';
+import { ExternalLink, Info, Bolt, RefreshCw, ShieldCheck, TrendingUp } from 'lucide-react';
 
 interface MarginDeskViewProps {
   markets: PredictionMarket[];
@@ -22,205 +22,35 @@ export default function MarginDeskView({
   portfolio,
   onRequestMargin
 }: MarginDeskViewProps) {
-  // Local interface controllers
   const [selectedVaultId, setSelectedVaultId] = useState<string>(vaults[0]?.id || 'usdc-core-vault');
   const [leverage, setLeverage] = useState<number>(5);
   const [marginAmount, setMarginAmount] = useState<string>('');
   const [outcomeType, setOutcomeType] = useState<'YES' | 'NO'>('YES');
   const [isRequesting, setIsRequesting] = useState<boolean>(false);
-  
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+
   const selectedVault = vaults.find(v => v.id === selectedVaultId) || vaults[0];
 
-  // Random price ticker effect
-  const [livePriceMultiplier, setLivePriceMultiplier] = useState<number>(0.6220);
-  const [priceChangePct, setPriceChangePct] = useState<number>(2.4);
-
-  // Ticks simulated prices every 3 seconds to represent real live feed
   useEffect(() => {
-    // Sync price starting point based on active market odds
-    const odds = outcomeType === 'YES' ? activeMarket.currentOdds : (100 - activeMarket.currentOdds);
-    setLivePriceMultiplier(odds / 100);
-
-    const interval = setInterval(() => {
-      setLivePriceMultiplier(prev => {
-        const delta = (Math.random() - 0.5) * 0.008;
-        const nextPrice = Math.max(0.01, prev + delta);
-        const prevBase = odds / 100;
-        const change = ((nextPrice - prevBase) / prevBase) * 100;
-        setPriceChangePct(change);
-        return nextPrice;
-      });
-    }, 2800);
-
-    return () => clearInterval(interval);
-  }, [activeMarket, outcomeType]);
-
-  // Canvas Candlestick Rendering logic
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animId: number;
-    let width = canvas.width = canvas.parentElement?.clientWidth || 600;
-    let height = canvas.height = canvas.parentElement?.clientHeight || 400;
-
-    // Generate pseudo trading history
-    const candlesCount = 28;
-    const paddingLeft = 40;
-    const paddingRight = 40;
-    const plotWidth = width - paddingLeft - paddingRight;
-    const candleWidth = Math.floor(plotWidth / candlesCount) - 4;
-
-    const candles: Array<{
-      high: number;
-      low: number;
-      open: number;
-      close: number;
-      volume: number;
-    }> = [];
-
-    // Seed pseudo-random walk candles
-    let currVal = height * 0.55;
-    for (let i = 0; i < candlesCount; i++) {
-      const variation = (Math.random() - 0.48) * 45;
-      const open = currVal;
-      const close = currVal + variation;
-      const high = Math.max(open, close) + Math.random() * 20;
-      const low = Math.min(open, close) - Math.random() * 20;
-      candles.push({ high, low, open, close, volume: Math.random() * currVal });
-      currVal = close;
+    if (selectedVault && leverage > selectedVault.maxLeverage) {
+      setLeverage(selectedVault.maxLeverage);
     }
+  }, [leverage, selectedVault]);
 
-    const draw = () => {
-      // Clear with radial gradient terminal fill
-      ctx.fillStyle = '#0A0A0A';
-      ctx.fillRect(0, 0, width, height);
-
-      // Draw technical grid lines
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
-      ctx.lineWidth = 1;
-      const step = 32;
-      for (let x = 0; x < width; x += step) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-      }
-      for (let y = 0; y < height; y += step) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-
-      // Live oscillating line
-      const pulseTime = Date.now() * 0.003;
-      const activeY = height * 0.48 + Math.sin(pulseTime) * 15;
-
-      // Draw candlesticks
-      for (let i = 0; i < candlesCount; i++) {
-        const candle = candles[i];
-        const x = paddingLeft + i * (candleWidth + 4);
-        
-        // Update the last candle toward the current dynamic oscillating value
-        if (i === candlesCount - 1) {
-          candle.close = activeY;
-          candle.high = Math.max(candle.open, activeY) + 5;
-          candle.low = Math.min(candle.open, activeY) - 5;
-        }
-
-        const isGreen = candle.close < candle.open;
-        ctx.strokeStyle = isGreen ? '#10B981' : '#EF4444';
-        ctx.fillStyle = isGreen ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)';
-        ctx.lineWidth = 1.5;
-
-        // Draw shadow line
-        ctx.beginPath();
-        ctx.moveTo(x + candleWidth / 2, candle.low);
-        ctx.lineTo(x + candleWidth / 2, candle.high);
-        ctx.stroke();
-
-        // Draw solid candle body
-        ctx.fillRect(x, Math.min(candle.open, candle.close), candleWidth, Math.abs(candle.open - candle.close));
-        ctx.strokeRect(x, Math.min(candle.open, candle.close), candleWidth, Math.abs(candle.open - candle.close));
-
-        // Let some glowing nodes show for selected ones
-        if (i % 6 === 0) {
-          ctx.beginPath();
-          ctx.arc(x + candleWidth / 2, candle.high, 2, 0, Math.PI * 2);
-          ctx.fillStyle = isGreen ? '#10B981' : '#EF4444';
-          ctx.fill();
-        }
-      }
-
-      // Floating live ticket indicator text & glowing dashed line
-      ctx.strokeStyle = '#F97316';
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(0, activeY);
-      ctx.lineTo(width, activeY);
-      ctx.stroke();
-      ctx.setLineDash([]); // clear dash
-
-      // Glow pulse around current ticker pointer
-      const tickerX = paddingLeft + (candlesCount - 1) * (candleWidth + 4) + candleWidth / 2;
-      ctx.beginPath();
-      ctx.arc(tickerX, activeY, 6, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(249, 115, 22, 0.4)';
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(tickerX, activeY, 3, 0, Math.PI * 2);
-      ctx.fillStyle = '#F97316';
-      ctx.fill();
-
-      // UI watermark overlay for institutional style
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-      ctx.font = 'bold 11px "JetBrains Mono", monospace';
-      ctx.fillText('CONVICTION ENGINE V1.3', 20, height - 20);
-      ctx.fillText('SECURE BROKERAGE ENVIRONMENT', width - 210, height - 20);
-
-      animId = requestAnimationFrame(draw);
-    };
-
-    draw();
-
-    // Resize listener
-    const handleResize = () => {
-      if (!canvas || !canvas.parentElement) return;
-      width = canvas.width = canvas.parentElement.clientWidth;
-      height = canvas.height = canvas.parentElement.clientHeight;
-    };
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [selectedVaultId]);
-
-  // Vault/Collateral settings helper
   const maxCollateral = selectedVault
     ? getVaultAvailableBalance({ portfolio, vault: selectedVault })
     : 0;
-  
-  // Dynamic trade output computations
-  const currentPriceOdds = livePriceMultiplier * 100;
-  const numericAmount = parseFloat(marginAmount) || 0;
+
   const currentOutcomeOdds = outcomeType === 'YES' ? activeMarket.currentOdds : (100 - activeMarket.currentOdds);
+  const numericAmount = parseFloat(marginAmount) || 0;
+  const pricePerShare = Math.max(0.01, currentOutcomeOdds / 100);
   const tradingPower = numericAmount * leverage;
-  const contractShares = Math.floor(tradingPower / (currentOutcomeOdds / 100));
-  const estimatedPosition = contractShares * (currentOutcomeOdds / 100);
-  
-  // Liquidation calculation based on odds and leverage
-  // Halted assets don't have active standard liquidations
-  const liquidationOdds = activeMarket.status === 'HALTED' 
-    ? 0 
-    : currentPriceOdds * (1 - 0.70 / leverage);
+  const borrowedLiquidity = Math.max(0, tradingPower - numericAmount);
+  const contractShares = Math.floor(tradingPower / pricePerShare);
+  const estimatedPosition = contractShares * pricePerShare;
+  const liquidationOdds = activeMarket.status === 'HALTED'
+    ? 0
+    : currentOutcomeOdds * (1 - 0.70 / Math.max(leverage, 1));
+  const reviewRows = useMemo(() => buildMarketReviewRows(activeMarket), [activeMarket]);
 
   const handleMaxCollateral = () => {
     setMarginAmount(maxCollateral.toFixed(2));
@@ -230,22 +60,21 @@ export default function MarginDeskView({
     e.preventDefault();
 
     if (!portfolio.connected) {
-      alert('Wallet Connection Required: Please connect your primary Web3 wallet in the top header action to sign trades.');
+      alert('Connect your wallet before requesting margin. Your request is tied to the connected wallet address.');
       return;
     }
 
     if (numericAmount <= 0) {
-      alert('Collateral Constraint: Please declare a positive margin collateral amount.');
+      alert('Enter a positive collateral amount.');
       return;
     }
 
     if (numericAmount > maxCollateral) {
-      alert(`Insufficient Funds: Your current account balance is ${maxCollateral.toFixed(2)} ${selectedVault.asset}.`);
+      alert(`Insufficient vault balance. You can use up to ${maxCollateral.toFixed(2)} ${selectedVault.asset}.`);
       return;
     }
 
     setIsRequesting(true);
-    // Simulate smart contract delay
     setTimeout(() => {
       onRequestMargin(
         selectedVault.id,
@@ -257,13 +86,11 @@ export default function MarginDeskView({
       );
       setIsRequesting(false);
       setMarginAmount('');
-    }, 1200);
+    }, 900);
   };
 
   return (
     <main className="flex-1 flex flex-col lg:flex-row mt-16 md:ml-64 p-4 md:p-6 gap-6 min-h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] overflow-y-auto lg:overflow-hidden pb-28 lg:pb-6">
-      
-      {/* 1. LEFT COLUMN: Market Tape list */}
       <section className="w-full lg:w-64 bg-[#161616] border border-[#262626] rounded flex flex-col overflow-hidden max-h-72 lg:max-h-full">
         <div className="px-4 py-3 border-b border-[#262626] bg-[#0e0e0e] flex justify-between items-center">
           <h3 className="font-mono text-[10px] text-[#ccc3d8] font-bold uppercase tracking-widest flex items-center gap-1.5">
@@ -278,31 +105,30 @@ export default function MarginDeskView({
             <thead className="text-[#ccc3d8]/60 sticky top-0 bg-[#161616] border-b border-[#262626] text-[10px] uppercase">
               <tr>
                 <th className="py-2 px-3 font-normal">Market</th>
-                <th className="py-2 px-3 font-normal text-right">Price</th>
-                <th className="py-2 px-3 font-normal text-right">Size</th>
+                <th className="py-2 px-3 font-normal text-right">YES</th>
+                <th className="py-2 px-3 font-normal text-right">Min</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#262626]">
               {tape.map((item, idx) => {
-                // Find matching loaded market to show highlighted focus state
                 const matchedMarket = markets.find(m => m.title.toLowerCase().includes(item.market.split('-')[0].toLowerCase()));
                 const isSelected = matchedMarket ? matchedMarket.id === activeMarket.id : false;
 
                 return (
-                  <tr 
+                  <tr
                     key={idx}
                     onClick={() => {
                       if (matchedMarket) setActiveMarket(matchedMarket);
                     }}
                     className={`cursor-pointer transition-colors ${
-                      isSelected 
-                        ? 'bg-deep-orange/15 text-white border-l-2 border-l-deep-orange' 
+                      isSelected
+                        ? 'bg-deep-orange/15 text-white border-l-2 border-l-deep-orange'
                         : 'hover:bg-[#1A1A1A] text-[#ccc3d8]'
                     }`}
                   >
                     <td className="py-2.5 px-3 font-semibold text-white">{item.market}</td>
                     <td className={`py-2.5 px-3 text-right font-medium ${item.isPositive ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
-                      {item.price.toFixed(4)}
+                      {formatPercent(item.price * 100)}
                     </td>
                     <td className="py-2.5 px-3 text-right text-[#ccc3d8]/80">{item.size}</td>
                   </tr>
@@ -313,95 +139,139 @@ export default function MarginDeskView({
         </div>
       </section>
 
-      {/* 2. CENTER COLUMN: Interactive Candlestick Chart Canvas */}
-      <section className="flex-1 bg-[#161616] border border-[#262626] rounded flex flex-col overflow-hidden relative min-h-[300px]">
-        {/* Market Title Details Header */}
-        <div className="px-4 sm:px-6 py-4 border-b border-[#262626] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-[#0e0e0e] z-10 relative">
+      <section className="flex-1 bg-[#161616] border border-[#262626] rounded flex flex-col overflow-hidden relative min-h-[420px]">
+        <div className="px-4 sm:px-6 py-4 border-b border-[#262626] flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 bg-[#0e0e0e] z-10 relative">
           <div>
-            <h2 className="font-sans font-bold text-lg text-white leading-tight flex items-center gap-2">
-              YES / NO - {activeMarket.title}
+            <div className="mb-2 flex flex-wrap gap-2 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]">
+              <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">{activeMarket.source ?? 'Provider'}</span>
+              <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">{activeMarket.discoveryTopic ?? 'World'}</span>
+              <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">{activeMarket.discoveryRegion ?? 'Global'}</span>
+            </div>
+            <h2 className="font-sans font-bold text-lg text-white leading-tight">
+              {activeMarket.title}
             </h2>
-            <p className="font-mono text-[11px] text-[#ccc3d8] mt-1 uppercase tracking-wider flex items-center gap-1.5">
-              <span>Prediction Market</span>
-              <span>•</span>
-              <span className="text-[#ccc3d8]">{activeMarket.category}</span>
+            <p className="font-mono text-[11px] text-[#ccc3d8] mt-1 uppercase tracking-wider">
+              Review the event and pricing before requesting margin
             </p>
           </div>
 
-          <div className="text-right">
-            <div className={`font-mono text-xl font-extrabold flex items-center justify-end gap-1 ${priceChangePct >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
-              {livePriceMultiplier.toFixed(4)}
-              <TrendingUp size={16} />
+          <div className="text-left sm:text-right">
+            <div className="font-mono text-xl font-extrabold text-[#10B981]">
+              {formatPercent(activeMarket.currentOdds)} YES
             </div>
-            <div className={`font-mono text-xs ${priceChangePct >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
-              {priceChangePct >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}% (24H)
+            <div className="font-mono text-xs text-[#EF4444]">
+              {formatPercent(100 - activeMarket.currentOdds)} NO
             </div>
           </div>
         </div>
 
-        {/* Live Canvas Area */}
-        <div className="flex-1 relative w-full h-full bg-[#0A0A0A] overflow-hidden">
-          <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block" />
-          
-          {/* Ticking Status Badge */}
-          <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-[#161616]/90 backdrop-blur border border-[#262626] px-3 py-1 rounded text-[10px] font-mono font-bold uppercase text-[#ccc3d8]">
-            <span className="w-1.5 h-1.5 rounded-full bg-deep-orange animate-pulse" />
-            <span>Telemetry Stream Engine</span>
-          </div>
-          
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-            <div className="text-[#ccc3d8]/40 font-mono text-xs border border-[#262626]/40 bg-[#161616]/50 backdrop-blur px-4 py-2 rounded">
-              Chart visualization rendering...
-            </div>
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#0A0A0A]">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(18rem,0.92fr)]">
+            <article className="rounded border border-[#262626] bg-[#161616] p-5">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Event Details</p>
+                  <h3 className="mt-1 text-xl font-bold text-white">What this market resolves on</h3>
+                </div>
+                <span className={`rounded border px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest ${
+                  activeMarket.status === 'LIVE'
+                    ? 'border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]'
+                    : 'border-[#EF4444]/30 bg-[#EF4444]/10 text-[#EF4444]'
+                }`}>
+                  {activeMarket.status}
+                </span>
+              </div>
+
+              <p className="text-sm leading-relaxed text-[#ccc3d8]">{activeMarket.description}</p>
+
+              <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+                {reviewRows.map((row) => (
+                  <div key={row.label} className="rounded border border-[#262626] bg-[#0e0e0e] p-3">
+                    <dt className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">{row.label}</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {activeMarket.externalUrl ? (
+                <a
+                  href={activeMarket.externalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-5 inline-flex items-center gap-2 rounded border border-[#262626] bg-[#0e0e0e] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
+                >
+                  Source market
+                  <ExternalLink size={14} />
+                </a>
+              ) : null}
+            </article>
+
+            <article className="rounded border border-[#262626] bg-[#161616] p-5">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Price Snapshot</p>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <PriceTile label="YES chance" value={formatPercent(activeMarket.currentOdds)} tone="yes" />
+                <PriceTile label="NO chance" value={formatPercent(100 - activeMarket.currentOdds)} tone="no" />
+                <PriceTile label="Last trade" value={formatRawProbability(activeMarket.lastTradePrice)} />
+                <PriceTile label="Best ask" value={formatRawProbability(activeMarket.bestAsk)} />
+                <PriceTile label="Best bid" value={formatRawProbability(activeMarket.bestBid)} />
+                <PriceTile label="Min order" value={activeMarket.orderMinSize ? activeMarket.orderMinSize + ' contracts' : 'Pending'} />
+              </div>
+
+              <div className="mt-5 rounded border border-electric-purple/30 bg-electric-purple/10 p-4">
+                <div className="flex items-start gap-3">
+                  <ShieldCheck size={18} className="mt-0.5 flex-shrink-0 text-electric-purple" />
+                  <p className="text-xs leading-relaxed text-[#ccc3d8]">
+                    The chart has been replaced with provider-backed market facts. Candles should only return once the app has real historical price candles from the provider or an indexed core feed.
+                  </p>
+                </div>
+              </div>
+            </article>
           </div>
         </div>
       </section>
 
-      {/* 3. RIGHT COLUMN: Margin request control form */}
       <section className="w-full lg:w-[340px] flex flex-col gap-4 overflow-visible lg:overflow-y-auto lg:max-h-full">
-        <form 
+        <form
           onSubmit={handleOrderSubmit}
           className="bg-[#161616] border-t-2 border-t-deep-orange border-x border-b border-[#262626] rounded p-6 glow-orange transition-all duration-300"
         >
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-sans font-bold text-lg text-white">Margin Request</h3>
-            <Bolt size={18} className="text-deep-orange animate-spin-slow" />
+            <Bolt size={18} className="text-deep-orange" />
           </div>
 
-          {/* Outcome YES / NO Toggle Selection */}
           <div className="mb-6">
             <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">Pick Outcome</label>
             <div className="grid grid-cols-2 gap-3">
-              <button 
+              <button
                 type="button"
                 onClick={() => setOutcomeType('YES')}
                 className={`py-3 px-4 rounded text-center transition-all cursor-pointer font-sans font-bold text-xs ${
-                  outcomeType === 'YES' 
-                    ? 'bg-deep-orange text-black font-extrabold shadow-md' 
+                  outcomeType === 'YES'
+                    ? 'bg-deep-orange text-black font-extrabold shadow-md'
                     : 'bg-[#0e0e0e] text-[#ccc3d8] border border-[#262626] hover:border-white/25'
                 }`}
               >
-                YES (¢{activeMarket.currentOdds.toFixed(0)})
+                YES ({formatPercent(activeMarket.currentOdds)})
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setOutcomeType('NO')}
                 className={`py-3 px-4 rounded text-center transition-all cursor-pointer font-sans font-bold text-xs ${
-                  outcomeType === 'NO' 
-                    ? 'bg-[#EF4444] text-white font-extrabold shadow-md' 
+                  outcomeType === 'NO'
+                    ? 'bg-[#EF4444] text-white font-extrabold shadow-md'
                     : 'bg-[#0e0e0e] text-[#ccc3d8] border border-[#262626] hover:border-white/25'
                 }`}
               >
-                NO (¢{(100 - activeMarket.currentOdds).toFixed(0)})
+                NO ({formatPercent(100 - activeMarket.currentOdds)})
               </button>
             </div>
           </div>
 
-          {/* Select Vault */}
           <div className="mb-6">
             <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">Select Vault</label>
             <div className="relative">
-              <select 
+              <select
                 value={selectedVaultId}
                 onChange={(e) => setSelectedVaultId(e.target.value)}
                 className="w-full bg-[#0A0A0A] border border-[#262626] text-white rounded p-3 font-mono text-xs focus:outline-none focus:border-deep-orange transition-colors cursor-pointer appearance-none"
@@ -418,17 +288,16 @@ export default function MarginDeskView({
             </div>
           </div>
 
-          {/* Leverage Slider */}
           <div className="mb-6">
             <div className="flex justify-between mb-2">
-              <label className="font-mono text-[10px] text-[#ccc3d8] uppercase tracking-widest font-bold">Leverage Limit</label>
+              <label className="font-mono text-[10px] text-[#ccc3d8] uppercase tracking-widest font-bold">Leverage</label>
               <span className="font-mono text-xs text-deep-orange font-extrabold">{leverage}X</span>
             </div>
-            <input 
-              type="range" 
-              min="1" 
+            <input
+              type="range"
+              min="1"
               max={selectedVault.maxLeverage}
-              value={leverage} 
+              value={leverage}
               onChange={(e) => setLeverage(parseInt(e.target.value))}
               className="w-full accent-deep-orange bg-[#262626] h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none"
             />
@@ -439,16 +308,15 @@ export default function MarginDeskView({
             </div>
           </div>
 
-          {/* Margin Amount collateral */}
           <div className="mb-6">
             <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">
-              Margin Amount ({selectedVault.asset})
+              Collateral From Vault ({selectedVault.asset})
             </label>
             <div className="relative">
-              <input 
-                type="number" 
+              <input
+                type="number"
                 step="any"
-                placeholder="0.00" 
+                placeholder="0.00"
                 value={marginAmount}
                 onChange={(e) => setMarginAmount(e.target.value)}
                 className="w-full bg-[#0A0A0A] border border-[#262626] text-white rounded p-3 font-mono text-lg text-right focus:outline-none focus:border-deep-orange focus:ring-1 focus:ring-deep-orange/50 transition-colors"
@@ -458,11 +326,10 @@ export default function MarginDeskView({
                 {selectedVault.asset}
               </span>
             </div>
-            
-            {/* Quick-action portfolio stats indicator */}
+
             <div className="flex justify-between mt-2 font-mono text-[11px]">
-              <span className="text-[#ccc3d8]/80">Available: {maxCollateral.toFixed(2)} {selectedVault.asset}</span>
-              <button 
+              <span className="text-[#ccc3d8]/80">Vault balance: {maxCollateral.toFixed(2)} {selectedVault.asset}</span>
+              <button
                 type="button"
                 onClick={handleMaxCollateral}
                 className="text-deep-orange hover:text-white font-extrabold transition-colors uppercase tracking-wider text-[10px]"
@@ -473,7 +340,6 @@ export default function MarginDeskView({
             </div>
           </div>
 
-          {/* Trigger Request button */}
           {activeMarket.status === 'HALTED' ? (
             <button
               type="button"
@@ -493,63 +359,119 @@ export default function MarginDeskView({
               {isRequesting ? (
                 <>
                   <RefreshCw className="animate-spin" size={14} />
-                  <span>TRANSACTION MINING...</span>
+                  <span>Recording request...</span>
                 </>
               ) : (
                 <>
                   <Bolt size={14} />
-                  <span>REQUEST MARGIN</span>
+                  <span>Request Margin</span>
                 </>
               )}
             </button>
           )}
 
-          {/* Position projections */}
           <div className="mt-5 pt-4 border-t border-[#262626] flex flex-col gap-2">
             <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
-              <span>Purchased Outcome:</span>
+              <span>Outcome:</span>
               <span className={`font-bold ${outcomeType === 'YES' ? 'text-deep-orange' : 'text-[#EF4444]'}`}>
-                {outcomeType} Contracts
+                {outcomeType}
               </span>
             </div>
             <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
-              <span>Buying Power Built:</span>
-              <span className="text-white font-semibold">
-                ${tradingPower.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-              </span>
+              <span>Your collateral:</span>
+              <span className="text-white font-semibold">${numericAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
-              <span>Contract Shares Held:</span>
-              <span className="text-white font-semibold">
-                {contractShares > 0 ? `${contractShares.toLocaleString()} shares` : '--'}
-              </span>
+              <span>Vault liquidity used:</span>
+              <span className="text-white font-semibold">${borrowedLiquidity.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
-              <span>Liquidation Price Limit:</span>
+              <span>Total position size:</span>
+              <span className="text-white font-semibold">${tradingPower.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
+              <span>Estimated shares:</span>
+              <span className="text-white font-semibold">{contractShares > 0 ? contractShares.toLocaleString() : '--'}</span>
+            </div>
+            <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
+              <span>Liquidation trigger:</span>
               <span className={`font-semibold ${liquidationOdds > 0 ? 'text-[#EF4444]' : 'text-white'}`}>
-                {liquidationOdds > 0 ? `¢${liquidationOdds.toFixed(1)}` : '--'}
+                {liquidationOdds > 0 ? formatPercent(liquidationOdds) : '--'}
               </span>
             </div>
-            {contractShares > 0 && (
-              <div className="flex justify-between items-center text-[11px] font-mono border-t border-[#262626]/40 pt-2 text-emerald-400">
-                <span className="font-semibold">Max Net Profit on 100%:</span>
-                <span className="font-bold">
-                  +${((contractShares) - (tradingPower)).toLocaleString(undefined, { maximumFractionDigits: 0 })} ({(((contractShares - (tradingPower - numericAmount) - numericAmount) / numericAmount) * 100).toFixed(0)}%)
-                </span>
-              </div>
-            )}
           </div>
         </form>
 
-        {/* Sidebar Info disclaimer card */}
         <div className="bg-[#1c1b1b] border border-[#262626] rounded p-4 text-[11px] font-mono text-[#ccc3d8] flex gap-3 items-start">
           <Info size={16} className="text-electric-purple flex-shrink-0 mt-0.5" />
           <p className="leading-relaxed">
-            Margin requests are subject to vault liquidity and real-time market slippage parameters. Leveraged operations encompass high volatility liquidations risk.
+            Vault deposits form the liquidity pool. Traders use their deposited balance as collateral, then borrow extra pool liquidity for leverage. Vault depositors earn yield from fees and risk premiums as the system matures.
           </p>
         </div>
       </section>
-      
     </main>
   );
+}
+
+function PriceTile({ label, value, tone }: { label: string; value: string; tone?: 'yes' | 'no' }) {
+  return (
+    <div className="rounded border border-[#262626] bg-[#0e0e0e] p-3">
+      <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">{label}</span>
+      <strong className={`mt-1 block font-mono text-base ${tone === 'yes' ? 'text-[#10B981]' : tone === 'no' ? 'text-[#EF4444]' : 'text-white'}`}>
+        {value}
+      </strong>
+    </div>
+  );
+}
+
+function buildMarketReviewRows(market: PredictionMarket) {
+  return [
+    { label: 'Provider', value: market.source ?? 'Core provider' },
+    { label: 'Category', value: market.category },
+    { label: 'Region', value: market.discoveryRegion ?? 'Global' },
+    { label: 'Topic', value: market.discoveryTopic ?? 'World' },
+    { label: 'Resolution', value: formatDate(market.resolutionDate) },
+    { label: 'Last synced', value: formatDateTime(market.syncedAt) },
+    { label: 'YES token', value: market.yesTokenId ? 'Mapped' : 'Pending' },
+    { label: 'NO token', value: market.noTokenId ? 'Mapped' : 'Pending' },
+  ];
+}
+
+function formatPercent(value: number) {
+  if (!Number.isFinite(value)) return '--';
+  return value.toFixed(1) + '%';
+}
+
+function formatRawProbability(value: string | null | undefined) {
+  if (!value) return 'Pending';
+  const numericValue = Number(value);
+
+  if (Number.isFinite(numericValue) && numericValue >= 0 && numericValue <= 1) {
+    return formatPercent(numericValue * 100);
+  }
+
+  return value;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return 'Pending';
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return 'Pending';
+
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return 'Pending';
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return 'Pending';
+
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }

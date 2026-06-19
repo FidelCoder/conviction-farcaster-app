@@ -17,6 +17,7 @@ import type {
   SocialFeedItem,
   UserSession,
 } from "../lib/core-api";
+import { getMarketDiscoveryProfile, getRegionLabel, getTopicLabel } from "../lib/market-discovery";
 import { getMarketDisplayCase, getMarketPrice } from "../lib/market-display";
 import {
   getNoWalletDetectedMessage,
@@ -647,11 +648,15 @@ const emptyPredictionMarket: PredictionMarket = {
   status: "HALTED",
   vol24h: "--",
   liquidity: "--",
+  liquidityLabel: "Provider liquidity unavailable",
   currentOdds: 0,
   convictionIndex: "N/A",
   convictionValue: 0,
   category: "Core Sync",
   description: "Sync real provider markets from core before opening margin.",
+  discoveryRegion: "Global",
+  discoveryTopic: "World",
+  source: "Conviction Core",
 };
 
 
@@ -659,59 +664,55 @@ function isTerminalTab(value: string | null | undefined): value is (typeof TERMI
   return typeof value === "string" && TERMINAL_TABS.includes(value as (typeof TERMINAL_TABS)[number]);
 }
 
-function inferDiscoveryTopic(market: Market) {
-  const text = getMarketDiscoveryText(market);
-
-  if (hasTerm(text, ["nba", "nfl", "nhl", "mlb", "champion", "finals", "cup", "league", "ufc", "soccer", "football"])) return "Sports";
-  if (hasTerm(text, ["bitcoin", "btc", "ethereum", "eth", "airdrop", "token", "crypto", "defi", "chain"])) return "Crypto";
-  if (hasTerm(text, ["election", "president", "senate", "congress", "minister", "policy", "government"])) return "Politics";
-  if (hasTerm(text, ["fed", "rates", "inflation", "gdp", "recession", "oil", "stocks", "market"])) return "Macro";
-  if (hasTerm(text, ["album", "movie", "music", "gta", "celebrity", "award", "streaming"])) return "Culture";
-  if (hasTerm(text, ["ai", "openai", "nvidia", "apple", "tesla", "spacex", "startup", "tech"])) return "Technology";
-
-  return "General";
-}
-
-function inferDiscoveryRegion(market: Market) {
-  const text = getMarketDiscoveryText(market);
-
-  if (hasTerm(text, ["nba", "nfl", "nhl", "mlb", "new york", "san antonio", "oklahoma", "vegas", "u.s.", "usa", "america"])) return "United States";
-  if (hasTerm(text, ["canada", "montreal", "toronto", "stanley"])) return "Canada";
-  if (hasTerm(text, ["uk", "britain", "london", "europe", "eu ", "france", "germany", "spain", "italy"])) return "Europe";
-  if (hasTerm(text, ["nigeria", "kenya", "ghana", "south africa", "egypt", "africa"])) return "Africa";
-  if (hasTerm(text, ["china", "india", "japan", "korea", "singapore", "asia"])) return "Asia";
-
-  return "Global";
-}
-
-function getMarketDiscoveryText(market: Market) {
-  return [market.title, market.description, market.category, market.source].filter(Boolean).join(" ").toLowerCase();
-}
-
-function hasTerm(text: string, terms: string[]) {
-  return terms.some((term) => text.includes(term));
-}
-
 function mapMarketToPredictionMarket(market: Market): PredictionMarket {
   const price = getMarketPrice(market);
   const numericPrice = price ? Number(price) : Number.NaN;
   const displayCase = getMarketDisplayCase(market);
   const score = displayCase.boardFitScore;
+  const discovery = getMarketDiscoveryProfile(market);
+  const region = discovery.regions[0] ?? "GLOBAL";
 
   return {
     id: market.id,
     title: market.title,
     status: market.status === "ACTIVE" ? "LIVE" : "HALTED",
     vol24h: "--",
-    liquidity: market.orderMinSize ? market.orderMinSize + " min" : "--",
+    liquidity: getMarketLiquidityValue(market),
+    liquidityLabel: getMarketLiquidityLabel(market),
     currentOdds: Number.isFinite(numericPrice) ? numericPrice * 100 : 0,
     convictionIndex: score >= 80 ? "High" : score >= 55 ? "Moderate" : score > 0 ? "Low" : "N/A",
     convictionValue: Math.max(0, Math.min(score, 100)),
     category: market.category ?? market.source,
     description: market.description ?? "Provider description unavailable.",
-    discoveryRegion: inferDiscoveryRegion(market),
-    discoveryTopic: inferDiscoveryTopic(market),
+    bestAsk: market.bestAsk,
+    bestBid: market.bestBid,
+    discoveryRegion: getRegionLabel(region),
+    discoveryTopic: getTopicLabel(discovery.topic),
+    externalUrl: market.externalUrl,
+    lastTradePrice: market.lastTradePrice,
+    noTokenId: market.noTokenId,
+    orderMinSize: market.orderMinSize,
+    resolutionDate: market.resolutionDate,
+    source: market.source,
+    syncedAt: market.syncedAt,
+    yesTokenId: market.yesTokenId,
   };
+}
+
+function getMarketLiquidityValue(market: Market) {
+  if (market.orderMinSize) {
+    return market.orderMinSize + " contracts";
+  }
+
+  return "Provider pending";
+}
+
+function getMarketLiquidityLabel(market: Market) {
+  if (market.orderMinSize) {
+    return "Minimum order size reported by " + market.source;
+  }
+
+  return "Liquidity depth is not included in the current core snapshot.";
 }
 
 function mapExecutionToVaults(execution: ExecutionCapabilities): Vault[] {

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { EmptyState } from "../../../components/EmptyState";
 import { MarginDesk } from "../../../components/MarginDesk";
 import { PredictionSocialPanel } from "../../../components/PredictionSocialPanel";
@@ -10,6 +11,32 @@ export const dynamic = "force-dynamic";
 type MarketPageProps = {
   params: Promise<{ marketId: string }>;
 };
+
+export async function generateMetadata({ params }: MarketPageProps): Promise<Metadata> {
+  const { marketId } = await params;
+  const market = await getMarket(marketId);
+
+  if (!market) {
+    return {
+      title: "Market not found",
+      robots: { index: false, follow: true },
+    };
+  }
+
+  return {
+    title: market.title,
+    description:
+      market.description ??
+      "Review prediction market details, outcome prices, resolution rules, and margin availability on Conviction Markets.",
+    alternates: { canonical: "/markets/" + market.id },
+    openGraph: {
+      title: market.title,
+      description: market.description ?? "Prediction market details on Conviction Markets.",
+      url: "/markets/" + market.id,
+      type: "article",
+    },
+  };
+}
 
 export default async function MarketPage({ params }: MarketPageProps) {
   const { marketId } = await params;

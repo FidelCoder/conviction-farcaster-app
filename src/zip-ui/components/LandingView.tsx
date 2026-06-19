@@ -59,17 +59,17 @@ export default function LandingView({
           {/* Tag */}
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-deep-orange/10 border border-deep-orange/20 rounded-full text-xs font-mono font-bold text-deep-orange mb-6 uppercase tracking-wider">
             <Sparkles size={12} className="animate-pulse" />
-            <span>The Leverage & Margin Layer for Prediction Markets</span>
+            <span>Prediction markets, sorted for your interests</span>
           </div>
 
           {/* Heading */}
           <h1 className="text-4xl md:text-6xl font-sans font-extrabold tracking-tight text-white mb-6 leading-tight">
-            Amplify Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-deep-orange to-[#a78bfa]">Predictive Convictions</span>
+            Find Markets. Review Details. <span className="text-transparent bg-clip-text bg-gradient-to-r from-deep-orange to-[#a78bfa]">Trade With Margin</span>
           </h1>
 
           {/* Subheading */}
           <p className="text-sm md:text-base text-[#ccc3d8] leading-relaxed mb-10 max-w-2xl mx-auto font-sans">
-            Borrow institutional capital from core staking pools to dial up exposure on high-conviction events. Create core-backed margin requests against synced prediction markets, with vault contract rails ready for wallet execution.
+            Browse synced prediction markets by topic and region, review the event rules, then request margin using liquidity supplied by vault depositors.
           </p>
 
           {/* CTAs */}
@@ -78,7 +78,7 @@ export default function LandingView({
               onClick={onLaunchTerminal}
               className="w-full sm:w-auto bg-deep-orange text-black font-sans font-extrabold text-xs tracking-widest uppercase px-8 py-4 rounded hover:bg-white transition-all duration-200 shadow-lg shadow-deep-orange/10 flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>LAUNCH TRADING DECK</span>
+              <span>Browse Markets</span>
               <ArrowRight size={14} />
             </button>
             <button
@@ -86,7 +86,7 @@ export default function LandingView({
               className="w-full sm:w-auto border border-[#ccc3d8]/40 text-[#ccc3d8] hover:text-white hover:border-white hover:bg-white/5 font-sans font-bold text-xs tracking-widest uppercase px-8 py-4 rounded transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
             >
               <Coins size={14} />
-              <span>STAKE & EARN APY</span>
+              <span>Deposit Liquidity</span>
             </button>
           </div>
         </div>
@@ -94,24 +94,24 @@ export default function LandingView({
         {/* Powered by / Integration logos */}
         <div className="mt-16 text-center border-t border-[#262626]/60 pt-6">
           <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-widest font-extrabold block mb-4">
-            CONNECTING UNDERLYING PREDICTIVE PROTOCOLS
+            MARKET DATA AND GOVERNANCE ROADMAP
           </span>
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-70">
             <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
               <span className="w-2 h-2 rounded-full bg-[#3B82F6]" />
-              <span>POLYMARKET FEED</span>
+              <span>POLYMARKET MARKETS</span>
             </div>
             <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
               <span className="w-2 h-2 rounded-full bg-[#10B981]" />
-              <span>KALSHI DATA</span>
+              <span>KALSHI MARKET DATA</span>
             </div>
             <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
               <span className="w-2 h-2 rounded-full bg-deep-orange" />
-              <span>PREDICTIT ARCHITECT</span>
+              <span>PREDICTIT ADAPTER PLANNED</span>
             </div>
             <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
               <span className="w-2 h-2 rounded-full bg-electric-purple" />
-              <span>CONVICTION DAO</span>
+              <span>CONVICTION DAO RISK RULES</span>
             </div>
           </div>
         </div>
@@ -120,9 +120,9 @@ export default function LandingView({
       {/* 2. REAL-TIME INTERACTIVE LEVERAGE SIMULATOR */}
       <section className="mb-16">
         <div className="text-center mb-10">
-          <h2 className="text-2xl font-sans font-bold text-white mb-2">Simulate Your Position Multipliers</h2>
+          <h2 className="text-2xl font-sans font-bold text-white mb-2">Preview Margin Mechanics</h2>
           <p className="text-xs text-[#ccc3d8]/80 mt-1">
-            See exactly how margin borrowing increases your share index yields on contract resolutions.
+            Estimate how collateral, borrowed vault liquidity, and YES/NO prices shape a margin request.
           </p>
         </div>
 
@@ -135,7 +135,7 @@ export default function LandingView({
               {/* Target market info */}
               <div className="mb-6">
                 <span className="font-mono text-[9px] text-deep-orange uppercase tracking-wider font-extrabold px-2 py-0.5 bg-deep-orange/10 rounded">
-                  SAMPLE EVENT MARKET
+                  CURRENT EVENT MARKET
                 </span>
                 <h3 className="text-md font-bold text-white mt-2 leading-snug">
                   {activeMarket.title}
@@ -145,7 +145,7 @@ export default function LandingView({
               {/* Set Outcome Selection */}
               <div className="mb-6">
                 <label className="block font-mono text-[9px] text-[#ccc3d8]/80 uppercase tracking-widest font-extrabold mb-2">
-                  Pick Outcome Share
+                  Pick Outcome
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button 
@@ -157,7 +157,7 @@ export default function LandingView({
                         : 'bg-[#0e0e0e] text-[#ccc3d8] border border-[#262626] hover:border-white/30'
                     }`}
                   >
-                    YES (¢{(optionYesPrice * 100).toFixed(0)})
+                    YES ({(optionYesPrice * 100).toFixed(0)}%)
                   </button>
                   <button 
                     type="button"
@@ -168,7 +168,7 @@ export default function LandingView({
                         : 'bg-[#0e0e0e] text-[#ccc3d8] border border-[#262626] hover:border-white/30'
                     }`}
                   >
-                    NO (¢{(optionNoPrice * 100).toFixed(0)})
+                    NO ({(optionNoPrice * 100).toFixed(0)}%)
                   </button>
                 </div>
               </div>
@@ -199,7 +199,7 @@ export default function LandingView({
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
                   <label className="block font-mono text-[9px] text-[#ccc3d8]/80 uppercase tracking-widest font-extrabold">
-                    Contract Leverage Multiplier
+                    Leverage
                   </label>
                   <span className="font-mono text-sm font-bold text-deep-orange bg-deep-orange/10 px-2 py-0.5 rounded leading-none">
                     {Math.min(leverage, maxLeverage)}x Leverage
@@ -227,7 +227,7 @@ export default function LandingView({
               onClick={onLaunchTerminal}
               className="w-full bg-white/5 border border-white/10 hover:bg-deep-orange hover:text-black hover:border-deep-orange text-white py-3 rounded font-sans font-bold text-xs tracking-wider uppercase transition-all duration-200 cursor-pointer text-center mt-4"
             >
-              Open Trade Terminal With Simulator Values 
+              Review Markets
             </button>
           </div>
 
@@ -235,7 +235,7 @@ export default function LandingView({
           <div className="lg:col-span-7 bg-[#1c1b1b]/60 border border-[#262626] rounded-xl p-6 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-baseline mb-6 border-b border-[#262626] pb-4">
-                <span className="font-mono text-xs font-bold text-[#ccc3d8] uppercase tracking-wide">Dynamic Margin Estimation</span>
+                <span className="font-mono text-xs font-bold text-[#ccc3d8] uppercase tracking-wide">Margin Estimate</span>
                 <span className="font-mono text-[9px] text-emerald-400 font-extrabold flex items-center gap-1 bg-emerald-500/10 px-2.5 py-0.5 rounded-full uppercase leading-none">
                   <Gauge size={12} />
                   Safe Margins
@@ -249,11 +249,11 @@ export default function LandingView({
                   <span className="font-mono text-[#e5e2e1] font-bold text-base">${collateral.toLocaleString()}</span>
                 </div>
                 <div className="p-4 bg-[#0a0a0a] border border-[#262626] rounded">
-                  <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-wider block mb-1">USDC Loan Borrowed</span>
+                  <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-wider block mb-1">Vault Liquidity Used</span>
                   <span className="font-mono text-[#F97316] font-semibold text-base">${borrowCapital.toLocaleString()}</span>
                 </div>
                 <div className="p-4 bg-[#0a0a0a] border border-[#262626] rounded col-span-2 md:col-span-1">
-                  <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-wider block mb-1">Total Position Size</span>
+                  <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-wider block mb-1">Total Exposure</span>
                   <span className="font-mono text-white font-extrabold text-base">${totalTradingPower.toLocaleString()}</span>
                 </div>
               </div>
@@ -263,7 +263,7 @@ export default function LandingView({
                 {/* Result line 1 */}
                 <div className="flex justify-between items-center">
                   <span className="text-[#ccc3d8]/80">Option Share Cost:</span>
-                  <span className="text-white font-bold">¢{(currentPrice * 100).toFixed(0)}</span>
+                  <span className="text-white font-bold">{(currentPrice * 100).toFixed(0)}%</span>
                 </div>
                 {/* Result line 2 */}
                 <div className="flex justify-between items-center">
@@ -273,7 +273,7 @@ export default function LandingView({
                 {/* Result line 3 */}
                 <div className="flex justify-between items-center">
                   <span className="text-[#ccc3d8]/80">Liquidation Trigger Price:</span>
-                  <span className="text-[#EF4444] font-bold">¢{(currentPrice * 0.82).toFixed(1)}</span>
+                  <span className="text-[#EF4444] font-bold">{(currentPrice * 82).toFixed(1)}%</span>
                 </div>
                 {/* Result line 4 */}
                 <div className="flex justify-between items-center border-t border-[#262626] pt-3 text-emerald-400">

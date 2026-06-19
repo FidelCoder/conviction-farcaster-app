@@ -15,8 +15,8 @@ export default function DocsPage() {
             <p>Docs</p>
             <h1>Conviction Markets</h1>
             <span>
-              A prime-broker margin layer for prediction markets. Borrow institutional capital,
-              publish conviction signals, and build your reputation onchain.
+              A prediction market discovery and margin layer. Browse real event markets,
+              review the rules, request margin, and build your reputation onchain.
             </span>
           </div>
           <div className="settings-status-pill">Protocol guide</div>
