@@ -106,9 +106,6 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
                 Market discovery
               </p>
               <h1 className="text-3xl md:text-4xl font-sans font-bold text-white mb-2">Active Markets</h1>
-              <p className="max-w-2xl text-sm text-[#ccc3d8]">
-                Configure discovery by sport, region, politics, crypto, breaking news, weather, culture, and other interests before opening a margin request.
-              </p>
             </div>
 
             <div className="grid w-full gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(12rem,1fr)_auto_auto_auto_auto] xl:max-w-5xl">

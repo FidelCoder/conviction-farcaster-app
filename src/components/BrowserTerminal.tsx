@@ -759,7 +759,7 @@ function mapMarketToPredictionMarket(market: Market): PredictionMarket {
     id: market.id,
     title: market.title,
     status: market.status === "ACTIVE" ? "LIVE" : "HALTED",
-    vol24h: "--",
+    vol24h: formatMarketCurrency(market.volume24hr ?? market.providerMetadata?.volume24hr),
     liquidity: getMarketLiquidityValue(market),
     liquidityLabel: getMarketLiquidityLabel(market),
     currentOdds: Number.isFinite(numericPrice) ? numericPrice * 100 : 0,
@@ -783,19 +783,42 @@ function mapMarketToPredictionMarket(market: Market): PredictionMarket {
 }
 
 function getMarketLiquidityValue(market: Market) {
+  const liquidity = market.liquidity ?? market.providerMetadata?.liquidity;
+
+  if (liquidity) {
+    return formatMarketCurrency(liquidity);
+  }
+
   if (market.orderMinSize) {
-    return market.orderMinSize + " contracts";
+    return market.orderMinSize + " min order";
   }
 
   return "Pending";
 }
 
 function getMarketLiquidityLabel(market: Market) {
+  if (market.liquidity ?? market.providerMetadata?.liquidity) {
+    return "Liquidity depth from the synced provider event snapshot.";
+  }
+
   if (market.orderMinSize) {
     return "Minimum order size from the synced market feed.";
   }
 
   return "Liquidity depth is not included in the current core snapshot.";
+}
+
+function formatMarketCurrency(value: string | number | null | undefined) {
+  const numericValue = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return "--";
+  }
+
+  if (numericValue >= 1_000_000) return "$" + (numericValue / 1_000_000).toFixed(1) + "M";
+  if (numericValue >= 1_000) return "$" + (numericValue / 1_000).toFixed(1) + "K";
+
+  return "$" + numericValue.toFixed(0);
 }
 
 function mapExecutionToVaults(execution: ExecutionCapabilities): Vault[] {

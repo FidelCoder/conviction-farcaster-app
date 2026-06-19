@@ -24,11 +24,20 @@ type ChartHitTarget = {
   y: number;
 };
 
+type MarketHistoryRange = '1h' | '1w' | '1m' | '1y';
+
 type MarketHistoryState =
-  | { status: 'loading'; candles: MarketCandle[]; source: string }
-  | { status: 'ready'; candles: MarketCandle[]; source: string }
-  | { status: 'snapshot_only'; candles: MarketCandle[]; source: string }
-  | { status: 'empty'; candles: MarketCandle[]; source: string };
+  | { status: 'loading'; candles: MarketCandle[]; range: MarketHistoryRange; source: string }
+  | { status: 'ready'; candles: MarketCandle[]; range: MarketHistoryRange; source: string }
+  | { status: 'snapshot_only'; candles: MarketCandle[]; range: MarketHistoryRange; source: string }
+  | { status: 'empty'; candles: MarketCandle[]; range: MarketHistoryRange; source: string };
+
+const HISTORY_RANGES: Array<{ label: string; value: MarketHistoryRange }> = [
+  { label: '1H', value: '1h' },
+  { label: '1W', value: '1w' },
+  { label: '1M', value: '1m' },
+  { label: '1Y', value: '1y' },
+];
 
 interface MarginDeskViewProps {
   markets: PredictionMarket[];
@@ -55,12 +64,14 @@ export default function MarginDeskView({
   const [outcomeType, setOutcomeType] = useState<'YES' | 'NO'>('YES');
   const [isRequesting, setIsRequesting] = useState<boolean>(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
+  const [historyRange, setHistoryRange] = useState<MarketHistoryRange>('1w');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartTargetsRef = useRef<ChartHitTarget[]>([]);
   const [hoveredCandle, setHoveredCandle] = useState<ChartHitTarget | null>(null);
   const [historyState, setHistoryState] = useState<MarketHistoryState>({
     status: 'loading',
     candles: [],
+    range: '1w',
     source: 'CONVICTION_LOADING',
   });
 
@@ -75,10 +86,10 @@ export default function MarginDeskView({
   useEffect(() => {
     let isCurrent = true;
 
-    setHistoryState({ status: 'loading', candles: [], source: 'CONVICTION_LOADING' });
+    setHistoryState({ status: 'loading', candles: [], range: historyRange, source: 'CONVICTION_LOADING' });
     setHoveredCandle(null);
 
-    fetch('/api/markets/' + encodeURIComponent(activeMarket.id) + '/history')
+    fetch('/api/markets/' + encodeURIComponent(activeMarket.id) + '/history?range=' + historyRange)
       .then((response) => response.json())
       .then((body: unknown) => {
         if (!isCurrent) return;
@@ -93,6 +104,7 @@ export default function MarginDeskView({
         setHistoryState({
           status: fallback.length > 0 ? 'snapshot_only' : 'empty',
           candles: fallback,
+          range: historyRange,
           source: 'CONVICTION_SNAPSHOT',
         });
       });
@@ -100,7 +112,7 @@ export default function MarginDeskView({
     return () => {
       isCurrent = false;
     };
-  }, [activeMarket]);
+  }, [activeMarket, historyRange]);
 
   useEffect(() => {
     const hoveredIndex = hoveredCandle?.index ?? null;
@@ -277,20 +289,37 @@ export default function MarginDeskView({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#0A0A0A]">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_20rem]">
             <article className="rounded border border-[#262626] bg-[#161616] p-5">
-              <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Market Flow</p>
                   <h3 className="mt-1 text-lg font-bold text-white">YES price candles</h3>
                 </div>
-                <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]">
-                  {getHistoryStatusLabel(historyState)}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {HISTORY_RANGES.map((range) => (
+                    <button
+                      key={range.value}
+                      type="button"
+                      onClick={() => setHistoryRange(range.value)}
+                      aria-pressed={historyRange === range.value}
+                      className={`rounded border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                        historyRange === range.value
+                          ? 'border-deep-orange bg-deep-orange text-black'
+                          : 'border-[#262626] bg-[#0e0e0e] text-[#ccc3d8] hover:border-white/40 hover:text-white'
+                      }`}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
+                  <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]">
+                    {getHistoryStatusLabel(historyState)}
+                  </span>
+                </div>
               </div>
 
               <div
-                className="relative h-[420px] min-h-[320px] overflow-hidden rounded border border-[#262626] bg-[#050505]"
+                className="relative h-[520px] min-h-[360px] overflow-hidden rounded border border-[#262626] bg-[#050505]"
                 onPointerLeave={handleChartPointerLeave}
                 onPointerMove={handleChartPointerMove}
               >
@@ -319,12 +348,7 @@ export default function MarginDeskView({
                 ) : null}
                 {historyState.status === 'loading' ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-[#050505]/70 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]">
-                    Loading market flow...
-                  </div>
-                ) : null}
-                {historyState.status === 'empty' ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-[#050505]/70 px-6 text-center font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]">
-                    No price snapshot is available for this market yet.
+                    Loading candles...
                   </div>
                 ) : null}
               </div>
@@ -596,7 +620,7 @@ export default function MarginDeskView({
 
 function parseHistoryResponse(body: unknown): MarketHistoryState {
   if (!isRecord(body) || body.ok !== true || !isRecord(body.data)) {
-    return { status: 'empty', candles: [], source: 'CONVICTION_EMPTY' };
+    return { status: 'empty', candles: [], range: '1w', source: 'CONVICTION_EMPTY' };
   }
 
   const candlesValue = body.data.candles;
@@ -605,16 +629,21 @@ function parseHistoryResponse(body: unknown): MarketHistoryState {
     : [];
   const statusValue = typeof body.data.status === 'string' ? body.data.status : 'empty';
   const source = typeof body.data.source === 'string' ? body.data.source : 'CONVICTION_HISTORY';
+  const range = isMarketHistoryRange(body.data.range) ? body.data.range : '1w';
 
   if (candles.length === 0) {
-    return { status: 'empty', candles: [], source };
+    return { status: 'empty', candles: [], range, source };
   }
 
   if (statusValue === 'snapshot_only') {
-    return { status: 'snapshot_only', candles, source };
+    return { status: 'snapshot_only', candles, range, source };
   }
 
-  return { status: 'ready', candles, source };
+  return { status: 'ready', candles, range, source };
+}
+
+function isMarketHistoryRange(value: unknown): value is MarketHistoryRange {
+  return value === '1h' || value === '1w' || value === '1m' || value === '1y';
 }
 
 function drawCandlestickChart(
@@ -646,7 +675,7 @@ function drawCandlestickChart(
     return [];
   }
 
-  const plot = { left: 54, right: 54, top: 24, bottom: 42 };
+  const plot = { left: 58, right: 64, top: 28, bottom: 48 };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
   const values = candles.flatMap((candle) => [candle.high, candle.low, candle.open, candle.close]);

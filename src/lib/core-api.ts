@@ -13,8 +13,22 @@ export type Market = {
   lastTradePrice?: string | null;
   bestBid?: string | null;
   bestAsk?: string | null;
+  liquidity?: string | null;
   orderMinSize?: string | null;
+  providerMetadata?: {
+    liquidity?: string | null;
+    oneDayPriceChange?: string | null;
+    totalVolume?: string | null;
+    volume1mo?: string | null;
+    volume1wk?: string | null;
+    volume1yr?: string | null;
+    volume24hr?: string | null;
+  };
   syncedAt?: string | null;
+  volume1mo?: string | null;
+  volume1wk?: string | null;
+  volume1yr?: string | null;
+  volume24hr?: string | null;
 };
 
 export type ExecutionCapabilityChain = {
@@ -387,7 +401,7 @@ export class CoreApiError extends Error {
 
 export async function listMarkets() {
   return readOrFallback(async () => {
-    const response = await coreRequest<{ markets?: Market[] } | Market[]>("/markets");
+    const response = await coreRequest<{ markets?: Market[] } | Market[]>("/markets?limit=250&status=ACTIVE");
 
     return Array.isArray(response) ? response : (response.markets ?? []);
   }, [] as Market[]);
