@@ -10,6 +10,7 @@ import {
   type DiscoveryScope,
   type DiscoveryTopic,
   getMarketDiscoveryLabel,
+  getMarketDiscoveryProfile,
   getRegionLabel,
   getTopicLabel,
   marketMatchesDiscoveryFilters,
@@ -60,6 +61,21 @@ const SCOPE_OPTIONS: Array<{ label: string; value: DiscoveryScope }> = [
   { label: "Global", value: "GLOBAL" },
   { label: "Local", value: "LOCAL" },
 ];
+const TOPIC_STRIP_OPTIONS: DiscoveryTopic[] = [
+  "ALL",
+  "WORLD_CUP",
+  "BREAKING",
+  "SPORTS",
+  "CRYPTO",
+  "ESPORTS",
+  "GEOPOLITICS",
+  "POLITICS",
+  "FINANCE",
+  "TECH",
+  "CULTURE",
+  "WEATHER",
+  "ELECTIONS",
+];
 
 type MarketDiscoveryBoardProps = {
   markets: Market[];
@@ -72,7 +88,7 @@ export function MarketDiscoveryBoard({ markets }: MarketDiscoveryBoardProps) {
   const [topic, setTopic] = useState<DiscoveryTopic>("ALL");
   const rankedMarkets = useMemo(() => sortMarketsForConvictionBoard(markets), [markets]);
   const boardStats = useMemo(() => getMarketBoardStats(markets), [markets]);
-  const categories = useMemo(() => getMarketCategories(rankedMarkets), [rankedMarkets]);
+  const topicCounts = useMemo(() => getTopicCounts(rankedMarkets), [rankedMarkets]);
   const filteredMarkets = useMemo(
     () =>
       rankedMarkets.filter((market) =>
@@ -122,12 +138,19 @@ export function MarketDiscoveryBoard({ markets }: MarketDiscoveryBoardProps) {
       </section>
 
       <nav className="browse-category-strip" aria-label="Market categories">
-        <button className="category-all" onClick={() => setTopic("ALL")} type="button">
-          Trending
-        </button>
-        {categories.slice(0, 9).map((category) => (
-          <button key={category} onClick={() => setQuery(category)} type="button">
-            {category}
+        {TOPIC_STRIP_OPTIONS.map((option) => (
+          <button
+            aria-pressed={topic === option}
+            className={option === "ALL" ? "category-all" : undefined}
+            key={option}
+            onClick={() => {
+              setQuery("");
+              setTopic(option);
+            }}
+            type="button"
+          >
+            {option === "ALL" ? "Trending" : getTopicLabel(option)}
+            <span>{option === "ALL" ? rankedMarkets.length : topicCounts.get(option) ?? 0}</span>
           </button>
         ))}
       </nav>
@@ -327,18 +350,15 @@ function OutcomePill({ label, probability }: { label: "YES" | "NO"; probability:
   );
 }
 
-function getMarketCategories(markets: Market[]) {
-  const categories = new Set<string>();
+function getTopicCounts(markets: Market[]) {
+  const counts = new Map<DiscoveryTopic, number>();
 
   markets.forEach((market) => {
-    const category = market.category?.trim();
-
-    if (category) {
-      categories.add(category);
-    }
+    const profile = getMarketDiscoveryProfile(market);
+    counts.set(profile.topic, (counts.get(profile.topic) ?? 0) + 1);
   });
 
-  return Array.from(categories).sort((left, right) => left.localeCompare(right));
+  return counts;
 }
 
 function getMarketProbability(market: Market) {
