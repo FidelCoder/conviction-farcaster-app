@@ -16,8 +16,13 @@ export type Market = {
   liquidity?: string | null;
   orderMinSize?: string | null;
   providerMetadata?: {
+    eventSlug?: string | null;
+    eventTitle?: string | null;
     liquidity?: string | null;
     oneDayPriceChange?: string | null;
+    primaryTag?: string | null;
+    tagLabels?: string[];
+    tagSlugs?: string[];
     totalVolume?: string | null;
     volume1mo?: string | null;
     volume1wk?: string | null;

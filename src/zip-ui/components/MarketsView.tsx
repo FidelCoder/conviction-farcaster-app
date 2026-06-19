@@ -114,7 +114,7 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
                 <input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search sports, geopolitics, crypto..."
+                  placeholder="Search World Cup, Iran, crypto, elections..."
                   className="min-w-0 flex-1 border-none bg-transparent font-mono text-xs font-bold text-white placeholder:text-[#ccc3d8]/50 focus:outline-none"
                 />
               </label>
@@ -165,14 +165,14 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">No matching markets</p>
             <h2 className="mt-2 text-xl font-bold text-white">Try another topic, region, or keyword.</h2>
             <p className="mx-auto mt-2 max-w-xl text-sm text-[#ccc3d8]">
-              The board filters markets returned by core. As more feeds are synced, this engine can surface more local and global markets.
+              No synced core markets match this filter set.
             </p>
           </section>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {visibleMarkets.map((market) => {
               const isHalted = market.status === 'HALTED';
-              const topic = market.discoveryTopic ?? inferMarketTopic(market);
+              const topic = getPrimaryMarketTopic(market);
               const region = market.discoveryRegion ?? inferMarketRegion(market);
 
               return (
@@ -438,7 +438,10 @@ function getMarketTopics(market: PredictionMarket) {
 
   topics.add(market.discoveryTopic ?? inferMarketTopic(market));
   if (isBreakingMarket(market)) topics.add('Breaking');
-  if (matches(text, ['world cup', 'fifa'])) topics.add('World Cup');
+  if (matches(text, ['world cup', 'fifa'])) {
+    topics.add('World Cup');
+    topics.add('Sports');
+  }
   if (matches(text, ['esports', 'league of legends', 'valorant', 'cs2', 'counter-strike', 'dota'])) topics.add('Esports');
   if (matches(text, ['iran', 'hormuz', 'tehran'])) topics.add('Iran');
   if (matches(text, ['finance', 'stock', 'stocks', 'nasdaq', 's&p', 'dow', 'yield', 'bond'])) topics.add('Finance');
@@ -450,11 +453,24 @@ function getMarketTopics(market: PredictionMarket) {
   return Array.from(topics);
 }
 
+function getPrimaryMarketTopic(market: PredictionMarket) {
+  const topics = getMarketTopics(market);
+
+  if (topics.includes('World Cup')) return 'World Cup';
+  if (topics.includes('Esports')) return 'Esports';
+  if (topics.includes('Iran')) return 'Iran';
+  if (market.discoveryTopic) return market.discoveryTopic;
+
+  return inferMarketTopic(market);
+}
+
 function inferMarketTopic(market: PredictionMarket) {
   const text = `${market.title} ${market.description} ${market.category}`.toLowerCase();
 
+  if (matches(text, ['world cup', 'fifa'])) return 'World Cup';
+  if (matches(text, ['esports', 'league of legends', 'valorant', 'cs2', 'counter-strike', 'dota'])) return 'Esports';
   if (matches(text, ['war', 'ceasefire', 'nato', 'taiwan', 'gaza', 'israel', 'iran', 'russia', 'ukraine', 'sanction', 'hormuz'])) return 'Geopolitics';
-  if (matches(text, ['nba', 'nfl', 'nhl', 'mlb', 'champion', 'finals', 'stanley cup', 'league', 'ufc', 'soccer', 'football', 'cricket', 'formula 1', 'world cup'])) return 'Sports';
+  if (matches(text, ['nba', 'nfl', 'nhl', 'mlb', 'champion', 'finals', 'stanley cup', 'league', 'ufc', 'soccer', 'football', 'cricket', 'formula 1'])) return 'Sports';
   if (matches(text, ['election', 'president', 'senate', 'congress', 'minister', 'policy', 'government', 'parliament'])) return 'Politics';
   if (matches(text, ['court', 'trial', 'sentenced', 'sentence', 'prison', 'retrial', 'lawsuit'])) return 'Social';
   if (matches(text, ['bitcoin', 'btc', 'ethereum', 'megaeth', 'airdrop', 'token', 'crypto', 'defi', 'chain', 'solana'])) return 'Crypto';

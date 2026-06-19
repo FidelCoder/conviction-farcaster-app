@@ -15,14 +15,21 @@ export type DiscoveryRegion =
 
 export type DiscoveryTopic =
   | "ALL"
+  | "WORLD_CUP"
+  | "BREAKING"
   | "CRYPTO"
+  | "ESPORTS"
   | "SPORTS"
   | "POLITICS"
   | "GEOPOLITICS"
-  | "CULTURE"
-  | "SOCIAL"
-  | "TECH"
+  | "FINANCE"
   | "ECONOMICS"
+  | "TECH"
+  | "CULTURE"
+  | "WEATHER"
+  | "MENTIONS"
+  | "ELECTIONS"
+  | "SOCIAL"
   | "CLIMATE"
   | "WORLD";
 
@@ -121,6 +128,7 @@ const REGION_KEYWORDS: Array<{ region: DiscoveryRegion; terms: string[] }> = [
       "syria",
       "iraq",
       "lebanon",
+      "hormuz",
     ],
   },
   {
@@ -167,8 +175,23 @@ const REGION_KEYWORDS: Array<{ region: DiscoveryRegion; terms: string[] }> = [
 
 const TOPIC_KEYWORDS: Array<{ topic: DiscoveryTopic; terms: string[] }> = [
   {
+    topic: "WORLD_CUP",
+    terms: ["world cup", "fifa world cup", "2026-fifa-world-cup", "fifa-world-cup", "wc-group", "golden boot"],
+  },
+  {
+    topic: "ESPORTS",
+    terms: ["esports", "counter-strike", "cs2", "league of legends", " lck ", "valorant", "dota", "pubg", "rocket league"],
+  },
+  {
+    topic: "BREAKING",
+    terms: ["breaking", "by end of", "today", "tomorrow", "this week", "returns to normal", "ceasefire", "attack"],
+  },
+  {
     topic: "GEOPOLITICS",
     terms: [
+      "geopolitics",
+      "foreign affairs",
+      "international affairs",
       "war",
       "ceasefire",
       "nato",
@@ -186,13 +209,18 @@ const TOPIC_KEYWORDS: Array<{ topic: DiscoveryTopic; terms: string[] }> = [
     ],
   },
   {
+    topic: "ELECTIONS",
+    terms: ["election", "elections", "ballot", "voting", "vote share", "presidential race", "general election"],
+  },
+  {
     topic: "SPORTS",
     terms: [
+      "sports",
+      "soccer",
       "nba",
       "nfl",
       "nhl",
       "mlb",
-      "world cup",
       "champion",
       "finals",
       "stanley cup",
@@ -204,36 +232,47 @@ const TOPIC_KEYWORDS: Array<{ topic: DiscoveryTopic; terms: string[] }> = [
       "f1",
       "formula 1",
       "football",
-      "soccer",
     ],
   },
   {
     topic: "POLITICS",
-    terms: ["election", "president", "minister", "trump", "biden", "senate", "congress", "parliament", "policy", "government", "vote"],
+    terms: ["politics", "president", "minister", "trump", "biden", "senate", "congress", "parliament", "policy", "government", "vote"],
+  },
+  {
+    topic: "MENTIONS",
+    terms: ["mentions", "mentioned", "tweet", "tweets", "x.com", "social media post", "will elon musk tweet"],
   },
   {
     topic: "SOCIAL",
-    terms: ["trend", "tiktok", "twitter", "x.com", "meme", "protest", "strike", "celebrity", "influencer", "court", "trial", "sentenced", "sentence", "prison", "retrial", "lawsuit"],
+    terms: ["trend", "tiktok", "twitter", "meme", "protest", "strike", "celebrity", "influencer", "court", "trial", "sentenced", "sentence", "prison", "retrial", "lawsuit"],
   },
   {
     topic: "CRYPTO",
     terms: ["crypto", "bitcoin", "btc", "ethereum", "megaeth", "airdrop", "token", "defi", "solana", "onchain", "on-chain"],
   },
   {
-    topic: "CULTURE",
-    terms: ["gta", "album", "rihanna", "carti", "movie", "music", "box office", "oscar", "grammy", "streaming", "netflix"],
-  },
-  {
-    topic: "TECH",
-    terms: ["ai", "openai", "tech", "startup", "tesla", "spacex", "apple", "google", "nvidia", "robot", "chip"],
+    topic: "FINANCE",
+    terms: ["finance", "business", "earnings", "ipo", "stock", "stocks", "nasdaq", "s&p", "dow", "bond", "yield"],
   },
   {
     topic: "ECONOMICS",
-    terms: ["inflation", "fed", "rate", "gdp", "recession", "dollar", "oil", "stock", "unemployment", "cpi", "tariff"],
+    terms: ["economy", "economics", "inflation", "fed", "rate", "rates", "gdp", "recession", "dollar", "oil", "unemployment", "cpi", "tariff"],
+  },
+  {
+    topic: "WEATHER",
+    terms: ["weather", "hurricane", "temperature", "rain", "flood", "wildfire", "storm", "snowfall"],
+  },
+  {
+    topic: "CULTURE",
+    terms: ["culture", "pop culture", "gta", "album", "rihanna", "carti", "movie", "music", "box office", "oscar", "grammy", "streaming", "netflix", "art"],
+  },
+  {
+    topic: "TECH",
+    terms: ["tech", "technology", "ai", "openai", "startup", "tesla", "spacex", "apple", "google", "nvidia", "robot", "chip"],
   },
   {
     topic: "CLIMATE",
-    terms: ["climate", "weather", "hurricane", "temperature", "rain", "flood", "wildfire", "carbon", "earthquake"],
+    terms: ["climate", "carbon", "earthquake"],
   },
   { topic: "WORLD", terms: ["world", "global", "international"] },
 ];
@@ -252,16 +291,23 @@ const REGION_LABELS: Record<DiscoveryRegion, string> = {
 
 const TOPIC_LABELS: Record<DiscoveryTopic, string> = {
   ALL: "All topics",
+  BREAKING: "Breaking",
   CLIMATE: "Climate",
   CRYPTO: "Crypto",
   CULTURE: "Culture",
-  ECONOMICS: "Economics",
+  ECONOMICS: "Economy",
+  ELECTIONS: "Elections",
+  ESPORTS: "Esports",
+  FINANCE: "Finance",
   GEOPOLITICS: "Geopolitics",
+  MENTIONS: "Mentions",
   POLITICS: "Politics",
   SOCIAL: "Social",
   SPORTS: "Sports",
   TECH: "Tech",
+  WEATHER: "Weather",
   WORLD: "World",
+  WORLD_CUP: "World Cup",
 };
 
 export function getRegionLabel(region: DiscoveryRegion) {
@@ -328,7 +374,17 @@ export function getMarketDiscoveryLabel(market: Market) {
 }
 
 export function getMarketSearchText(market: Market) {
-  return [market.title, market.category, market.description, market.source]
+  return [
+    market.title,
+    market.category,
+    market.description,
+    market.source,
+    market.providerMetadata?.primaryTag,
+    market.providerMetadata?.eventTitle,
+    market.providerMetadata?.eventSlug,
+    ...(market.providerMetadata?.tagLabels ?? []),
+    ...(market.providerMetadata?.tagSlugs ?? []),
+  ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();

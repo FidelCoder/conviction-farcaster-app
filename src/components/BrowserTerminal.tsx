@@ -754,6 +754,7 @@ function mapMarketToPredictionMarket(market: Market): PredictionMarket {
   const score = displayCase.boardFitScore;
   const discovery = getMarketDiscoveryProfile(market);
   const region = discovery.regions[0] ?? "GLOBAL";
+  const primaryTag = market.providerMetadata?.primaryTag?.trim();
 
   return {
     id: market.id,
@@ -765,12 +766,12 @@ function mapMarketToPredictionMarket(market: Market): PredictionMarket {
     currentOdds: Number.isFinite(numericPrice) ? numericPrice * 100 : 0,
     convictionIndex: score >= 80 ? "High" : score >= 55 ? "Moderate" : score > 0 ? "Low" : "N/A",
     convictionValue: Math.max(0, Math.min(score, 100)),
-    category: market.category ?? "General",
+    category: market.category ?? primaryTag ?? "General",
     description: market.description ?? "Market description unavailable.",
     bestAsk: market.bestAsk,
     bestBid: market.bestBid,
     discoveryRegion: getRegionLabel(region),
-    discoveryTopic: getTopicLabel(discovery.topic),
+    discoveryTopic: primaryTag || getTopicLabel(discovery.topic),
     externalUrl: market.externalUrl,
     lastTradePrice: market.lastTradePrice,
     noTokenId: market.noTokenId,
