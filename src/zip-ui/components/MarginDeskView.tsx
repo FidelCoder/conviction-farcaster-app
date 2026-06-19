@@ -1,7 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getVaultAvailableBalance } from '../../lib/wallet-balances';
 import { PredictionMarket, Vault, MarketTapeItem, UserPortfolio } from '../types';
-import { ExternalLink, Info, Bolt, RefreshCw, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Info, Bolt, RefreshCw, ShieldCheck, TrendingUp } from 'lucide-react';
+
+
+type MarketCandle = {
+  close: number;
+  high: number;
+  low: number;
+  open: number;
+  timestamp: string;
+  volume?: number | null;
+};
+
+type MarketHistoryState =
+  | { status: 'loading'; candles: MarketCandle[]; source: string }
+  | { status: 'ready'; candles: MarketCandle[]; source: string }
+  | { status: 'snapshot_only'; candles: MarketCandle[]; source: string }
+  | { status: 'empty'; candles: MarketCandle[]; source: string };
 
 interface MarginDeskViewProps {
   markets: PredictionMarket[];
@@ -27,6 +43,12 @@ export default function MarginDeskView({
   const [marginAmount, setMarginAmount] = useState<string>('');
   const [outcomeType, setOutcomeType] = useState<'YES' | 'NO'>('YES');
   const [isRequesting, setIsRequesting] = useState<boolean>(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [historyState, setHistoryState] = useState<MarketHistoryState>({
+    status: 'loading',
+    candles: [],
+    source: 'CONVICTION_LOADING',
+  });
 
   const selectedVault = vaults.find(v => v.id === selectedVaultId) || vaults[0];
 
@@ -35,6 +57,44 @@ export default function MarginDeskView({
       setLeverage(selectedVault.maxLeverage);
     }
   }, [leverage, selectedVault]);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    setHistoryState({ status: 'loading', candles: [], source: 'CONVICTION_LOADING' });
+
+    fetch('/api/markets/' + encodeURIComponent(activeMarket.id) + '/history')
+      .then((response) => response.json())
+      .then((body: unknown) => {
+        if (!isCurrent) return;
+
+        const history = parseHistoryResponse(body);
+        setHistoryState(history);
+      })
+      .catch(() => {
+        if (!isCurrent) return;
+
+        const fallback = buildSnapshotCandles(activeMarket);
+        setHistoryState({
+          status: fallback.length > 0 ? 'snapshot_only' : 'empty',
+          candles: fallback,
+          source: 'CONVICTION_SNAPSHOT',
+        });
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [activeMarket]);
+
+  useEffect(() => {
+    drawCandlestickChart(canvasRef.current, historyState.candles);
+
+    const handleResize = () => drawCandlestickChart(canvasRef.current, historyState.candles);
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, [historyState]);
 
   const maxCollateral = selectedVault
     ? getVaultAvailableBalance({ portfolio, vault: selectedVault })
@@ -143,7 +203,7 @@ export default function MarginDeskView({
         <div className="px-4 sm:px-6 py-4 border-b border-[#262626] flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 bg-[#0e0e0e] z-10 relative">
           <div>
             <div className="mb-2 flex flex-wrap gap-2 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]">
-              <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">{activeMarket.source ?? 'Provider'}</span>
+              <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">Conviction market</span>
               <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">{activeMarket.discoveryTopic ?? 'World'}</span>
               <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">{activeMarket.discoveryRegion ?? 'Global'}</span>
             </div>
@@ -193,21 +253,41 @@ export default function MarginDeskView({
                 ))}
               </dl>
 
-              {activeMarket.externalUrl ? (
-                <a
-                  href={activeMarket.externalUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-5 inline-flex items-center gap-2 rounded border border-[#262626] bg-[#0e0e0e] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
-                >
-                  Source market
-                  <ExternalLink size={14} />
-                </a>
-              ) : null}
+              <div className="mt-5 rounded border border-deep-orange/30 bg-deep-orange/10 p-4">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Conviction Rules View</p>
+                <ul className="mt-3 space-y-2 text-xs leading-relaxed text-[#ccc3d8]">
+                  <li>Resolution is judged by the event rules and credible evidence stored with the market.</li>
+                  <li>Margin requests use Conviction vault rails and do not send users out to an external venue page.</li>
+                  <li>Feed identifiers stay internal so the product feels like Conviction, not a wrapper.</li>
+                </ul>
+              </div>
             </article>
 
             <article className="rounded border border-[#262626] bg-[#161616] p-5">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Price Snapshot</p>
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Market Flow</p>
+                  <h3 className="mt-1 text-lg font-bold text-white">YES price candles</h3>
+                </div>
+                <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]">
+                  {getHistoryStatusLabel(historyState)}
+                </span>
+              </div>
+
+              <div className="relative h-72 overflow-hidden rounded border border-[#262626] bg-[#050505]">
+                <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+                {historyState.status === 'loading' ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-[#050505]/70 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]">
+                    Loading market flow...
+                  </div>
+                ) : null}
+                {historyState.status === 'empty' ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-[#050505]/70 px-6 text-center font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]">
+                    No price snapshot is available for this market yet.
+                  </div>
+                ) : null}
+              </div>
+
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <PriceTile label="YES chance" value={formatPercent(activeMarket.currentOdds)} tone="yes" />
                 <PriceTile label="NO chance" value={formatPercent(100 - activeMarket.currentOdds)} tone="no" />
@@ -221,7 +301,7 @@ export default function MarginDeskView({
                 <div className="flex items-start gap-3">
                   <ShieldCheck size={18} className="mt-0.5 flex-shrink-0 text-electric-purple" />
                   <p className="text-xs leading-relaxed text-[#ccc3d8]">
-                    The chart has been replaced with provider-backed market facts. Candles should only return once the app has real historical price candles from the provider or an indexed core feed.
+                    This chart is a Conviction market view. It uses synced price history when available and otherwise shows the latest bid, ask, and trade snapshot without inventing fake price movement.
                   </p>
                 </div>
               </div>
@@ -413,6 +493,226 @@ export default function MarginDeskView({
   );
 }
 
+function parseHistoryResponse(body: unknown): MarketHistoryState {
+  if (!isRecord(body) || body.ok !== true || !isRecord(body.data)) {
+    return { status: 'empty', candles: [], source: 'CONVICTION_EMPTY' };
+  }
+
+  const candlesValue = body.data.candles;
+  const candles = Array.isArray(candlesValue)
+    ? candlesValue.filter(isMarketCandle)
+    : [];
+  const statusValue = typeof body.data.status === 'string' ? body.data.status : 'empty';
+  const source = typeof body.data.source === 'string' ? body.data.source : 'CONVICTION_HISTORY';
+
+  if (candles.length === 0) {
+    return { status: 'empty', candles: [], source };
+  }
+
+  if (statusValue === 'snapshot_only') {
+    return { status: 'snapshot_only', candles, source };
+  }
+
+  return { status: 'ready', candles, source };
+}
+
+function drawCandlestickChart(
+  canvas: HTMLCanvasElement | null,
+  candles: MarketCandle[],
+) {
+  if (!canvas) return;
+
+  const parent = canvas.parentElement;
+  const width = Math.max(320, parent?.clientWidth ?? 640);
+  const height = Math.max(240, parent?.clientHeight ?? 300);
+  const pixelRatio = window.devicePixelRatio || 1;
+  const context = canvas.getContext('2d');
+
+  if (!context) return;
+
+  canvas.width = Math.floor(width * pixelRatio);
+  canvas.height = Math.floor(height * pixelRatio);
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
+  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  context.clearRect(0, 0, width, height);
+
+  drawChartBackground(context, width, height);
+
+  if (candles.length === 0) {
+    drawChartEmptyState(context, width, height, 'Awaiting synced market price');
+    return;
+  }
+
+  const plot = { left: 42, right: 18, top: 18, bottom: 32 };
+  const plotWidth = width - plot.left - plot.right;
+  const plotHeight = height - plot.top - plot.bottom;
+  const values = candles.flatMap((candle) => [candle.high, candle.low, candle.open, candle.close]);
+  const min = Math.max(0, Math.min(...values) - 2);
+  const max = Math.min(100, Math.max(...values) + 2);
+  const range = Math.max(1, max - min);
+  const yFor = (value: number) => plot.top + (max - value) / range * plotHeight;
+
+  drawChartAxis(context, width, height, plot, min, max);
+
+  const candleGap = candles.length > 1 ? plotWidth / candles.length : plotWidth;
+  const candleWidth = Math.max(5, Math.min(18, candleGap * 0.54));
+
+  candles.forEach((candle, index) => {
+    const x = plot.left + candleGap * index + candleGap / 2;
+    const openY = yFor(candle.open);
+    const closeY = yFor(candle.close);
+    const highY = yFor(candle.high);
+    const lowY = yFor(candle.low);
+    const isUp = candle.close >= candle.open;
+    const color = isUp ? '#10B981' : '#EF4444';
+    const fill = isUp ? 'rgba(16, 185, 129, 0.28)' : 'rgba(239, 68, 68, 0.28)';
+    const bodyTop = Math.min(openY, closeY);
+    const bodyHeight = Math.max(2, Math.abs(closeY - openY));
+
+    context.strokeStyle = color;
+    context.lineWidth = 1.4;
+    context.beginPath();
+    context.moveTo(x, highY);
+    context.lineTo(x, lowY);
+    context.stroke();
+
+    context.fillStyle = fill;
+    context.strokeStyle = color;
+    context.fillRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
+    context.strokeRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
+  });
+
+  const lastCandle = candles[candles.length - 1];
+  const lastY = yFor(lastCandle.close);
+  context.strokeStyle = '#F97316';
+  context.setLineDash([4, 4]);
+  context.beginPath();
+  context.moveTo(plot.left, lastY);
+  context.lineTo(width - plot.right, lastY);
+  context.stroke();
+  context.setLineDash([]);
+
+  context.fillStyle = '#F97316';
+  context.font = '700 11px JetBrains Mono, monospace';
+  context.fillText(formatPercent(lastCandle.close), width - plot.right - 58, Math.max(18, lastY - 6));
+
+  context.fillStyle = 'rgba(204, 195, 216, 0.55)';
+  context.font = '700 10px JetBrains Mono, monospace';
+  context.fillText('CONVICTION YES FLOW', plot.left, height - 10);
+}
+
+function drawChartBackground(context: CanvasRenderingContext2D, width: number, height: number) {
+  context.fillStyle = '#050505';
+  context.fillRect(0, 0, width, height);
+  context.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+  context.lineWidth = 1;
+
+  for (let x = 0; x < width; x += 32) {
+    context.beginPath();
+    context.moveTo(x, 0);
+    context.lineTo(x, height);
+    context.stroke();
+  }
+
+  for (let y = 0; y < height; y += 32) {
+    context.beginPath();
+    context.moveTo(0, y);
+    context.lineTo(width, y);
+    context.stroke();
+  }
+}
+
+function drawChartAxis(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  plot: { left: number; right: number; top: number; bottom: number },
+  min: number,
+  max: number,
+) {
+  context.strokeStyle = 'rgba(204, 195, 216, 0.18)';
+  context.lineWidth = 1;
+  context.strokeRect(plot.left, plot.top, width - plot.left - plot.right, height - plot.top - plot.bottom);
+  context.fillStyle = 'rgba(204, 195, 216, 0.64)';
+  context.font = '700 9px JetBrains Mono, monospace';
+
+  [max, (max + min) / 2, min].forEach((value, index) => {
+    const y = index === 0 ? plot.top + 10 : index === 1 ? height / 2 : height - plot.bottom - 4;
+    context.fillText(formatPercent(value), 6, y);
+  });
+}
+
+function drawChartEmptyState(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  message: string,
+) {
+  context.fillStyle = 'rgba(204, 195, 216, 0.7)';
+  context.font = '700 11px JetBrains Mono, monospace';
+  context.textAlign = 'center';
+  context.fillText(message, width / 2, height / 2);
+  context.textAlign = 'start';
+}
+
+function buildSnapshotCandles(market: PredictionMarket): MarketCandle[] {
+  const bestBid = parseProbabilityValue(market.bestBid);
+  const bestAsk = parseProbabilityValue(market.bestAsk);
+  const lastTrade = parseProbabilityValue(market.lastTradePrice);
+  const close = lastTrade ?? market.currentOdds;
+
+  if (!Number.isFinite(close) || close <= 0) return [];
+
+  const midpoint = bestBid !== null && bestAsk !== null ? (bestBid + bestAsk) / 2 : close;
+  const high = Math.max(close, midpoint, bestAsk ?? close);
+  const low = Math.min(close, midpoint, bestBid ?? close);
+
+  return [
+    {
+      close: clampProbability(close),
+      high: clampProbability(high),
+      low: clampProbability(low),
+      open: clampProbability(midpoint),
+      timestamp: market.syncedAt ?? new Date().toISOString(),
+      volume: null,
+    },
+  ];
+}
+
+function getHistoryStatusLabel(history: MarketHistoryState) {
+  if (history.status === 'loading') return 'Loading';
+  if (history.status === 'ready') return 'Synced history';
+  if (history.status === 'snapshot_only') return 'Latest snapshot';
+  return 'Awaiting data';
+}
+
+function isMarketCandle(value: unknown): value is MarketCandle {
+  return isRecord(value) &&
+    typeof value.timestamp === 'string' &&
+    Number.isFinite(value.open) &&
+    Number.isFinite(value.high) &&
+    Number.isFinite(value.low) &&
+    Number.isFinite(value.close);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function parseProbabilityValue(value: string | null | undefined) {
+  if (!value) return null;
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) return null;
+
+  return numericValue <= 1 ? numericValue * 100 : numericValue;
+}
+
+function clampProbability(value: number) {
+  return Math.max(0.1, Math.min(99.9, value));
+}
+
 function PriceTile({ label, value, tone }: { label: string; value: string; tone?: 'yes' | 'no' }) {
   return (
     <div className="rounded border border-[#262626] bg-[#0e0e0e] p-3">
@@ -426,7 +726,7 @@ function PriceTile({ label, value, tone }: { label: string; value: string; tone?
 
 function buildMarketReviewRows(market: PredictionMarket) {
   return [
-    { label: 'Provider', value: market.source ?? 'Core provider' },
+    { label: 'Market feed', value: 'Conviction synced' },
     { label: 'Category', value: market.category },
     { label: 'Region', value: market.discoveryRegion ?? 'Global' },
     { label: 'Topic', value: market.discoveryTopic ?? 'World' },

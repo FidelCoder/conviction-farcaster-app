@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { EmptyState } from "../../../components/EmptyState";
 import { MarginDesk } from "../../../components/MarginDesk";
+import { MarketFlowChart } from "../../../components/MarketFlowChart";
 import { PredictionSocialPanel } from "../../../components/PredictionSocialPanel";
 import { SignalCard } from "../../../components/SignalCard";
 import { SignalComposer } from "../../../components/SignalComposer";
@@ -60,6 +61,33 @@ export default async function MarketPage({ params }: MarketPageProps) {
   return (
     <main className="page-shell wide">
       <MarginDesk execution={execution} markets={[market]} />
+      <MarketFlowChart market={market} />
+      <section id="rules" className="card market-rules-card">
+        <p className="eyebrow">Conviction rules view</p>
+        <h2>Market details and resolution rules</h2>
+        <p>{market.description ?? "This market does not have a full resolution description stored yet."}</p>
+        <dl className="metric-list market-detail-list">
+          <div>
+            <dt>Category</dt>
+            <dd>{market.category ?? "General"}</dd>
+          </div>
+          <div>
+            <dt>Resolution date</dt>
+            <dd>{market.resolutionDate ? new Date(market.resolutionDate).toLocaleDateString() : "Pending"}</dd>
+          </div>
+          <div>
+            <dt>YES token</dt>
+            <dd>{market.yesTokenId ? "Mapped" : "Pending"}</dd>
+          </div>
+          <div>
+            <dt>NO token</dt>
+            <dd>{market.noTokenId ? "Mapped" : "Pending"}</dd>
+          </div>
+        </dl>
+        <p className="subtle-note">
+          Conviction keeps upstream feed URLs internal. Users review rules, signals, margin, and vault risk inside this product.
+        </p>
+      </section>
       <PredictionSocialPanel market={market} signalCount={signals.length} />
       <SignalComposer anchorId="signal" markets={[market]} />
 

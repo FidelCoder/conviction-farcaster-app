@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import type { Market } from "../lib/core-api";
 import { formatDate } from "../lib/display";
-import { formatMarketPrice, getMarketDisplayCase, getSourceInitials } from "../lib/market-display";
+import { formatMarketPrice, getMarketDisplayCase } from "../lib/market-display";
 
 export function MarketCard({ market, compact = false }: { market: Market; compact?: boolean }) {
   const displayCase = getMarketDisplayCase(market);
@@ -30,11 +30,11 @@ export function MarketCard({ market, compact = false }: { market: Market; compac
     >
       <div className="market-card-top">
         <div className="market-avatar" aria-hidden="true">
-          {getSourceInitials(market.source)}
+          CM
         </div>
         <div className="market-card-heading">
           <div className="card-kicker">
-            <span>{market.source}</span>
+            <span>Conviction market</span>
             <span className="status-pill">{displayCase.label}</span>
           </div>
           <h3>
@@ -93,11 +93,9 @@ export function MarketCard({ market, compact = false }: { market: Market; compac
         <Link className="text-link" href={"/markets/" + market.id + "#signal"}>
           Create signal
         </Link>
-        {market.externalUrl ? (
-          <a className="text-link" href={market.externalUrl} rel="noreferrer" target="_blank">
-            Source
-          </a>
-        ) : null}
+        <Link className="text-link" href={"/markets/" + market.id + "#rules"}>
+          Rules
+        </Link>
       </div>
     </article>
   );

@@ -99,11 +99,11 @@ export default function LandingView({
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-70">
             <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
               <span className="w-2 h-2 rounded-full bg-[#3B82F6]" />
-              <span>POLYMARKET MARKETS</span>
+              <span>SYNCED MARKET FEEDS</span>
             </div>
             <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
               <span className="w-2 h-2 rounded-full bg-[#10B981]" />
-              <span>KALSHI MARKET DATA</span>
+              <span>GLOBAL EVENT DATA</span>
             </div>
             <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
               <span className="w-2 h-2 rounded-full bg-deep-orange" />

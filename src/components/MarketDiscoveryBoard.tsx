@@ -238,7 +238,7 @@ function PredictionMarketCard({ market }: { market: Market }) {
   const noPrice = getNoPrice(market) ?? "--";
   const probability = getMarketProbability(market);
   const noProbability = probability === null ? null : Math.max(0, 1 - probability);
-  const category = market.category?.trim() || market.source;
+  const category = market.category?.trim() || "General";
   const resolution = displayCase.resolutionLabel ?? "Close date pending";
 
   return (

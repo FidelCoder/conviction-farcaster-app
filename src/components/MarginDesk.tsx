@@ -577,7 +577,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                     type="button"
                   >
                     <span className="margin-market-topline">
-                      <span>{market.category ?? market.source}</span>
+                      <span>{market.category ?? "General"}</span>
                       <strong>{snapshot ? formatProbability(snapshot.probability) : "--"}</strong>
                     </span>
                     <span className="margin-market-title">{market.title}</span>
@@ -604,7 +604,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
           ) : (
             <div className="desk-empty compact light-empty">
               <strong>No markets in this category</strong>
-              <span>Switch category or sync provider markets through core.</span>
+              <span>Switch category or sync markets through core.</span>
             </div>
           )}
         </aside>
@@ -616,7 +616,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
                 <div>
                   <p className="eyebrow">Open margin</p>
                   <h2>{selectedMarket.title}</h2>
-                  <span>{selectedMarket.category ?? selectedMarket.source}</span>
+                  <span>{selectedMarket.category ?? "General"}</span>
                 </div>
                 <Link href={"/markets/" + selectedMarket.id}>Details</Link>
               </div>

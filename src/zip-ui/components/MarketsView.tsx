@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PredictionMarket } from '../types';
-import { ArrowRight, ArrowUpDown, ExternalLink, Filter, Globe2, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowUpDown, BookOpen, Filter, Globe2, Search, Sparkles } from 'lucide-react';
 
 interface MarketsViewProps {
   markets: PredictionMarket[];
@@ -72,7 +72,7 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
               </p>
               <h1 className="text-3xl md:text-4xl font-sans font-bold text-white mb-2">Active Markets</h1>
               <p className="max-w-2xl text-sm text-[#ccc3d8]">
-                Find real synced prediction markets by topic, region, source, and resolution context before opening a margin request.
+                Find real synced prediction markets by topic, region, and resolution context before opening a margin request.
               </p>
             </div>
 
@@ -111,9 +111,9 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
         {filteredMarkets.length === 0 ? (
           <section className="rounded-lg border border-[#262626] bg-[#161616] p-8 text-center">
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">No matching markets</p>
-            <h2 className="mt-2 text-xl font-bold text-white">Try another topic, region, source, or keyword.</h2>
+            <h2 className="mt-2 text-xl font-bold text-white">Try another topic, region, or keyword.</h2>
             <p className="mx-auto mt-2 max-w-xl text-sm text-[#ccc3d8]">
-              The board only filters markets returned by core. As more provider feeds are synced, this engine can surface more local and global markets.
+              The board filters markets returned by core. As more feeds are synced, this engine can surface more local and global markets.
             </p>
           </section>
         ) : (
@@ -141,7 +141,7 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
                         {region}
                       </span>
                       <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-[#ccc3d8]">
-                        {market.source ?? 'Provider'}
+                        Conviction
                       </span>
                     </div>
 
@@ -226,18 +226,15 @@ export default function MarketsView({ markets, onOpenMargin }: MarketsViewProps)
                         </button>
                       )}
 
-                      {market.externalUrl ? (
-                        <a
-                          href={market.externalUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center justify-center rounded border border-[#262626] bg-[#0e0e0e] px-3 text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
-                          aria-label="Open source market"
-                          title="Open source market"
-                        >
-                          <ExternalLink size={15} />
-                        </a>
-                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => onOpenMargin(market)}
+                        className="inline-flex items-center justify-center rounded border border-[#262626] bg-[#0e0e0e] px-3 text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
+                        aria-label="Review market rules"
+                        title="Review market rules"
+                      >
+                        <BookOpen size={15} />
+                      </button>
                     </div>
                   </div>
                 </article>

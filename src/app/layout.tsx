@@ -22,8 +22,6 @@ export const metadata: Metadata = {
   keywords: [
     "prediction markets",
     "prediction market discovery",
-    "Polymarket markets",
-    "Kalshi markets",
     "crypto prediction markets",
     "sports prediction markets",
     "geopolitics prediction markets",

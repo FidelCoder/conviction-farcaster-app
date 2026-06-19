@@ -648,12 +648,12 @@ const emptyPredictionMarket: PredictionMarket = {
   status: "HALTED",
   vol24h: "--",
   liquidity: "--",
-  liquidityLabel: "Provider liquidity unavailable",
+  liquidityLabel: "Liquidity depth unavailable",
   currentOdds: 0,
   convictionIndex: "N/A",
   convictionValue: 0,
   category: "Core Sync",
-  description: "Sync real provider markets from core before opening margin.",
+  description: "Sync real markets from core before opening margin.",
   discoveryRegion: "Global",
   discoveryTopic: "World",
   source: "Conviction Core",
@@ -682,8 +682,8 @@ function mapMarketToPredictionMarket(market: Market): PredictionMarket {
     currentOdds: Number.isFinite(numericPrice) ? numericPrice * 100 : 0,
     convictionIndex: score >= 80 ? "High" : score >= 55 ? "Moderate" : score > 0 ? "Low" : "N/A",
     convictionValue: Math.max(0, Math.min(score, 100)),
-    category: market.category ?? market.source,
-    description: market.description ?? "Provider description unavailable.",
+    category: market.category ?? "General",
+    description: market.description ?? "Market description unavailable.",
     bestAsk: market.bestAsk,
     bestBid: market.bestBid,
     discoveryRegion: getRegionLabel(region),
@@ -704,12 +704,12 @@ function getMarketLiquidityValue(market: Market) {
     return market.orderMinSize + " contracts";
   }
 
-  return "Provider pending";
+  return "Pending";
 }
 
 function getMarketLiquidityLabel(market: Market) {
   if (market.orderMinSize) {
-    return "Minimum order size reported by " + market.source;
+    return "Minimum order size from the synced market feed.";
   }
 
   return "Liquidity depth is not included in the current core snapshot.";

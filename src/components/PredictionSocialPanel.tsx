@@ -31,8 +31,8 @@ export function PredictionSocialPanel({ market, signalCount }: PredictionSocialP
             <dd>{signalCount}</dd>
           </div>
           <div>
-            <dt>Source</dt>
-            <dd>{market.source}</dd>
+            <dt>Market</dt>
+            <dd>Conviction</dd>
           </div>
         </dl>
         <SharePredictionActions
