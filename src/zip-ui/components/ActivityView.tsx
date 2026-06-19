@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityItem, LeaderboardItem, UserPortfolio } from '../types';
-import { Heart, Repeat, MessageSquare, AlertTriangle, Trophy, Send, Sparkles } from 'lucide-react';
+import { Heart, Repeat, MessageSquare, AlertTriangle, Trophy, Send, Sparkles, ExternalLink } from 'lucide-react';
 
 interface ActivityViewProps {
   activity: ActivityItem[];
@@ -53,6 +53,60 @@ export default function ActivityView({
           {/* LEFT: Feed Column (cols 8) */}
           <div className="lg:col-span-8 flex flex-col gap-4">
             
+            <section className="bg-surface-card border border-[#262626] rounded-lg p-5">
+              <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Portfolio</p>
+                  <h2 className="text-xl font-sans font-bold text-white">Trade history</h2>
+                </div>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/60">
+                  {portfolio.activePositions.length} session records
+                </span>
+              </div>
+
+              {portfolio.activePositions.length > 0 ? (
+                <div className="grid gap-3">
+                  {portfolio.activePositions.slice().reverse().map((position) => {
+                    const explorerUrl = getExplorerTxUrl(position.chainId, position.transactionHash);
+
+                    return (
+                      <article key={position.id} className="rounded border border-[#262626] bg-[#0e0e0e] p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h3 className="text-sm font-bold text-white">{position.marketTitle}</h3>
+                            <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/60">
+                              {position.vaultName} - {position.timestamp}
+                            </p>
+                          </div>
+                          {explorerUrl && position.transactionHash ? (
+                            <a
+                              className="inline-flex items-center gap-1.5 rounded border border-deep-orange/40 bg-deep-orange/10 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange transition-colors hover:bg-deep-orange hover:text-black"
+                              href={explorerUrl}
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              <span>{truncateHash(position.transactionHash)}</span>
+                              <ExternalLink size={12} />
+                            </a>
+                          ) : null}
+                        </div>
+                        <dl className="mt-4 grid gap-2 sm:grid-cols-4">
+                          <TradeMetric label="Collateral" value={`$${position.marginAmount.toFixed(2)}`} />
+                          <TradeMetric label="Leverage" value={`${position.leverage}x`} />
+                          <TradeMetric label="Position" value={`$${position.estimatedPosition.toFixed(2)}`} />
+                          <TradeMetric label="Liq trigger" value={formatPercent(position.liquidationPrice)} />
+                        </dl>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="rounded border border-[#262626] bg-[#0e0e0e] p-4 text-sm text-[#ccc3d8]">
+                  Confirm a margin request from the trading deck to see transaction history here.
+                </p>
+              )}
+            </section>
+
             {/* Interactive Broadcast input form */}
             <form 
               onSubmit={handlePostSubmit}
@@ -278,4 +332,39 @@ export default function ActivityView({
 
     </main>
   );
+}
+
+function TradeMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded border border-[#262626] bg-[#050505] p-3">
+      <dt className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/50">{label}</dt>
+      <dd className="mt-1 font-mono text-xs font-bold text-white">{value}</dd>
+    </div>
+  );
+}
+
+const EXPLORER_TX_BASE_BY_CHAIN: Record<number, string> = {
+  1: 'https://etherscan.io/tx/',
+  10: 'https://optimistic.etherscan.io/tx/',
+  11155111: 'https://sepolia.etherscan.io/tx/',
+  42161: 'https://arbiscan.io/tx/',
+  421614: 'https://sepolia.arbiscan.io/tx/',
+  8453: 'https://basescan.org/tx/',
+  84532: 'https://sepolia.basescan.org/tx/',
+};
+
+function getExplorerTxUrl(chainId: number | undefined, hash: string | undefined) {
+  if (!chainId || !hash) return null;
+  const baseUrl = EXPLORER_TX_BASE_BY_CHAIN[chainId];
+
+  return baseUrl ? baseUrl + hash : null;
+}
+
+function truncateHash(value: string) {
+  return value.length > 14 ? value.slice(0, 6) + '...' + value.slice(-4) : value;
+}
+
+function formatPercent(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '--';
+  return value.toFixed(1) + '%';
 }

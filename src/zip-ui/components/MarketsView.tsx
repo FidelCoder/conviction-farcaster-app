@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PredictionMarket } from '../types';
 import { ArrowRight, ArrowUpDown, BookOpen, Filter, Flame, Globe2, Search, Sparkles } from 'lucide-react';
 
@@ -24,16 +24,33 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
   const [visibleLimit, setVisibleLimit] = useState(GUEST_MARKET_LIMIT);
 
   const categories = useMemo(() => buildOptions(markets.map((market) => market.category)), [markets]);
+  const topicCounts = useMemo(() => buildTopicCounts(markets), [markets]);
+  const regionCounts = useMemo(() => buildRegionCounts(markets), [markets]);
   const topics = useMemo(
-    () => mergeFeaturedOptions(FEATURED_TOPICS, markets.map((market) => market.discoveryTopic ?? inferMarketTopic(market))),
-    [markets],
+    () => mergeFeaturedOptions(FEATURED_TOPICS, Array.from(topicCounts.keys())),
+    [topicCounts],
   );
   const regions = useMemo(
-    () => mergeFeaturedOptions(FEATURED_REGIONS, markets.map((market) => market.discoveryRegion ?? inferMarketRegion(market))),
-    [markets],
+    () => mergeFeaturedOptions(FEATURED_REGIONS, Array.from(regionCounts.keys())),
+    [regionCounts],
   );
 
-  const curatedTopics = useMemo(() => FEATURED_TOPICS.filter((topic) => topic !== 'All'), []);
+  const curatedTopics = useMemo(
+    () => FEATURED_TOPICS.filter((topic) => topic !== 'All' && (topicCounts.get(topic) ?? 0) > 0),
+    [topicCounts],
+  );
+
+  useEffect(() => {
+    if (selectedTopic !== 'All' && !topics.includes(selectedTopic)) {
+      setSelectedTopic('All');
+    }
+  }, [selectedTopic, topics]);
+
+  useEffect(() => {
+    if (selectedRegion !== 'All' && !regions.includes(selectedRegion)) {
+      setSelectedRegion('All');
+    }
+  }, [selectedRegion, regions]);
 
   const filteredMarkets = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -55,7 +72,7 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
           market.title,
           market.description,
           market.category,
-          market.discoveryTopic ?? inferMarketTopic(market),
+          getMarketTopics(market).join(' '),
           market.discoveryRegion ?? inferMarketRegion(market),
           market.source,
         ]
@@ -141,6 +158,7 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
               >
                 {topic === 'Trending' ? <Flame size={12} /> : null}
                 <span>{topic}</span>
+                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px]">{topicCounts.get(topic)}</span>
               </button>
             ))}
           </div>
@@ -335,17 +353,36 @@ function buildOptions(values: string[]) {
 }
 
 function mergeFeaturedOptions(featured: string[], values: string[]) {
-  const allValues = Array.from(new Set([...featured, ...values.filter(Boolean)]));
-  return ['All', ...allValues.filter((value) => value !== 'All').sort((a, b) => {
-    const leftFeatured = featured.indexOf(a);
-    const rightFeatured = featured.indexOf(b);
+  const available = new Set(values.filter(Boolean));
+  const featuredValues = featured.filter((value) => value !== 'All' && available.has(value));
+  const remainingValues = Array.from(available)
+    .filter((value) => value !== 'All' && !featuredValues.includes(value))
+    .sort((a, b) => a.localeCompare(b));
 
-    if (leftFeatured !== -1 || rightFeatured !== -1) {
-      return (leftFeatured === -1 ? 999 : leftFeatured) - (rightFeatured === -1 ? 999 : rightFeatured);
-    }
+  return ['All', ...featuredValues, ...remainingValues];
+}
 
-    return a.localeCompare(b);
-  })];
+function buildTopicCounts(markets: PredictionMarket[]) {
+  const counts = new Map<string, number>();
+
+  markets.forEach((market) => {
+    getMarketTopics(market).forEach((topic) => {
+      counts.set(topic, (counts.get(topic) ?? 0) + 1);
+    });
+  });
+
+  return counts;
+}
+
+function buildRegionCounts(markets: PredictionMarket[]) {
+  const counts = new Map<string, number>();
+
+  markets.forEach((market) => {
+    const region = market.discoveryRegion ?? inferMarketRegion(market);
+    counts.set(region, (counts.get(region) ?? 0) + 1);
+  });
+
+  return counts;
 }
 
 function compareMarkets(a: PredictionMarket, b: PredictionMarket, sortOrder: SortOrder, query: string) {
@@ -420,10 +457,11 @@ function inferMarketTopic(market: PredictionMarket) {
   const text = `${market.title} ${market.description} ${market.category}`.toLowerCase();
 
   if (matches(text, ['war', 'ceasefire', 'nato', 'taiwan', 'gaza', 'israel', 'iran', 'russia', 'ukraine', 'sanction', 'hormuz'])) return 'Geopolitics';
-  if (matches(text, ['nba', 'nfl', 'nhl', 'mlb', 'champion', 'finals', 'cup', 'league', 'ufc', 'soccer', 'football', 'cricket', 'formula 1', 'world cup'])) return 'Sports';
-  if (matches(text, ['bitcoin', 'btc', 'ethereum', 'eth', 'airdrop', 'token', 'crypto', 'defi', 'chain', 'solana'])) return 'Crypto';
+  if (matches(text, ['nba', 'nfl', 'nhl', 'mlb', 'champion', 'finals', 'stanley cup', 'league', 'ufc', 'soccer', 'football', 'cricket', 'formula 1', 'world cup'])) return 'Sports';
   if (matches(text, ['election', 'president', 'senate', 'congress', 'minister', 'policy', 'government', 'parliament'])) return 'Politics';
-  if (matches(text, ['trend', 'tiktok', 'twitter', 'meme', 'protest', 'strike', 'trial', 'mentions'])) return 'Social';
+  if (matches(text, ['court', 'trial', 'sentenced', 'sentence', 'prison', 'retrial', 'lawsuit'])) return 'Social';
+  if (matches(text, ['bitcoin', 'btc', 'ethereum', 'megaeth', 'airdrop', 'token', 'crypto', 'defi', 'chain', 'solana'])) return 'Crypto';
+  if (matches(text, ['trend', 'tiktok', 'twitter', 'meme', 'protest', 'strike', 'mentions'])) return 'Social';
   if (matches(text, ['fed', 'rates', 'inflation', 'gdp', 'recession', 'oil', 'stocks', 'market', 'tariff', 'finance'])) return 'Economy';
   if (matches(text, ['climate', 'weather', 'hurricane', 'temperature', 'rain', 'flood', 'wildfire'])) return 'Weather';
   if (matches(text, ['album', 'movie', 'music', 'gta', 'celebrity', 'award', 'streaming', 'art', 'pop culture'])) return 'Culture';
@@ -441,7 +479,7 @@ function inferMarketRegion(market: PredictionMarket) {
   if (matches(text, ['uk', 'britain', 'london', 'europe', 'eu ', 'france', 'germany', 'spain', 'italy', 'russia', 'ukraine'])) return 'Europe';
   if (matches(text, ['brazil', 'argentina', 'mexico', 'colombia', 'chile', 'latin america', 'latam'])) return 'Latin America';
   if (matches(text, ['israel', 'iran', 'saudi', 'uae', 'qatar', 'gaza', 'middle east', 'palestine'])) return 'Middle East';
-  if (matches(text, ['nba', 'nfl', 'mlb', 'new york', 'san antonio', 'oklahoma', 'vegas', 'u.s.', 'usa', 'america', 'united states'])) return 'United States';
+  if (matches(text, ['nba', 'nfl', 'mlb', 'new york', 'san antonio', 'oklahoma', 'vegas', 'u.s.', 'usa', 'america', 'united states', 'new york court'])) return 'United States';
 
   return 'Global';
 }

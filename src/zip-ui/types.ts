@@ -58,6 +58,7 @@ export interface Vault {
 }
 
 export interface MarketTapeItem {
+  id: string;
   market: string;
   price: number;
   size: string;
@@ -132,4 +133,6 @@ export interface ActivePosition {
   estimatedPosition: number;
   liquidationPrice: number;
   timestamp: string;
+  chainId?: number;
+  transactionHash?: string;
 }

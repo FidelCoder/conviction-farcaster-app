@@ -13,6 +13,17 @@ type MarketCandle = {
   volume?: number | null;
 };
 
+type ChartHitTarget = {
+  candle: MarketCandle;
+  index: number;
+  plotBottom: number;
+  plotLeft: number;
+  plotRight: number;
+  plotTop: number;
+  x: number;
+  y: number;
+};
+
 type MarketHistoryState =
   | { status: 'loading'; candles: MarketCandle[]; source: string }
   | { status: 'ready'; candles: MarketCandle[]; source: string }
@@ -45,6 +56,8 @@ export default function MarginDeskView({
   const [isRequesting, setIsRequesting] = useState<boolean>(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chartTargetsRef = useRef<ChartHitTarget[]>([]);
+  const [hoveredCandle, setHoveredCandle] = useState<ChartHitTarget | null>(null);
   const [historyState, setHistoryState] = useState<MarketHistoryState>({
     status: 'loading',
     candles: [],
@@ -63,6 +76,7 @@ export default function MarginDeskView({
     let isCurrent = true;
 
     setHistoryState({ status: 'loading', candles: [], source: 'CONVICTION_LOADING' });
+    setHoveredCandle(null);
 
     fetch('/api/markets/' + encodeURIComponent(activeMarket.id) + '/history')
       .then((response) => response.json())
@@ -89,13 +103,16 @@ export default function MarginDeskView({
   }, [activeMarket]);
 
   useEffect(() => {
-    drawCandlestickChart(canvasRef.current, historyState.candles);
+    const hoveredIndex = hoveredCandle?.index ?? null;
+    chartTargetsRef.current = drawCandlestickChart(canvasRef.current, historyState.candles, hoveredIndex);
 
-    const handleResize = () => drawCandlestickChart(canvasRef.current, historyState.candles);
+    const handleResize = () => {
+      chartTargetsRef.current = drawCandlestickChart(canvasRef.current, historyState.candles, hoveredIndex);
+    };
     window.addEventListener('resize', handleResize);
 
     return () => window.removeEventListener('resize', handleResize);
-  }, [historyState]);
+  }, [historyState, hoveredCandle?.index]);
 
   const maxCollateral = selectedVault
     ? getVaultAvailableBalance({ portfolio, vault: selectedVault })
@@ -115,6 +132,37 @@ export default function MarginDeskView({
 
   const handleMaxCollateral = () => {
     setMarginAmount(maxCollateral.toFixed(2));
+  };
+
+  const handleChartPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const targets = chartTargetsRef.current;
+    const firstTarget = targets[0];
+
+    if (!firstTarget) {
+      if (hoveredCandle) setHoveredCandle(null);
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    if (x < firstTarget.plotLeft || x > firstTarget.plotRight || y < firstTarget.plotTop || y > firstTarget.plotBottom) {
+      if (hoveredCandle) setHoveredCandle(null);
+      return;
+    }
+
+    const nearest = targets.reduce((closest, target) => (
+      Math.abs(target.x - x) < Math.abs(closest.x - x) ? target : closest
+    ));
+
+    if (hoveredCandle?.index !== nearest.index) {
+      setHoveredCandle(nearest);
+    }
+  };
+
+  const handleChartPointerLeave = () => {
+    setHoveredCandle(null);
   };
 
   const handleOrderSubmit = async (e: React.FormEvent) => {
@@ -173,13 +221,13 @@ export default function MarginDeskView({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#262626]">
-              {tape.map((item, idx) => {
-                const matchedMarket = markets.find(m => m.title.toLowerCase().includes(item.market.split('-')[0].toLowerCase()));
-                const isSelected = matchedMarket ? matchedMarket.id === activeMarket.id : false;
+              {tape.map((item) => {
+                const matchedMarket = markets.find(m => m.id === item.id);
+                const isSelected = item.id === activeMarket.id;
 
                 return (
                   <tr
-                    key={idx}
+                    key={item.id}
                     onClick={() => {
                       if (matchedMarket) setActiveMarket(matchedMarket);
                     }}
@@ -241,8 +289,34 @@ export default function MarginDeskView({
                 </span>
               </div>
 
-              <div className="relative h-[420px] min-h-[320px] overflow-hidden rounded border border-[#262626] bg-[#050505]">
+              <div
+                className="relative h-[420px] min-h-[320px] overflow-hidden rounded border border-[#262626] bg-[#050505]"
+                onPointerLeave={handleChartPointerLeave}
+                onPointerMove={handleChartPointerMove}
+              >
                 <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+                {hoveredCandle ? (
+                  <div
+                    className="pointer-events-none absolute z-10 w-52 rounded border border-[#3a3a3a] bg-[#101010]/95 p-3 font-mono text-[10px] text-[#ccc3d8] shadow-2xl"
+                    style={{
+                      left: `min(calc(100% - 13.5rem), ${Math.max(12, hoveredCandle.x + 14)}px)`,
+                      top: `max(12px, ${Math.min(hoveredCandle.y - 48, hoveredCandle.plotBottom - 124)}px)`,
+                    }}
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="font-bold uppercase tracking-widest text-deep-orange">Candle</span>
+                      <span className="text-[#ccc3d8]/70">{formatChartTime(hoveredCandle.candle.timestamp)}</span>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+                      <TooltipRow label="Open" value={formatPercent(hoveredCandle.candle.open)} />
+                      <TooltipRow label="Close" value={formatPercent(hoveredCandle.candle.close)} />
+                      <TooltipRow label="High" value={formatPercent(hoveredCandle.candle.high)} />
+                      <TooltipRow label="Low" value={formatPercent(hoveredCandle.candle.low)} />
+                      <TooltipRow label="Move" value={formatSignedPercent(hoveredCandle.candle.close - hoveredCandle.candle.open)} />
+                      <TooltipRow label="Volume" value={formatVolume(hoveredCandle.candle.volume)} />
+                    </dl>
+                  </div>
+                ) : null}
                 {historyState.status === 'loading' ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-[#050505]/70 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]">
                     Loading market flow...
@@ -546,8 +620,9 @@ function parseHistoryResponse(body: unknown): MarketHistoryState {
 function drawCandlestickChart(
   canvas: HTMLCanvasElement | null,
   candles: MarketCandle[],
-) {
-  if (!canvas) return;
+  hoveredIndex: number | null = null,
+): ChartHitTarget[] {
+  if (!canvas) return [];
 
   const parent = canvas.parentElement;
   const width = Math.max(320, parent?.clientWidth ?? 640);
@@ -555,7 +630,7 @@ function drawCandlestickChart(
   const pixelRatio = window.devicePixelRatio || 1;
   const context = canvas.getContext('2d');
 
-  if (!context) return;
+  if (!context) return [];
 
   canvas.width = Math.floor(width * pixelRatio);
   canvas.height = Math.floor(height * pixelRatio);
@@ -568,10 +643,10 @@ function drawCandlestickChart(
 
   if (candles.length === 0) {
     drawChartEmptyState(context, width, height, 'Awaiting synced market price');
-    return;
+    return [];
   }
 
-  const plot = { left: 42, right: 18, top: 18, bottom: 32 };
+  const plot = { left: 54, right: 54, top: 24, bottom: 42 };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
   const values = candles.flatMap((candle) => [candle.high, candle.low, candle.open, candle.close]);
@@ -583,7 +658,8 @@ function drawCandlestickChart(
   drawChartAxis(context, width, height, plot, min, max);
 
   const candleGap = candles.length > 1 ? plotWidth / candles.length : plotWidth;
-  const candleWidth = Math.max(5, Math.min(18, candleGap * 0.54));
+  const candleWidth = Math.max(6, Math.min(22, candleGap * 0.58));
+  const targets: ChartHitTarget[] = [];
 
   candles.forEach((candle, index) => {
     const x = plot.left + candleGap * index + candleGap / 2;
@@ -592,22 +668,46 @@ function drawCandlestickChart(
     const highY = yFor(candle.high);
     const lowY = yFor(candle.low);
     const isUp = candle.close >= candle.open;
+    const isHovered = hoveredIndex === index;
     const color = isUp ? '#10B981' : '#EF4444';
-    const fill = isUp ? 'rgba(16, 185, 129, 0.28)' : 'rgba(239, 68, 68, 0.28)';
+    const fill = isUp ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)';
     const bodyTop = Math.min(openY, closeY);
     const bodyHeight = Math.max(2, Math.abs(closeY - openY));
 
+    if (isHovered) {
+      context.fillStyle = 'rgba(249, 115, 22, 0.08)';
+      context.fillRect(x - candleGap / 2, plot.top, candleGap, plotHeight);
+      context.strokeStyle = 'rgba(249, 115, 22, 0.55)';
+      context.setLineDash([4, 5]);
+      context.beginPath();
+      context.moveTo(x, plot.top);
+      context.lineTo(x, height - plot.bottom);
+      context.stroke();
+      context.setLineDash([]);
+    }
+
     context.strokeStyle = color;
-    context.lineWidth = 1.4;
+    context.lineWidth = isHovered ? 2 : 1.4;
     context.beginPath();
     context.moveTo(x, highY);
     context.lineTo(x, lowY);
     context.stroke();
 
-    context.fillStyle = fill;
+    context.fillStyle = isHovered ? color : fill;
     context.strokeStyle = color;
     context.fillRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
     context.strokeRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
+
+    targets.push({
+      candle,
+      index,
+      plotBottom: height - plot.bottom,
+      plotLeft: plot.left,
+      plotRight: width - plot.right,
+      plotTop: plot.top,
+      x,
+      y: closeY,
+    });
   });
 
   const lastCandle = candles[candles.length - 1];
@@ -622,13 +722,16 @@ function drawCandlestickChart(
 
   context.fillStyle = '#F97316';
   context.font = '700 11px JetBrains Mono, monospace';
-  context.fillText(formatPercent(lastCandle.close), width - plot.right - 58, Math.max(18, lastY - 6));
+  context.textAlign = 'right';
+  context.fillText(formatPercent(lastCandle.close), width - 8, Math.max(18, lastY - 6));
+  context.textAlign = 'start';
 
   context.fillStyle = 'rgba(204, 195, 216, 0.55)';
   context.font = '700 10px JetBrains Mono, monospace';
-  context.fillText('CONVICTION YES FLOW', plot.left, height - 10);
-}
+  context.fillText('CONVICTION YES FLOW', plot.left, height - 12);
 
+  return targets;
+}
 function drawChartBackground(context: CanvasRenderingContext2D, width: number, height: number) {
   context.fillStyle = '#050505';
   context.fillRect(0, 0, width, height);
@@ -740,6 +843,15 @@ function clampProbability(value: number) {
   return Math.max(0.1, Math.min(99.9, value));
 }
 
+function TooltipRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="uppercase tracking-widest text-[#ccc3d8]/55">{label}</dt>
+      <dd className="mt-0.5 font-bold text-white">{value}</dd>
+    </div>
+  );
+}
+
 function PriceTile({ label, value, tone }: { label: string; value: string; tone?: 'yes' | 'no' }) {
   return (
     <div className="rounded border border-[#262626] bg-[#0e0e0e] p-3">
@@ -762,6 +874,30 @@ function buildMarketReviewRows(market: PredictionMarket) {
     { label: 'YES token', value: market.yesTokenId ? 'Mapped' : 'Pending' },
     { label: 'NO token', value: market.noTokenId ? 'Mapped' : 'Pending' },
   ];
+}
+
+function formatSignedPercent(value: number) {
+  if (!Number.isFinite(value)) return '--';
+  const prefix = value > 0 ? '+' : '';
+  return prefix + value.toFixed(1) + ' pts';
+}
+
+function formatVolume(value: number | null | undefined) {
+  if (!Number.isFinite(value)) return '--';
+  return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function formatChartTime(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return 'Latest';
+
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function formatPercent(value: number) {

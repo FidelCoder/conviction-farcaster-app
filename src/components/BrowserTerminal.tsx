@@ -423,6 +423,8 @@ export function BrowserTerminal({
             estimatedPosition: estPosition,
             liquidationPrice: liqPrice,
             timestamp: confirmedStatus === "CONFIRMED" ? "confirmed now" : "submitted now",
+            chainId: vault.chainId,
+            transactionHash: marginHash,
           },
         ],
       }));
@@ -836,12 +838,23 @@ function mapMarketsToTape(markets: Market[]): MarketTapeItem[] {
     const numericPrice = price ? Number(price) : Number.NaN;
 
     return {
-      market: (market.category ?? market.title).slice(0, 18).toUpperCase(),
+      id: market.id,
+      market: getTapeMarketLabel(market),
       price: Number.isFinite(numericPrice) ? numericPrice : 0,
       size: market.orderMinSize ?? "--",
       isPositive: Number.isFinite(numericPrice) ? numericPrice >= 0.5 : true,
     };
   });
+}
+
+function getTapeMarketLabel(market: Market) {
+  const cleanTitle = market.title
+    .replace(/^will\s+/i, "")
+    .replace(/\?$/, "")
+    .trim();
+  const label = cleanTitle || market.category || "Market";
+
+  return label.length > 24 ? label.slice(0, 23).trimEnd() + "..." : label;
 }
 
 function mapSocialFeedToActivity(feed: SocialFeedItem[]): ActivityItem[] {

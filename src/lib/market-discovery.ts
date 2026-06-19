@@ -150,15 +150,13 @@ const REGION_KEYWORDS: Array<{ region: DiscoveryRegion; terms: string[] }> = [
     terms: [
       "crypto",
       "bitcoin",
+      "btc",
       "ethereum",
-      "eth",
       "megaeth",
       "airdrop",
       "token",
       "defi",
       "solana",
-      "base",
-      "arbitrum",
       "layer 2",
       "l2",
       "on-chain",
@@ -179,16 +177,13 @@ const TOPIC_KEYWORDS: Array<{ topic: DiscoveryTopic; terms: string[] }> = [
       "gaza",
       "israel",
       "iran",
+      "hormuz",
       "russia",
       "ukraine",
       "sanction",
       "border",
       "coup",
     ],
-  },
-  {
-    topic: "CRYPTO",
-    terms: ["crypto", "bitcoin", "btc", "ethereum", "eth", "megaeth", "airdrop", "token", "defi", "solana", "onchain", "on-chain"],
   },
   {
     topic: "SPORTS",
@@ -218,7 +213,11 @@ const TOPIC_KEYWORDS: Array<{ topic: DiscoveryTopic; terms: string[] }> = [
   },
   {
     topic: "SOCIAL",
-    terms: ["trend", "tiktok", "twitter", "x.com", "meme", "protest", "strike", "celebrity", "influencer", "court", "trial"],
+    terms: ["trend", "tiktok", "twitter", "x.com", "meme", "protest", "strike", "celebrity", "influencer", "court", "trial", "sentenced", "sentence", "prison", "retrial", "lawsuit"],
+  },
+  {
+    topic: "CRYPTO",
+    terms: ["crypto", "bitcoin", "btc", "ethereum", "megaeth", "airdrop", "token", "defi", "solana", "onchain", "on-chain"],
   },
   {
     topic: "CULTURE",
