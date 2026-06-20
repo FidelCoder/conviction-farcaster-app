@@ -1,36 +1,15 @@
-import { ImageResponse } from "next/og";
+import { NextResponse } from "next/server";
 
 export const runtime = "edge";
 
 export function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const isSplash = searchParams.get("size") === "splash";
-  const size = isSplash ? 200 : 1024;
+  const iconPath = searchParams.get("size") === "splash" ? "/logo/icon-192.png" : "/logo/icon-512.png";
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          alignItems: "center",
-          background: "#f7f7f2",
-          color: "#126149",
-          display: "flex",
-          fontSize: isSplash ? 82 : 430,
-          fontWeight: 800,
-          height: "100%",
-          justifyContent: "center",
-          width: "100%",
-        }}
-      >
-        CM
-      </div>
-    ),
-    {
-      width: size,
-      height: size,
-      headers: {
-        "Cache-Control": "public, immutable, no-transform, max-age=31536000",
-      },
+  return NextResponse.redirect(new URL(iconPath, request.url), {
+    headers: {
+      "Cache-Control": "public, immutable, no-transform, max-age=31536000",
     },
-  );
+    status: 308,
+  });
 }

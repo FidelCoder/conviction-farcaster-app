@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -51,8 +52,14 @@ export function AppHeader() {
 
   return (
     <header className="app-header">
-      <Link className="brand" href="/">
-        Conviction Markets
+      <Link aria-label="Conviction Markets home" className="brand brand--image" href="/">
+        <Image
+          alt="Conviction Markets"
+          height={120}
+          priority
+          src="/logo/conviction-markets-header.png"
+          width={620}
+        />
       </Link>
 
       {showEmailBanner ? (

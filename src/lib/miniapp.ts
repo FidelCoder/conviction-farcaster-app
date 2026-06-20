@@ -46,11 +46,11 @@ export function getAbsoluteAppUrl(path = "/") {
 }
 
 export function getMiniAppIconUrl() {
-  return getAbsoluteAppUrl("/api/miniapp-icon");
+  return getAbsoluteAppUrl("/logo/icon-512.png");
 }
 
 export function getMiniAppSplashImageUrl() {
-  return getAbsoluteAppUrl("/api/miniapp-icon?size=splash");
+  return getAbsoluteAppUrl("/logo/icon-192.png");
 }
 
 export function getMiniAppImagePath(

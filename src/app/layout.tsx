@@ -29,6 +29,13 @@ export const metadata: Metadata = {
     "margin trading",
     "Conviction Markets",
   ],
+  icons: {
+    icon: [
+      { url: "/logo/icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/logo/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/logo/icon-180.png", sizes: "180x180", type: "image/png" }],
+  },
   openGraph: {
     title: "Conviction Markets",
     description:
@@ -36,12 +43,21 @@ export const metadata: Metadata = {
     url: appUrl,
     siteName: "Conviction Markets",
     type: "website",
+    images: [
+      {
+        url: "/logo/conviction-markets-3d-black-bg.png",
+        width: 1600,
+        height: 900,
+        alt: "Conviction Markets logo",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Conviction Markets",
     description:
       "Browse global prediction markets, review event rules, and request margin through Conviction vault liquidity.",
+    images: ["/logo/conviction-markets-3d-black-bg.png"],
   },
   robots: {
     index: true,

@@ -1,7 +1,8 @@
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { UserPortfolio } from "../types";
-import { Bell, Check, Copy, LogOut, Menu, Settings, Wallet, Layers } from "lucide-react";
+import { Bell, Check, Copy, LogOut, Menu, Settings, Wallet } from "lucide-react";
 
 interface HeaderProps {
   activeTab: string;
@@ -100,14 +101,17 @@ export default function Header({
         {/* Logo */}
         <button
           onClick={() => setActiveTab("landing")}
-          className="flex items-center gap-2.5 text-left group cursor-pointer min-w-0"
+          className="flex min-w-0 cursor-pointer items-center text-left group"
+          type="button"
         >
-          <div className="w-7 h-7 bg-electric-purple rounded flex items-center justify-center transition-transform group-hover:scale-105">
-            <Layers size={16} className="text-white" />
-          </div>
-          <span className="hidden sm:block text-lg font-sans font-bold text-[#e5e2e1] tracking-tight truncate">
-            Conviction Markets
-          </span>
+          <Image
+            alt="Conviction Markets"
+            className="h-8 w-auto max-w-[11rem] object-contain sm:h-9 sm:max-w-[15.5rem]"
+            height={120}
+            priority
+            src="/logo/conviction-markets-header.png"
+            width={620}
+          />
         </button>
 
         {/* Desktop Tabs */}
