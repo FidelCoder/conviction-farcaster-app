@@ -14,7 +14,7 @@ export function PredictionSocialPanel({ market, signalCount }: PredictionSocialP
     <section className="prediction-social-panel" aria-label="Prediction conversation">
       <div className="prediction-social-copy">
         <p className="eyebrow">Social layer</p>
-        <h2>Turn the market into a public thesis.</h2>
+        <h2>Turn the market into a public call.</h2>
         <p>
           Share the odds, publish a signal, or start the debate around this market. Conversations
           stay public; execution still requires the core API and wallet flow.

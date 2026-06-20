@@ -4,11 +4,11 @@ import { createMiniAppPageMetadata, getMiniAppImagePath } from "../../lib/miniap
 export const dynamic = "force-dynamic";
 
 export const metadata = createMiniAppPageMetadata({
-  title: "My Conviction Activity",
-  description: "Your real Farcaster signals, position intents, and copy intents.",
+  title: "Conviction Portfolio",
+  description: "Your wallet portfolio, margin positions, signals, copy intents, and vault collateral on Conviction Markets.",
   imagePath: getMiniAppImagePath("home"),
   targetPath: "/me",
-  buttonTitle: "Open my activity",
+  buttonTitle: "Open portfolio",
 });
 
 export default function MyActivityPage() {
@@ -16,11 +16,10 @@ export default function MyActivityPage() {
     <main className="page-shell wide">
       <section className="page-heading compact split-heading">
         <div>
-          <p className="eyebrow">Activity</p>
-          <h1>My activity</h1>
+          <p className="eyebrow">Portfolio</p>
+          <h1>My portfolio</h1>
           <p>
-            Review signals, position intents, and copy intents returned by the core API. Execution
-            status stays explicit.
+            Review wallet-linked positions, vault collateral, signals, and copy intents returned by core.
           </p>
         </div>
         <div className="my-activity-actions">

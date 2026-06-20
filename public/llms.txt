@@ -1,0 +1,27 @@
+# Conviction Markets
+
+Conviction Markets is a leveraged marketplace for prediction markets.
+
+Traders use Conviction to find event markets, review market rules, and get more exposure with vault-backed margin.
+
+Liquidity providers supply capital to Conviction vaults and earn yield from margin activity.
+
+## Core pages
+
+- Home: https://convictionmarkets.xyz/
+- Markets: https://convictionmarkets.xyz/markets
+- Margin desk: https://convictionmarkets.xyz/margin
+- Activity and signals: https://convictionmarkets.xyz/social
+- Docs: https://convictionmarkets.xyz/docs
+- Leaderboard: https://convictionmarkets.xyz/leaderboard
+
+## Useful descriptions
+
+- Short description: Leveraged prediction markets powered by vault liquidity.
+- Trader description: Get more exposure to event markets with vault-backed margin.
+- Liquidity provider description: Supply capital to vaults and earn yield from margin activity.
+- Category: prediction markets, event trading, margin trading, crypto finance.
+
+## Search topics
+
+Conviction Markets is relevant for prediction markets, leveraged prediction markets, event markets, market odds, margin trading, sports prediction markets, crypto prediction markets, geopolitics prediction markets, weather markets, culture markets, finance markets, and liquidity vault yield.

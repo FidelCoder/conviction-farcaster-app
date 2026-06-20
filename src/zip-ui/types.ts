@@ -81,7 +81,7 @@ export interface ActivityItem {
   time: string;
   text: string;
   type: 'request' | 'system';
-  kind?: 'signal' | 'news' | 'trade' | 'post';
+  kind?: 'signal' | 'news' | 'trade' | 'post' | 'repost' | 'follow';
   likes: number;
   commentsCount: number;
   repeats: number;
@@ -92,6 +92,22 @@ export interface ActivityItem {
   replies?: ActivityReplyItem[];
   repostedByUser?: boolean;
   topic?: string;
+  actorUserId?: string;
+  eventType?: 'SIGNAL' | 'REPOST' | 'PUBLIC_TRADE' | 'FOLLOW';
+  followTarget?: {
+    userId: string;
+    username: string;
+    displayName: string;
+  };
+  position?: {
+    id: string;
+    side: 'YES' | 'NO';
+    quantity: string;
+    executionMode: string;
+    leverageMultiplier?: string | null;
+    marginCollateral?: string | null;
+    status: string;
+  };
 }
 
 export interface LeaderboardItem {

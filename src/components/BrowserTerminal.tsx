@@ -17,6 +17,7 @@ import type {
   Market,
   PreparedContractTransaction,
   SocialFeedItem,
+  SocialTimelineEvent,
   UserSession,
 } from "../lib/core-api";
 import { getMarketDiscoveryProfile, getRegionLabel, getTopicLabel } from "../lib/market-discovery";
@@ -48,8 +49,12 @@ import type {
   VaultDepositTransaction,
 } from "../zip-ui/types";
 
+export type TerminalTab = "landing" | "markets" | "margin-desk" | "vaults" | "activity";
+
 type BrowserTerminalProps = {
   execution: ExecutionCapabilities;
+  initialMarketId?: string;
+  initialTab?: TerminalTab;
   leaderboard: LeaderboardEntry[];
   markets: Market[];
   socialFeed: SocialFeedItem[];
@@ -84,7 +89,22 @@ type ActivitySignalResponse =
   | { ok: true; data: { signal: { id: string; createdAt: string } } }
   | { ok: false; error: { code: string; message: string } };
 
-const TERMINAL_TABS = ["landing", "markets", "margin-desk", "vaults", "activity"] as const;
+const TERMINAL_TABS: TerminalTab[] = ["landing", "markets", "margin-desk", "vaults", "activity"];
+const TERMINAL_TAB_PATHS: Record<TerminalTab, string> = {
+  activity: "/activity",
+  landing: "/",
+  markets: "/markets",
+  "margin-desk": "/margin-desk",
+  vaults: "/vaults",
+};
+const TERMINAL_PATH_TABS: Record<string, TerminalTab> = {
+  "/": "landing",
+  "/activity": "activity",
+  "/markets": "markets",
+  "/margin": "margin-desk",
+  "/margin-desk": "margin-desk",
+  "/vaults": "vaults",
+};
 const TERMINAL_TAB_STORAGE_KEY = "conviction-active-terminal-tab";
 
 const emptyPortfolio: UserPortfolio = {
@@ -102,21 +122,29 @@ const emptyPortfolio: UserPortfolio = {
 
 export function BrowserTerminal({
   execution,
+  initialMarketId,
+  initialTab = "landing",
   leaderboard,
   markets,
   socialFeed,
 }: BrowserTerminalProps) {
   const predictionMarkets = useMemo(() => markets.map(mapMarketToPredictionMarket), [markets]);
-  const displayMarkets = predictionMarkets.length > 0 ? predictionMarkets : [emptyPredictionMarket];
+  const displayMarkets = useMemo(
+    () => (predictionMarkets.length > 0 ? predictionMarkets : [emptyPredictionMarket]),
+    [predictionMarkets],
+  );
   const vaults = useMemo(() => mapExecutionToVaults(execution), [execution]);
   const riskParameters = useMemo(() => mapExecutionToRiskParameters(execution), [execution]);
   const tape = useMemo(() => mapMarketsToTape(markets), [markets]);
-  const socialActivity = useMemo(() => mapSocialFeedToActivity(socialFeed), [socialFeed]);
+  const [timelineEvents, setTimelineEvents] = useState<SocialTimelineEvent[]>([]);
+  const socialActivity = useMemo(() => mapTimelineEventsToActivity(timelineEvents, socialFeed), [socialFeed, timelineEvents]);
   const leaderboardItems = useMemo(() => mapLeaderboard(leaderboard), [leaderboard]);
-  const [activeTab, setActiveTabState] = useState("landing");
+  const [activeTab, setActiveTabState] = useState<TerminalTab>(initialTab);
   const [portfolio, setPortfolio] = useState<UserPortfolio>(emptyPortfolio);
   const [session, setSession] = useState<UserSession | null>(null);
-  const [activeMarket, setActiveMarket] = useState<PredictionMarket>(displayMarkets[0]);
+  const [activeMarket, setActiveMarket] = useState<PredictionMarket>(() =>
+    displayMarkets.find((market) => market.id === initialMarketId) ?? displayMarkets[0],
+  );
   const [alertMessage, setAlertMessage] = useState<AlertMessage>(null);
   const [mobileWalletMessage, setMobileWalletMessage] = useState<string | null>(null);
   const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
@@ -124,6 +152,12 @@ export function BrowserTerminal({
 
   const currentMarket =
     displayMarkets.find((market) => market.id === activeMarket.id) ?? displayMarkets[0];
+
+  useEffect(() => {
+    if (!initialMarketId) return;
+    const nextMarket = displayMarkets.find((market) => market.id === initialMarketId);
+    if (nextMarket) setActiveMarket(nextMarket);
+  }, [displayMarkets, initialMarketId]);
 
   const setActiveTab = useCallback((tab: string) => {
     if (!isTerminalTab(tab)) return;
@@ -134,8 +168,10 @@ export function BrowserTerminal({
 
     window.localStorage.setItem(TERMINAL_TAB_STORAGE_KEY, tab);
 
-    const nextUrl = tab === "landing" ? window.location.pathname : window.location.pathname + "#" + tab;
-    window.history.replaceState(null, "", nextUrl);
+    const nextUrl = TERMINAL_TAB_PATHS[tab];
+    if (window.location.pathname !== nextUrl || window.location.hash) {
+      window.history.pushState(null, "", nextUrl);
+    }
   }, []);
 
   const applySession = useCallback((nextSession: UserSession | null) => {
@@ -170,16 +206,49 @@ export function BrowserTerminal({
   }, [applySession]);
 
   useEffect(() => {
-    const tabFromHash = window.location.hash.replace("#", "");
-    const storedTab = window.localStorage.getItem(TERMINAL_TAB_STORAGE_KEY);
-    const nextTab = isTerminalTab(tabFromHash)
-      ? tabFromHash
-      : isTerminalTab(storedTab)
-        ? storedTab
-        : "landing";
+    function resolveTabFromLocation() {
+      const tabFromHash = window.location.hash.replace("#", "");
 
-    setActiveTab(nextTab);
-  }, [setActiveTab]);
+      if (isTerminalTab(tabFromHash)) {
+        window.history.replaceState(null, "", TERMINAL_TAB_PATHS[tabFromHash]);
+        return tabFromHash;
+      }
+
+      return getTerminalTabFromPath(window.location.pathname) ?? initialTab;
+    }
+
+    function syncActiveTabFromUrl() {
+      const nextTab = resolveTabFromLocation();
+      setActiveTabState(nextTab);
+      window.localStorage.setItem(TERMINAL_TAB_STORAGE_KEY, nextTab);
+    }
+
+    syncActiveTabFromUrl();
+    window.addEventListener("popstate", syncActiveTabFromUrl);
+
+    return () => window.removeEventListener("popstate", syncActiveTabFromUrl);
+  }, [initialTab]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    const params = new URLSearchParams({ limit: "80", scope: session ? "all" : "all" });
+    if (session?.user.id) params.set("userId", session.user.id);
+
+    fetch("/api/social/timeline?" + params.toString())
+      .then((response) => response.json())
+      .then((body: unknown) => {
+        if (!isCurrent) return;
+        const events = parseTimelineEvents(body);
+        setTimelineEvents(events);
+      })
+      .catch(() => {
+        if (isCurrent) setTimelineEvents([]);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [session]);
 
   useEffect(() => {
     if (!portfolio.connected || !portfolio.address) return;
@@ -321,6 +390,7 @@ export function BrowserTerminal({
     estPosition: number,
     liqPrice: number,
     outcomeType: "YES" | "NO" = "YES",
+    visibility: "PUBLIC" | "PRIVATE" = "PRIVATE",
   ) {
     if (!portfolio.connected || !portfolio.address || !session) {
       triggerAlert("info", "Connect an EVM wallet before requesting margin.");
@@ -347,6 +417,7 @@ export function BrowserTerminal({
           leverageMultiplier: String(leverage),
           chainId,
           walletAddress: portfolio.address,
+          visibility,
         }),
       });
       const body = (await response.json()) as MarginIntentResponse;
@@ -425,7 +496,7 @@ export function BrowserTerminal({
           ...current.activePositions,
           {
             id: body.data.position.id,
-            marketTitle: "[" + outcomeType + "] " + activeMarket.title,
+            marketTitle: "[" + outcomeType + "] " + activeMarket.title + (visibility === "PUBLIC" ? " (public)" : ""),
             vaultName: vault.name,
             leverage,
             marginAmount: marginAmt,
@@ -747,6 +818,7 @@ export function BrowserTerminal({
             onRequireWallet={requireActivityWallet}
             portfolio={portfolio}
             session={session}
+            onTimelineRefresh={() => refreshSocialTimeline(setTimelineEvents, session?.user.id)}
           />
         ) : null}
       </div>
@@ -800,8 +872,12 @@ const emptyPredictionMarket: PredictionMarket = {
 };
 
 
-function isTerminalTab(value: string | null | undefined): value is (typeof TERMINAL_TABS)[number] {
-  return typeof value === "string" && TERMINAL_TABS.includes(value as (typeof TERMINAL_TABS)[number]);
+function isTerminalTab(value: string | null | undefined): value is TerminalTab {
+  return typeof value === "string" && TERMINAL_TABS.includes(value as TerminalTab);
+}
+
+function getTerminalTabFromPath(pathname: string) {
+  return TERMINAL_PATH_TABS[pathname.replace(/\/$/, "") || "/"];
 }
 
 function mapMarketToPredictionMarket(market: Market): PredictionMarket {
@@ -938,10 +1014,122 @@ function getTapeMarketLabel(market: Market) {
   return label.length > 24 ? label.slice(0, 23).trimEnd() + "..." : label;
 }
 
+function mapTimelineEventsToActivity(events: SocialTimelineEvent[], fallbackFeed: SocialFeedItem[]): ActivityItem[] {
+  if (events.length === 0) {
+    return mapSocialFeedToActivity(fallbackFeed);
+  }
+
+  return events.map((event) => {
+    if (event.type === "REPOST" && event.signal) {
+      const signalItem = mapSocialFeedItemToActivity(event.signal);
+      return {
+        ...signalItem,
+        id: event.id,
+        eventType: "REPOST",
+        kind: "repost",
+        actorUserId: event.actor.userId,
+        username: getActorUsername(event.actor),
+        name: getActorDisplayName(event.actor),
+        time: formatRelativeTime(event.createdAt),
+        text: getActorDisplayName(event.actor) + " reposted: " + buildSignalFeedText(event.signal),
+        topic: "Repost",
+      };
+    }
+
+    if (event.type === "PUBLIC_TRADE" && event.position) {
+      return {
+        id: event.id,
+        actorUserId: event.actor.userId,
+        username: getActorUsername(event.actor),
+        name: getActorDisplayName(event.actor),
+        time: formatRelativeTime(event.createdAt),
+        text: buildPublicTradeText(event),
+        type: "request",
+        kind: "trade",
+        eventType: "PUBLIC_TRADE",
+        likes: 0,
+        commentsCount: event.position.replies.length,
+        repeats: 0,
+        marketId: event.position.market?.id,
+        marketPrice: formatSocialMarketPrice(event.position.market),
+        marketTitle: event.position.market?.title ?? "Market unavailable",
+        replies: event.position.replies.map((reply) => ({
+          id: reply.id,
+          author: getActorUsername(reply.author),
+          text: reply.body,
+          time: formatRelativeTime(reply.createdAt),
+        })),
+        topic: "Public trade",
+        position: {
+          id: event.position.id,
+          side: event.position.side,
+          quantity: event.position.quantity,
+          executionMode: event.position.executionMode,
+          leverageMultiplier: event.position.leverageMultiplier,
+          marginCollateral: event.position.marginCollateral,
+          status: event.position.status,
+        },
+      };
+    }
+
+    if (event.type === "FOLLOW" && event.follow) {
+      return {
+        id: event.id,
+        actorUserId: event.actor.userId,
+        username: getActorUsername(event.actor),
+        name: getActorDisplayName(event.actor),
+        time: formatRelativeTime(event.createdAt),
+        text: getActorDisplayName(event.follow.follower) + " followed " + getActorDisplayName(event.follow.following) + ".",
+        type: "request",
+        kind: "follow",
+        eventType: "FOLLOW",
+        likes: 0,
+        commentsCount: 0,
+        repeats: 0,
+        replies: [],
+        topic: "Follow",
+        followTarget: {
+          userId: event.follow.following.userId,
+          username: getActorUsername(event.follow.following),
+          displayName: getActorDisplayName(event.follow.following),
+        },
+      };
+    }
+
+    if (event.signal) {
+      return {
+        ...mapSocialFeedItemToActivity(event.signal),
+        eventType: "SIGNAL",
+      };
+    }
+
+    return {
+      id: event.id,
+      actorUserId: event.actor.userId,
+      username: getActorUsername(event.actor),
+      name: getActorDisplayName(event.actor),
+      time: formatRelativeTime(event.createdAt),
+      text: "New market activity.",
+      type: "request",
+      kind: "post",
+      likes: 0,
+      commentsCount: 0,
+      repeats: 0,
+      replies: [],
+      topic: "Activity",
+    };
+  });
+}
+
 function mapSocialFeedToActivity(feed: SocialFeedItem[]): ActivityItem[] {
-  return feed.map((item) => ({
+  return feed.map(mapSocialFeedItemToActivity);
+}
+
+function mapSocialFeedItemToActivity(item: SocialFeedItem): ActivityItem {
+  return {
     id: item.signal.id,
     signalId: item.signal.id,
+    actorUserId: item.author.userId,
     username: getSocialUsername(item),
     name: item.author.displayName ?? item.author.username ?? item.trader?.handle ?? "Conviction trader",
     time: formatRelativeTime(item.signal.createdAt),
@@ -963,7 +1151,45 @@ function mapSocialFeedToActivity(feed: SocialFeedItem[]): ActivityItem[] {
     })),
     repostedByUser: item.viewer?.bookmarked ?? false,
     topic: item.market?.providerMetadata?.primaryTag ?? item.market?.category ?? "Signal",
-  }));
+  };
+}
+
+function parseTimelineEvents(body: unknown): SocialTimelineEvent[] {
+  if (!body || typeof body !== "object" || !("ok" in body)) return [];
+  const response = body as { ok?: boolean; data?: { events?: unknown } };
+  return response.ok && Array.isArray(response.data?.events)
+    ? response.data.events as SocialTimelineEvent[]
+    : [];
+}
+
+async function refreshSocialTimeline(setter: (events: SocialTimelineEvent[]) => void, userId?: string) {
+  const params = new URLSearchParams({ limit: "80", scope: "all" });
+  if (userId) params.set("userId", userId);
+
+  try {
+    const response = await fetch("/api/social/timeline?" + params.toString());
+    const body = await response.json() as unknown;
+    setter(parseTimelineEvents(body));
+  } catch {
+    // Keep current feed if refresh fails.
+  }
+}
+
+function buildPublicTradeText(event: SocialTimelineEvent) {
+  const position = event.position;
+  if (!position) return "Placed a public trade.";
+
+  const leverage = position.leverageMultiplier ? " at " + position.leverageMultiplier + "x" : "";
+  const collateral = position.marginCollateral ? " with " + position.marginCollateral + " collateral" : "";
+  return getActorDisplayName(event.actor) + " placed a public " + position.side + " trade" + leverage + collateral + ".";
+}
+
+function getActorUsername(actor: { handle?: string | null; username?: string | null; displayName?: string | null; userId: string }) {
+  return actor.handle ?? actor.username ?? actor.displayName ?? "user" + actor.userId.slice(-5);
+}
+
+function getActorDisplayName(actor: { handle?: string | null; username?: string | null; displayName?: string | null; userId: string }) {
+  return actor.handle ?? actor.displayName ?? actor.username ?? "Trader " + actor.userId.slice(-5);
 }
 
 function getSocialUsername(item: SocialFeedItem) {
@@ -980,7 +1206,7 @@ function buildSignalFeedText(item: SocialFeedItem) {
   const side = item.signal.side === "NO" ? "NO" : "YES";
   const conviction = item.signal.convictionLevel ? " / conviction " + item.signal.convictionLevel + "%" : "";
 
-  return side + " thesis" + conviction + ": " + item.signal.thesis;
+  return side + " call" + conviction + ": " + item.signal.thesis;
 }
 
 function formatSocialMarketPrice(market: Market | null) {
@@ -1014,8 +1240,8 @@ function mapExecutionToRiskParameters(execution: ExecutionCapabilities): GlobalR
       status: execution.marginIntentsEnabled ? "Active" : "Pending Vote",
     },
     {
-      parameter: "Maximum Pending Leverage",
-      currentValue: (execution.maxPendingMarginLeverage ?? 1) + "x",
+      parameter: "Trader Leverage Limit",
+      currentValue: (execution.maxPendingMarginLeverage ?? 10) + "x",
       proposed: "-",
       status: "Active",
     },
@@ -1035,7 +1261,7 @@ function mapExecutionToRiskParameters(execution: ExecutionCapabilities): GlobalR
 }
 
 function getMaxLeverage(vaults: Vault[]) {
-  return vaults.reduce((max, vault) => Math.max(max, vault.maxLeverage), 1);
+  return vaults.reduce((max, vault) => Math.max(max, vault.maxLeverage), 10);
 }
 
 function formatRelativeTime(value: string) {

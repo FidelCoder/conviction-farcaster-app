@@ -28,7 +28,7 @@ const settingCards = [
   {
     title: "Activity",
     body: "Review real signals, copy intents, and margin position intents returned by the core API.",
-    href: "/#activity",
+    href: "/activity",
     action: "View activity",
   },
   {
@@ -99,7 +99,7 @@ export default function SettingsPage() {
               and execution adapters are live. Settings never mark a position executed locally.
             </p>
           </div>
-          <Link href="/#margin-desk">Open margin desk</Link>
+          <Link href="/margin-desk">Open margin desk</Link>
         </section>
       </main>
     </TerminalShell>

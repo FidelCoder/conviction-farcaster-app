@@ -165,7 +165,7 @@ export function TerminalShell({
       <Sidebar
         activeTab={activeTab}
         onOpenRequest={() => {
-          window.location.href = "/#margin-desk";
+          window.location.href = "/margin-desk";
         }}
         portfolio={portfolio}
         session={session}
@@ -175,7 +175,7 @@ export function TerminalShell({
       {children}
 
       <StatusBar
-        contractStatus={execution.contractLayer?.status ?? "Configured"}
+        contractStatus="TESTNET"
         executionMode={execution.marginExecutionEnabled ? "Live" : "Request"}
         marketCount={marketCount}
       />
@@ -208,11 +208,11 @@ export function TerminalShell({
 
 function navigateFromTab(tab: string) {
   const hrefByTab: Record<string, string> = {
-    activity: "/#activity",
+    activity: "/activity",
     landing: "/",
-    markets: "/#markets",
-    "margin-desk": "/#margin-desk",
-    vaults: "/#vaults",
+    markets: "/markets",
+    "margin-desk": "/margin-desk",
+    vaults: "/vaults",
   };
 
   window.location.href = hrefByTab[tab] ?? "/";

@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
-import { MarketDiscoveryBoard } from "../../components/MarketDiscoveryBoard";
-import { listMarkets } from "../../lib/core-api";
-import { sortMarketsForConvictionBoard } from "../../lib/market-display";
+
+import { TerminalRoutePage } from "../../components/TerminalRoutePage";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Prediction Markets by Topic and Region",
+  title: "Prediction Markets and Event Odds",
   description:
-    "Browse live prediction markets across crypto, sports, geopolitics, social events, economics, culture, technology, and global regions.",
+    "Find live event markets across sports, crypto, politics, geopolitics, weather, culture, finance, and breaking news.",
   alternates: { canonical: "/markets" },
+  openGraph: {
+    title: "Prediction Markets and Event Odds",
+    description:
+      "Find live event markets and review market rules before trading with Conviction margin.",
+    url: "/markets",
+  },
 };
 
 export default async function MarketsPage() {
-  const markets = await listMarkets();
-  const rankedMarkets = sortMarketsForConvictionBoard(markets);
-
-  return <MarketDiscoveryBoard markets={rankedMarkets} />;
+  return <TerminalRoutePage initialTab="markets" />;
 }

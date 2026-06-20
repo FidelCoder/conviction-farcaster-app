@@ -85,8 +85,8 @@ export default function Header({
   }
 
   return (
-    <header className="fixed top-0 w-full z-50 flex justify-between items-center gap-3 px-3 sm:px-5 md:px-10 h-16 bg-[#161616]/80 backdrop-blur-md border-b border-[#262626]">
-      <div className="flex items-center gap-3 md:gap-6 min-w-0">
+    <header className="fixed top-0 w-full z-50 flex justify-between items-center gap-2 px-2 sm:px-5 md:px-10 h-16 bg-[#161616]/80 backdrop-blur-md border-b border-[#262626]">
+      <div className="flex items-center gap-2 sm:gap-3 md:gap-6 min-w-0 flex-1">
         {onOpenMenu ? (
           <button
             aria-label="Open navigation menu"
@@ -101,12 +101,12 @@ export default function Header({
         {/* Logo */}
         <button
           onClick={() => setActiveTab("landing")}
-          className="flex min-w-0 cursor-pointer items-center text-left group"
+          className="flex min-w-0 flex-1 cursor-pointer items-center text-left group"
           type="button"
         >
           <Image
             alt="Conviction Markets"
-            className="h-8 w-auto max-w-[11rem] object-contain sm:h-9 sm:max-w-[15.5rem]"
+            className="h-7 w-auto max-w-[8.5rem] object-contain sm:h-9 sm:max-w-[15.5rem]"
             height={120}
             priority
             src="/logo/conviction-markets-header.png"
@@ -135,31 +135,31 @@ export default function Header({
         </nav>
       </div>
 
-      <div className="flex items-center gap-1.5 sm:gap-3 md:gap-4 flex-shrink-0">
-        {/* Notifications → My Activity */}
-        <button
-          className="text-[#ccc3d8] hover:text-[#d2bbff] p-2 rounded-full hover:bg-white/5 transition-colors duration-150 relative cursor-pointer"
-          onClick={() => {
-            window.location.href = "/me/notifications";
-          }}
-          title="Notifications"
-        >
-          <Bell size={18} />
-          {portfolio.connected && (
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-deep-orange animate-pulse" />
-          )}
-        </button>
+      <div className="flex items-center gap-1 sm:gap-3 md:gap-4 flex-shrink-0">
+        {portfolio.connected ? (
+          <>
+            <button
+              className="hidden min-[390px]:inline-flex text-[#ccc3d8] hover:text-[#d2bbff] p-2 rounded-full hover:bg-white/5 transition-colors duration-150 relative cursor-pointer"
+              onClick={() => {
+                window.location.href = "/me/notifications";
+              }}
+              title="Notifications"
+            >
+              <Bell size={18} />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-deep-orange animate-pulse" />
+            </button>
 
-        {/* Settings → Profile */}
-        <button
-          className="text-[#ccc3d8] hover:text-[#d2bbff] p-2 rounded-full hover:bg-white/5 transition-colors duration-150 cursor-pointer"
-          onClick={() => {
-            window.location.href = "/me/settings";
-          }}
-          title="Settings"
-        >
-          <Settings size={18} />
-        </button>
+            <button
+              className="hidden sm:inline-flex text-[#ccc3d8] hover:text-[#d2bbff] p-2 rounded-full hover:bg-white/5 transition-colors duration-150 cursor-pointer"
+              onClick={() => {
+                window.location.href = "/me/settings";
+              }}
+              title="Settings"
+            >
+              <Settings size={18} />
+            </button>
+          </>
+        ) : null}
 
         {/* Wallet Connector */}
         <div className="relative" ref={walletMenuRef}>
@@ -167,7 +167,7 @@ export default function Header({
             aria-expanded={portfolio.connected ? walletMenuOpen : undefined}
             aria-haspopup={portfolio.connected ? "menu" : undefined}
             onClick={handleWalletButtonClick}
-            className={`px-2.5 sm:px-4 py-1.5 rounded text-[10px] sm:text-xs font-mono font-bold tracking-wider transition-all duration-300 flex items-center gap-2 border cursor-pointer max-w-[10rem] sm:max-w-none ${
+            className={`px-2 sm:px-4 py-1.5 rounded text-[10px] sm:text-xs font-mono font-bold tracking-wider transition-all duration-300 flex items-center gap-1.5 sm:gap-2 border cursor-pointer max-w-[8.25rem] sm:max-w-none ${
               portfolio.connected
                 ? "bg-[#1c1b1b] border-deep-orange text-deep-orange shadow-[0_0_10px_rgba(249,115,22,0.1)] hover:border-white hover:text-white"
                 : "bg-deep-orange border-deep-orange text-black hover:bg-white hover:border-white hover:text-black font-semibold"

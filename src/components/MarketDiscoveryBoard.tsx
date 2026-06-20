@@ -115,7 +115,7 @@ export function MarketDiscoveryBoard({ markets }: MarketDiscoveryBoardProps) {
             <Link aria-current="page" href="/markets">
               Markets
             </Link>
-            <Link href="/margin">Margin</Link>
+            <Link href="/margin-desk">Margin</Link>
             <Link href="/social">Social</Link>
             <Link href="/me">Portfolio</Link>
           </nav>
@@ -132,7 +132,7 @@ export function MarketDiscoveryBoard({ markets }: MarketDiscoveryBoardProps) {
           />
         </label>
 
-        <Link className="browse-open-margin" href="/margin">
+        <Link className="browse-open-margin" href="/margin-desk">
           Open margin
         </Link>
       </section>
@@ -236,6 +236,11 @@ export function MarketDiscoveryBoard({ markets }: MarketDiscoveryBoardProps) {
             <PredictionMarketCard key={market.id} market={market} />
           ))}
         </section>
+      ) : markets.length === 0 ? (
+        <EmptyState
+          title="Market feed reconnecting"
+          body="Conviction is not receiving market data from core right now. Refresh in a moment; no placeholder markets are shown."
+        />
       ) : (
         <EmptyState
           title="No markets match"

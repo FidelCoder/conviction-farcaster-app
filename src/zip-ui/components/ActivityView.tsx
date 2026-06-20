@@ -1,16 +1,23 @@
+import Link from 'next/link';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityItem, ActivityReplyItem, LeaderboardItem, PredictionMarket, UserPortfolio } from '../types';
-import type { UserSession } from '../../lib/core-api';
+import { ActivityItem, LeaderboardItem, PredictionMarket, UserPortfolio } from '../types';
+import type { DiscoveredUser, SocialActor, UserSession } from '../../lib/core-api';
 import {
   AlertTriangle,
   ExternalLink,
   Heart,
+  Instagram,
   MessageSquare,
   Newspaper,
+  PlayCircle,
   Radio,
   Repeat,
+  SendIcon,
+  UserPlus,
+  Users,
   Search,
   Send,
+  Share2,
   Sparkles,
   Trophy,
 } from 'lucide-react';
@@ -22,20 +29,21 @@ interface ActivityViewProps {
   onCreateSignal: (input: { marketId: string; side: 'YES' | 'NO'; thesis: string }) => Promise<{ id: string; createdAt: string } | null>;
   onOpenMarket: (market: PredictionMarket) => void;
   onRequireWallet: () => void;
+  onTimelineRefresh?: () => void;
   portfolio: UserPortfolio;
   session: UserSession | null;
 }
 
-type FeedTab = 'all' | 'news' | 'markets' | 'trades';
+type FeedTab = 'all' | 'news' | 'markets' | 'trades' | 'people';
 type ComposerSide = 'YES' | 'NO';
 
-type FeedInteraction = {
-  liked?: boolean;
-  reposted?: boolean;
-  replies?: ActivityReplyItem[];
+type SignalParticipants = {
+  reactions: SocialActor[];
+  bookmarks: SocialActor[];
+  commenters: SocialActor[];
 };
 
-type InteractionStore = Record<string, FeedInteraction>;
+type ParticipantsStore = Record<string, SignalParticipants>;
 
 type SocialActionResponse =
   | { ok: true; data: { counts?: { reactions: number; bookmarks: number; replies: number } } }
@@ -45,8 +53,41 @@ type ReplyActionResponse =
   | { ok: true; data: { reply?: { id: string; body: string; createdAt: string; author?: { username: string | null; handle: string | null; displayName: string | null } } } }
   | { ok: false; error: { message: string } };
 
-const LOCAL_POSTS_KEY = 'conviction-activity-posts-v1';
-const INTERACTIONS_KEY = 'conviction-activity-interactions-v1';
+type ParticipantsResponse =
+  | { ok: true; data: { participants?: SignalParticipants } }
+  | { ok: false; error: { message: string } };
+
+type UsersDiscoveryResponse =
+  | { ok: true; data: { users?: DiscoveredUser[] } }
+  | { ok: false; error: { message: string } };
+
+type ActivityMediaItem = {
+  id: string;
+  marketId: string | null;
+  kind: string;
+  title: string;
+  summary: string;
+  imageUrl: string | null;
+  videoUrl: string | null;
+  createdAt: string;
+};
+
+type UserPreference = {
+  topics: string[];
+  regions: string[];
+  sports: string[];
+  mediaTypes: string[];
+  newsIntervalMinutes: number;
+  notifyInActivity: boolean;
+};
+
+type PreferenceResponse =
+  | { ok: true; data: { preference: UserPreference } }
+  | { ok: false; error: { message: string } };
+
+type ActivityMediaResponse =
+  | { ok: true; data: { items?: ActivityMediaItem[] } }
+  | { ok: false; error: { message: string } };
 
 export default function ActivityView({
   activity,
@@ -55,32 +96,46 @@ export default function ActivityView({
   onCreateSignal,
   onOpenMarket,
   onRequireWallet,
+  onTimelineRefresh,
   portfolio,
   session,
 }: ActivityViewProps) {
   const [newPostText, setNewPostText] = useState<string>('');
   const [composerSide, setComposerSide] = useState<ComposerSide>('YES');
   const [composerStatus, setComposerStatus] = useState('');
+  const [publishedSignalId, setPublishedSignalId] = useState<string | null>(null);
+  const [shareTargetMarket, setShareTargetMarket] = useState<PredictionMarket | null>(null);
   const [replyText, setReplyText] = useState<string>('');
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
   const [feedTab, setFeedTab] = useState<FeedTab>('all');
-  const [interactions, setInteractions] = useState<InteractionStore>({});
-  const [localPosts, setLocalPosts] = useState<ActivityItem[]>([]);
+  const [participants, setParticipants] = useState<ParticipantsStore>({});
   const [query, setQuery] = useState('');
   const [selectedMarketId, setSelectedMarketId] = useState(markets[0]?.id ?? '');
   const [showFullLeaderboardModal, setShowFullLeaderboardModal] = useState<boolean>(false);
-  const [storageReady, setStorageReady] = useState(false);
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  const [networkUsers, setNetworkUsers] = useState<DiscoveredUser[]>([]);
+  const [networkStatus, setNetworkStatus] = useState('');
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const [mediaItems, setMediaItems] = useState<ActivityMediaItem[]>([]);
+  const [mediaStatus, setMediaStatus] = useState('');
+  const [preference, setPreference] = useState<UserPreference | null>(null);
+  const [preferenceDraft, setPreferenceDraft] = useState('Sports, World Cup, Crypto, Geopolitics');
 
-  const selectedMarket = markets.find((market) => market.id === selectedMarketId) ?? markets[0];
-  const seededFeed = useMemo(() => buildSeededFeed(activity, markets), [activity, markets]);
-  const feed = useMemo(
-    () => dedupeActivityItems([...localPosts, ...seededFeed]).map((item) => applyInteractionState(item, interactions[item.id])),
-    [interactions, localPosts, seededFeed],
-  );
+  const realMarkets = markets.filter((market) => market.id !== 'empty-market-state');
+  const selectedMarket = realMarkets.find((market) => market.id === selectedMarketId) ?? realMarkets[0];
+  const communityHandle = session?.traderProfile?.handle ?? '';
+  const hasCommunityIdentity = Boolean(portfolio.connected && session && communityHandle);
+  const feed = useMemo(() => normalizeActivityFeed(activity), [activity]);
   const filteredFeed = useMemo(
     () => filterFeed(feed, feedTab, query),
     [feed, feedTab, query],
+  );
+  const visibleSignalIds = useMemo(
+    () => filteredFeed
+      .map((item) => item.signalId)
+      .filter((signalId): signalId is string => Boolean(signalId))
+      .slice(0, 16),
+    [filteredFeed],
   );
   const detailedLeaderboard = leaderboard.map((trader) => ({
     rank: trader.rank,
@@ -88,25 +143,122 @@ export default function ActivityView({
     pnl: trader.pnl,
     winRate: '--',
     volume: '--',
-    tag: 'Real records',
+    tag: 'Core profile',
     letter: trader.letter || trader.name.slice(0, 1).toUpperCase(),
   }));
 
   useEffect(() => {
-    setLocalPosts(readStoredActivityItems(LOCAL_POSTS_KEY));
-    setInteractions(readStoredInteractions());
-    setStorageReady(true);
-  }, []);
+    if (!session?.user.id) {
+      setFollowingIds(new Set());
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch('/api/social/users/' + encodeURIComponent(session.user.id) + '/following?limit=100')
+      .then((response) => response.json())
+      .then((body: unknown) => {
+        if (cancelled) return;
+        setFollowingIds(new Set(parseFollowingIds(body)));
+      })
+      .catch(() => {
+        if (!cancelled) setFollowingIds(new Set());
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user.id]);
 
   useEffect(() => {
-    if (!storageReady) return;
-    writeStoredJson(LOCAL_POSTS_KEY, localPosts.slice(0, 40));
-  }, [localPosts, storageReady]);
+    let cancelled = false;
+    const params = new URLSearchParams({ limit: '40' });
+    if (session?.user.id) params.set('viewerUserId', session.user.id);
+    if (query.trim() && feedTab === 'people') params.set('query', query.trim());
+
+    setNetworkStatus('Loading network...');
+    fetch('/api/social/users?' + params.toString())
+      .then((response) => response.json())
+      .then((body: UsersDiscoveryResponse) => {
+        if (cancelled) return;
+        const users = body.ok ? body.data.users ?? [] : [];
+        setNetworkUsers(users);
+        setNetworkStatus(users.length > 0 ? '' : 'No real users matched yet. Invite people to grow the network.');
+        setFollowingIds((current) => {
+          const next = new Set(current);
+          users.forEach((user) => {
+            if (user.viewer?.following) next.add(user.user.id);
+          });
+          return next;
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setNetworkUsers([]);
+          setNetworkStatus('User network is unavailable right now.');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [feedTab, query, session?.user.id]);
 
   useEffect(() => {
-    if (!storageReady) return;
-    writeStoredJson(INTERACTIONS_KEY, interactions);
-  }, [interactions, storageReady]);
+    if (!session?.user.id) {
+      setPreference(null);
+      setMediaItems([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch('/api/preferences/' + encodeURIComponent(session.user.id))
+      .then((response) => response.json())
+      .then((body: PreferenceResponse) => {
+        if (cancelled || !body.ok) return;
+        setPreference(body.data.preference);
+        setPreferenceDraft(body.data.preference.topics.join(', '));
+      })
+      .catch(() => {
+        if (!cancelled) setPreference(null);
+      });
+
+    refreshMediaFeed(session.user.id, setMediaItems, setMediaStatus);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user.id]);
+
+
+  useEffect(() => {
+    const missingSignalIds = visibleSignalIds.filter((signalId) => !participants[signalId]);
+    if (missingSignalIds.length === 0) return;
+
+    let cancelled = false;
+
+    void Promise.all(
+      missingSignalIds.map(async (signalId) => {
+        const nextParticipants = await fetchSignalParticipants(signalId);
+        return [signalId, nextParticipants] as const;
+      }),
+    ).then((entries) => {
+      if (cancelled) return;
+
+      setParticipants((current) => {
+        const next = { ...current };
+        entries.forEach(([signalId, nextParticipants]) => {
+          next[signalId] = nextParticipants;
+        });
+        return next;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [participants, visibleSignalIds]);
 
   const handlePostSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -116,23 +268,33 @@ export default function ActivityView({
       return;
     }
 
+    if (!requireCommunityIdentity()) {
+      return;
+    }
+
     const body = newPostText.trim();
     if (!body || !selectedMarket) return;
 
     setPendingActionId('compose');
+    setPublishedSignalId(null);
     setComposerStatus('Publishing signal...');
     const signal = await onCreateSignal({ marketId: selectedMarket.id, side: composerSide, thesis: body });
     setPendingActionId(null);
 
+    if (!signal) {
+      setComposerStatus('Core did not record the signal. Nothing was posted.');
+      return;
+    }
+
     const post: ActivityItem = {
-      id: signal?.id ?? 'local-' + Date.now().toString(36),
-      signalId: signal?.id,
-      username: getWalletUsername(portfolio),
+      id: signal.id,
+      signalId: signal.id,
+      username: getSessionUsername(session, portfolio),
       name: getSessionDisplayName(session, portfolio),
       time: 'now',
-      text: composerSide + ' thesis: ' + body,
+      text: composerSide + ' call: ' + body,
       type: 'request',
-      kind: signal ? 'signal' : 'post',
+      kind: 'signal',
       likes: 0,
       commentsCount: 0,
       repeats: 0,
@@ -144,104 +306,209 @@ export default function ActivityView({
       topic: selectedMarket.discoveryTopic ?? selectedMarket.category ?? 'Market pulse',
     };
 
-    setLocalPosts((current) => [post, ...current.filter((item) => item.id !== post.id)].slice(0, 40));
-    setComposerStatus(signal ? 'Published to core.' : 'Saved locally in this browser.');
+    void post;
+    setPublishedSignalId(signal.id);
+    setComposerStatus('Published. Share the card while the market is hot.');
     setNewPostText('');
+    onTimelineRefresh?.();
   };
 
   const toggleLike = async (item: ActivityItem) => {
-    if (!portfolio.connected || !session) {
-      onRequireWallet();
+    if (!requireCommunityIdentity()) {
       return;
     }
 
+    const activeSession = session;
+    if (!activeSession) return;
+
     const nextLiked = !item.likedByUser;
-    updateInteraction(item.id, { liked: nextLiked });
 
     if (!item.signalId) return;
 
     setPendingActionId('like-' + item.id);
-    await postSocialAction({
+    const accepted = await postSocialAction({
       signalId: item.signalId,
-      userId: session.user.id,
+      userId: activeSession.user.id,
       action: 'reactions',
       method: nextLiked ? 'POST' : 'DELETE',
     });
+    if (accepted) {
+      await refreshSignalParticipants(item.signalId);
+      onTimelineRefresh?.();
+    }
     setPendingActionId(null);
   };
 
   const toggleRepost = async (item: ActivityItem) => {
-    if (!portfolio.connected || !session) {
-      onRequireWallet();
+    if (!requireCommunityIdentity()) {
       return;
     }
 
+    const activeSession = session;
+    if (!activeSession) return;
+
     const nextReposted = !item.repostedByUser;
-    updateInteraction(item.id, { reposted: nextReposted });
 
     if (!item.signalId) return;
 
     setPendingActionId('repost-' + item.id);
-    await postSocialAction({
+    const accepted = await postSocialAction({
       signalId: item.signalId,
-      userId: session.user.id,
+      userId: activeSession.user.id,
       action: 'bookmarks',
       method: nextReposted ? 'POST' : 'DELETE',
     });
+    if (accepted) await refreshSignalParticipants(item.signalId);
     setPendingActionId(null);
   };
 
   const submitReply = async (event: React.FormEvent, item: ActivityItem) => {
     event.preventDefault();
 
-    if (!portfolio.connected || !session) {
-      onRequireWallet();
+    if (!requireCommunityIdentity()) {
       return;
     }
+
+    const activeSession = session;
+    if (!activeSession) return;
 
     const body = replyText.trim();
     if (!body) return;
 
-    let reply: ActivityReplyItem = {
-      id: 'reply-' + Date.now().toString(36),
-      author: getWalletUsername(portfolio),
-      text: body,
-      time: 'now',
-    };
-
     setPendingActionId('reply-' + item.id);
 
+    let accepted = false;
+
     if (item.signalId) {
-      const coreReply = await postSignalReply({ signalId: item.signalId, userId: session.user.id, body });
-      if (coreReply) reply = coreReply;
+      const coreReply = await postSignalReply({ signalId: item.signalId, userId: activeSession.user.id, body });
+      accepted = Boolean(coreReply);
+      await refreshSignalParticipants(item.signalId);
+    } else if (item.position?.id) {
+      accepted = Boolean(await postPositionReply({ positionId: item.position.id, userId: activeSession.user.id, body }));
     }
 
-    setInteractions((current) => {
-      const existing = current[item.id] ?? {};
-      return {
-        ...current,
-        [item.id]: {
-          ...existing,
-          replies: [...(existing.replies ?? []), reply].slice(-6),
-        },
-      };
-    });
-    setReplyText('');
-    setActiveReplyId(null);
+    if (accepted) {
+      setReplyText('');
+      setActiveReplyId(null);
+      onTimelineRefresh?.();
+    }
+
     setPendingActionId(null);
   };
 
-  const updateInteraction = (id: string, patch: FeedInteraction) => {
-    setInteractions((current) => {
-      const existing = current[id] ?? {};
-      return {
-        ...current,
-        [id]: {
-          ...existing,
-          ...patch,
-        },
-      };
+  const requireCommunityIdentity = () => {
+    if (!portfolio.connected || !session) {
+      onRequireWallet();
+      return false;
+    }
+
+    if (!hasCommunityIdentity) {
+      setComposerStatus('Claim your .viction name to join Market Pulse.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const refreshSignalParticipants = async (signalId: string) => {
+    const nextParticipants = await fetchSignalParticipants(signalId);
+    setParticipants((current) => ({
+      ...current,
+      [signalId]: nextParticipants,
+    }));
+  };
+
+  const savePreferences = async () => {
+    if (!session?.user.id) {
+      onRequireWallet();
+      return;
+    }
+
+    const topics = preferenceDraft.split(',').map((item) => item.trim()).filter(Boolean);
+    setMediaStatus('Saving preferences...');
+
+    try {
+      const response = await fetch('/api/preferences/' + encodeURIComponent(session.user.id), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topics, regions: ['Global'], mediaTypes: ['image', 'video'], newsIntervalMinutes: 20, notifyInActivity: true }),
+      });
+      const body = (await response.json()) as PreferenceResponse;
+      if (response.ok && body.ok) {
+        setPreference(body.data.preference);
+        setMediaStatus('Preferences saved. Fresh media feed is ready.');
+        await refreshMediaFeed(session.user.id, setMediaItems, setMediaStatus);
+      } else {
+        setMediaStatus('Preference update failed.');
+      }
+    } catch {
+      setMediaStatus('Preference update failed.');
+    }
+  };
+
+  const generateNewsNow = async () => {
+    if (!session?.user.id) {
+      onRequireWallet();
+      return;
+    }
+
+    setMediaStatus('Generating personalized market media...');
+
+    try {
+      const response = await fetch('/api/activity-media/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: session.user.id, limit: 8 }),
+      });
+      const body = (await response.json()) as ActivityMediaResponse;
+      if (response.ok && body.ok) {
+        setMediaItems(body.data.items ?? []);
+        setMediaStatus('Updated with personalized market media.');
+      } else {
+        setMediaStatus('Media generation is unavailable right now.');
+      }
+    } catch {
+      setMediaStatus('Media generation is unavailable right now.');
+    }
+  };
+
+  const toggleFollow = async (userId: string) => {
+    if (!requireCommunityIdentity()) return;
+
+    const activeSession = session;
+    if (!activeSession || userId === activeSession.user.id) return;
+
+    const isFollowing = followingIds.has(userId);
+    setPendingActionId('follow-' + userId);
+    const accepted = await postFollowAction({
+      followerId: activeSession.user.id,
+      followingId: userId,
+      method: isFollowing ? 'DELETE' : 'POST',
     });
+
+    if (accepted) {
+      setFollowingIds((current) => {
+        const next = new Set(current);
+        if (isFollowing) next.delete(userId);
+        else next.add(userId);
+        return next;
+      });
+      setNetworkUsers((current) => current.map((user) =>
+        user.user.id === userId
+          ? {
+              ...user,
+              stats: {
+                ...user.stats,
+                followers: Math.max(0, user.stats.followers + (isFollowing ? -1 : 1)),
+              },
+              viewer: { isSelf: false, following: !isFollowing },
+            }
+          : user,
+      ));
+      onTimelineRefresh?.();
+    }
+
+    setPendingActionId(null);
   };
 
   return (
@@ -252,12 +519,12 @@ export default function ActivityView({
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange mb-2">Prediction social</p>
             <h1 className="text-4xl font-sans font-bold text-white mb-2">Market Pulse</h1>
             <p className="max-w-2xl text-sm text-[#ccc3d8]">
-              Live market news, odds shifts, wallet activity, and trader theses in one feed.
+              Discuss market moves, share sources, reply to traders, and keep event context tied to real markets.
             </p>
           </div>
           <div className="grid grid-cols-3 gap-2 rounded border border-[#262626] bg-[#101010] p-2 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8] sm:flex">
             <PulseMetric label="Posts" value={feed.length} />
-            <PulseMetric label="Markets" value={markets.length} />
+            <PulseMetric label="Markets" value={realMarkets.length} />
             <PulseMetric label="Wallet" value={portfolio.connected ? 'Live' : 'Guest'} />
           </div>
         </header>
@@ -275,14 +542,20 @@ export default function ActivityView({
                 </div>
               </div>
 
+              <CommunityIdentityNotice
+                connected={portfolio.connected}
+                handle={communityHandle}
+                onRequireWallet={onRequireWallet}
+              />
+
               <form className="grid gap-3" onSubmit={handlePostSubmit}>
                 <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
                   <textarea
                     className="min-h-28 min-w-0 resize-y rounded border border-[#262626] bg-[#0A0A0A] p-3 text-sm leading-relaxed text-white outline-none transition-colors placeholder:text-[#ccc3d8]/45 focus:border-deep-orange"
-                    disabled={!portfolio.connected}
+                    disabled={!portfolio.connected || !hasCommunityIdentity}
                     maxLength={500}
                     onChange={(event) => setNewPostText(event.target.value)}
-                    placeholder={portfolio.connected ? 'What changed, and how should the market price it?' : 'Connect wallet to post into Market Pulse'}
+                    placeholder={getComposerPlaceholder(portfolio.connected, hasCommunityIdentity)}
                     value={newPostText}
                   />
                   <div className="grid min-w-0 gap-3">
@@ -312,18 +585,18 @@ export default function ActivityView({
                         onChange={(event) => setSelectedMarketId(event.target.value)}
                         value={selectedMarket?.id ?? ''}
                       >
-                        {markets.slice(0, 40).map((market) => (
+                        {realMarkets.slice(0, 40).map((market) => (
                           <option key={market.id} value={market.id}>{market.title}</option>
                         ))}
                       </select>
                     </label>
                     <button
                       className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded bg-deep-orange px-4 py-2 font-sans text-xs font-bold uppercase tracking-widest text-black transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={!portfolio.connected || !newPostText.trim() || pendingActionId === 'compose'}
+                      disabled={!portfolio.connected || !hasCommunityIdentity || !newPostText.trim() || pendingActionId === 'compose'}
                       type="submit"
                     >
                       <Send size={14} />
-                      Publish
+                      {hasCommunityIdentity ? 'Publish' : 'Claim name'}
                     </button>
                   </div>
                 </div>
@@ -331,12 +604,35 @@ export default function ActivityView({
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]/65">{composerStatus}</p>
                 ) : null}
               </form>
+
+              {publishedSignalId && selectedMarket ? (
+                <ShareCardPanel
+                  market={selectedMarket}
+                  signalId={publishedSignalId}
+                  text={composerSide + ' signal on ' + selectedMarket.title}
+                  type="signal"
+                />
+              ) : null}
             </section>
+
+            <NetworkInviteCard handle={communityHandle} connected={portfolio.connected} onRequireWallet={onRequireWallet} />
+
+            <PreferenceMediaPanel
+              connected={portfolio.connected}
+              draft={preferenceDraft}
+              mediaItems={mediaItems}
+              mediaStatus={mediaStatus}
+              preference={preference}
+              onDraftChange={setPreferenceDraft}
+              onGenerate={() => void generateNewsNow()}
+              onRequireWallet={onRequireWallet}
+              onSave={() => void savePreferences()}
+            />
 
             <section className="rounded-lg border border-[#262626] bg-[#111111] p-3">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="flex flex-wrap gap-2">
-                  {(['all', 'news', 'markets', 'trades'] as FeedTab[]).map((tab) => (
+                  {(['all', 'people', 'news', 'markets', 'trades'] as FeedTab[]).map((tab) => (
                     <button
                       aria-pressed={feedTab === tab}
                       className={`rounded border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
@@ -365,11 +661,21 @@ export default function ActivityView({
               </div>
             </section>
 
+            {feedTab === 'people' ? (
+              <PeopleNetwork
+                currentUserId={session?.user.id}
+                networkStatus={networkStatus}
+                pendingActionId={pendingActionId}
+                users={networkUsers}
+                onFollow={(userId) => void toggleFollow(userId)}
+              />
+            ) : (
             <div className="flex flex-col gap-4">
               {filteredFeed.length > 0 ? filteredFeed.map((item) => {
                 const isSystem = item.type === 'system';
                 const market = item.marketId ? markets.find((entry) => entry.id === item.marketId) : null;
                 const replies = item.replies ?? [];
+                const itemParticipants = item.signalId ? participants[item.signalId] : undefined;
 
                 return (
                   <article
@@ -381,7 +687,7 @@ export default function ActivityView({
                     <div className="flex items-start gap-4">
                       <Avatar item={item} />
                       <div className="min-w-0 flex-1">
-                        <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
                             <span className={`font-mono text-sm font-bold ${isSystem ? 'text-deep-orange' : 'text-white'}`}>
                               {isSystem ? item.name : '@' + item.username}
@@ -391,6 +697,13 @@ export default function ActivityView({
                             </span>
                             <span className="font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/55">{item.time}</span>
                           </div>
+                          <FollowButton
+                            actorUserId={item.actorUserId}
+                            currentUserId={session?.user.id}
+                            isFollowing={item.actorUserId ? followingIds.has(item.actorUserId) : false}
+                            pending={item.actorUserId ? pendingActionId === 'follow-' + item.actorUserId : false}
+                            onFollow={(userId) => void toggleFollow(userId)}
+                          />
                         </div>
 
                         <p className="mb-4 whitespace-pre-wrap text-sm leading-relaxed text-[#ccc3d8]">{item.text}</p>
@@ -406,13 +719,23 @@ export default function ActivityView({
                                 </span>
                               </div>
                               {market ? (
-                                <button
-                                  className="rounded border border-deep-orange/40 bg-deep-orange/10 px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange transition-colors hover:bg-deep-orange hover:text-black"
-                                  onClick={() => onOpenMarket(market)}
-                                  type="button"
-                                >
-                                  Open market
-                                </button>
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    className="rounded border border-deep-orange/40 bg-deep-orange/10 px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange transition-colors hover:bg-deep-orange hover:text-black"
+                                    onClick={() => onOpenMarket(market)}
+                                    type="button"
+                                  >
+                                    Open market
+                                  </button>
+                                  <button
+                                    className="inline-flex items-center gap-1.5 rounded border border-[#262626] bg-[#111] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
+                                    onClick={() => setShareTargetMarket(market)}
+                                    type="button"
+                                  >
+                                    <Share2 size={12} />
+                                    Share
+                                  </button>
+                                </div>
                               ) : null}
                             </div>
                           </div>
@@ -420,8 +743,12 @@ export default function ActivityView({
 
                         {!isSystem ? (
                           <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-[#ccc3d8] font-mono text-[10px] uppercase font-bold tracking-widest">
-                            <FeedAction active={item.likedByUser} busy={pendingActionId === 'like-' + item.id} count={item.likes} icon="heart" label="Like" onClick={() => void toggleLike(item)} />
-                            <FeedAction active={item.repostedByUser} busy={pendingActionId === 'repost-' + item.id} count={item.repeats} icon="repeat" label="Repost" onClick={() => void toggleRepost(item)} />
+                            {item.signalId ? (
+                              <>
+                                <FeedAction active={item.likedByUser} busy={pendingActionId === 'like-' + item.id} count={item.likes} icon="heart" label="Like" onClick={() => void toggleLike(item)} />
+                                <FeedAction active={item.repostedByUser} busy={pendingActionId === 'repost-' + item.id} count={item.repeats} icon="repeat" label="Repost" onClick={() => void toggleRepost(item)} />
+                              </>
+                            ) : null}
                             <button
                               aria-expanded={activeReplyId === item.id}
                               className="flex items-center gap-1.5 transition-colors hover:text-white"
@@ -432,6 +759,10 @@ export default function ActivityView({
                               <span>Reply ({item.commentsCount})</span>
                             </button>
                           </div>
+                        ) : null}
+
+                        {!isSystem ? (
+                          <SocialProof participants={itemParticipants} />
                         ) : null}
 
                         {replies.length > 0 ? (
@@ -450,7 +781,7 @@ export default function ActivityView({
                             <input
                               className="min-h-10 flex-1 rounded border border-[#262626] bg-[#0A0A0A] px-3 text-xs text-white outline-none focus:border-deep-orange"
                               onChange={(event) => setReplyText(event.target.value)}
-                              placeholder={portfolio.connected ? 'Reply with a source, angle, or counterpoint...' : 'Connect wallet to reply'}
+                              placeholder={getReplyPlaceholder(portfolio.connected, hasCommunityIdentity)}
                               value={replyText}
                             />
                             <button
@@ -468,10 +799,13 @@ export default function ActivityView({
                 );
               }) : (
                 <div className="rounded-lg border border-[#262626] bg-surface-card p-6 text-sm text-[#ccc3d8]">
-                  No posts match this filter yet.
+                  {realMarkets.length === 0
+                    ? 'Market Pulse is waiting for core market data. Once markets return, users can post signals, replies, and sourced updates.'
+                    : 'No posts match this filter yet. Start a market take or clear the search.'}
                 </div>
               )}
             </div>
+            )}
           </div>
 
           <aside className="lg:col-span-4 flex flex-col gap-6">
@@ -484,20 +818,32 @@ export default function ActivityView({
                 <Newspaper className="text-deep-orange" size={18} />
               </div>
               <div className="grid gap-3">
-                {markets.slice(0, 5).map((market) => (
-                  <button
-                    className="rounded border border-[#262626] bg-[#0A0A0A] p-3 text-left transition-colors hover:border-deep-orange/50 hover:bg-deep-orange/5"
+                {realMarkets.length > 0 ? realMarkets.slice(0, 5).map((market) => (
+                  <article
+                    className="rounded border border-[#262626] bg-[#0A0A0A] p-3 transition-colors hover:border-deep-orange/50 hover:bg-deep-orange/5"
                     key={market.id}
-                    onClick={() => onOpenMarket(market)}
-                    type="button"
                   >
-                    <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">
-                      {market.discoveryTopic ?? market.category}
-                    </span>
-                    <strong className="mt-1 line-clamp-2 block text-sm leading-snug text-white">{market.title}</strong>
-                    <small className="mt-2 block font-mono text-[10px] text-deep-orange">YES {formatChance(market.currentOdds)}</small>
-                  </button>
-                ))}
+                    <button className="w-full text-left" onClick={() => onOpenMarket(market)} type="button">
+                      <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">
+                        {market.discoveryTopic ?? market.category}
+                      </span>
+                      <strong className="mt-1 line-clamp-2 block text-sm leading-snug text-white">{market.title}</strong>
+                      <small className="mt-2 block font-mono text-[10px] text-deep-orange">YES {formatChance(market.currentOdds)}</small>
+                    </button>
+                    <button
+                      className="mt-3 inline-flex items-center gap-1.5 rounded border border-[#262626] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white"
+                      onClick={() => setShareTargetMarket(market)}
+                      type="button"
+                    >
+                      <Share2 size={11} />
+                      Share
+                    </button>
+                  </article>
+                )) : (
+                  <p className="rounded border border-[#262626] bg-[#0A0A0A] p-4 text-sm text-[#ccc3d8]">
+                    Market data is reconnecting. No placeholder watchlist is shown.
+                  </p>
+                )}
               </div>
             </section>
 
@@ -589,6 +935,10 @@ export default function ActivityView({
         </div>
       </div>
 
+      {shareTargetMarket ? (
+        <ShareCardModal market={shareTargetMarket} onClose={() => setShareTargetMarket(null)} />
+      ) : null}
+
       {showFullLeaderboardModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
           <div className="bg-[#161616] border border-[#262626] rounded-xl w-full max-w-2xl overflow-hidden relative glow-orange">
@@ -653,6 +1003,370 @@ export default function ActivityView({
   );
 }
 
+
+function CommunityIdentityNotice({
+  connected,
+  handle,
+  onRequireWallet,
+}: {
+  connected: boolean;
+  handle: string;
+  onRequireWallet: () => void;
+}) {
+  if (connected && handle) {
+    return (
+      <div className="mb-4 rounded border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-[#ccc3d8]">
+        Posting as <strong className="font-mono text-emerald-300">@{handle}</strong>. Likes, reposts, and replies build your public market record.
+      </div>
+    );
+  }
+
+  if (connected) {
+    return (
+      <div className="mb-4 flex flex-col gap-3 rounded border border-deep-orange/30 bg-deep-orange/10 p-3 text-sm text-[#f3e8d5] sm:flex-row sm:items-center sm:justify-between">
+        <span>Claim a .viction name before posting, liking, reposting, or replying.</span>
+        <Link
+          className="inline-flex min-h-9 items-center justify-center rounded border border-deep-orange bg-deep-orange px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-black hover:bg-white"
+          href="/me/profile"
+        >
+          Claim name
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4 flex flex-col gap-3 rounded border border-[#262626] bg-[#0A0A0A] p-3 text-sm text-[#ccc3d8] sm:flex-row sm:items-center sm:justify-between">
+      <span>Connect a wallet, claim a .viction name, then join Market Pulse.</span>
+      <button
+        className="inline-flex min-h-9 items-center justify-center rounded border border-deep-orange bg-deep-orange px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-black hover:bg-white"
+        onClick={onRequireWallet}
+        type="button"
+      >
+        Connect wallet
+      </button>
+    </div>
+  );
+}
+
+function PreferenceMediaPanel({
+  connected,
+  draft,
+  mediaItems,
+  mediaStatus,
+  onDraftChange,
+  onGenerate,
+  onRequireWallet,
+  onSave,
+  preference,
+}: {
+  connected: boolean;
+  draft: string;
+  mediaItems: ActivityMediaItem[];
+  mediaStatus: string;
+  onDraftChange: (value: string) => void;
+  onGenerate: () => void;
+  onRequireWallet: () => void;
+  onSave: () => void;
+  preference: UserPreference | null;
+}) {
+  return (
+    <section className="rounded-lg border border-[#262626] bg-surface-card p-4 sm:p-5">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">AI market media</p>
+          <h2 className="mt-1 text-xl font-bold text-white">Personalized market pulse</h2>
+          <p className="mt-1 max-w-2xl text-sm text-[#ccc3d8]">Set topics once, then get fresh market news cards and animated views in Activity every 20 minutes.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="inline-flex min-h-10 items-center justify-center rounded border border-[#262626] bg-[#0A0A0A] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white"
+            onClick={connected ? onSave : onRequireWallet}
+            type="button"
+          >
+            Save preferences
+          </button>
+          <button
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded bg-deep-orange px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-black hover:bg-white"
+            onClick={connected ? onGenerate : onRequireWallet}
+            type="button"
+          >
+            <Sparkles size={13} />
+            Generate updates
+          </button>
+        </div>
+      </div>
+
+      <label className="grid gap-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]/70">
+        Topics
+        <input
+          className="min-h-11 rounded border border-[#262626] bg-[#0A0A0A] px-3 text-xs text-white outline-none focus:border-deep-orange"
+          disabled={!connected}
+          onChange={(event) => onDraftChange(event.target.value)}
+          placeholder="Sports, World Cup, Crypto, Geopolitics"
+          value={draft}
+        />
+      </label>
+      <div className="mt-2 flex flex-wrap gap-2 font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/55">
+        <span className="rounded border border-[#262626] bg-[#0A0A0A] px-2 py-1">Cadence {preference?.newsIntervalMinutes ?? 20} min</span>
+        <span className="rounded border border-[#262626] bg-[#0A0A0A] px-2 py-1">Media image/video</span>
+        <span className="rounded border border-[#262626] bg-[#0A0A0A] px-2 py-1">Telegram support ready</span>
+      </div>
+      {mediaStatus ? <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/65">{mediaStatus}</p> : null}
+
+      {mediaItems.length > 0 ? (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {mediaItems.slice(0, 4).map((item) => (
+            <article className="overflow-hidden rounded-lg border border-[#262626] bg-[#0A0A0A]" key={item.id}>
+              {item.imageUrl ? (
+                <img alt="" className="aspect-[1200/630] w-full object-cover" src={absoluteMediaUrl(item.imageUrl)} />
+              ) : null}
+              <div className="p-3">
+                <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange">{item.kind}</p>
+                <h3 className="mt-1 line-clamp-2 text-sm font-bold text-white">{item.title}</h3>
+                <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-[#ccc3d8]">{item.summary}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {item.marketId ? (
+                    <Link className="rounded border border-deep-orange/40 bg-deep-orange/10 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange hover:bg-deep-orange hover:text-black" href={'/markets/' + item.marketId}>
+                      Open market
+                    </Link>
+                  ) : null}
+                  {item.videoUrl ? (
+                    <a className="inline-flex items-center gap-1 rounded border border-[#262626] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white" href={absoluteMediaUrl(item.videoUrl)} rel="noreferrer" target="_blank">
+                      <PlayCircle size={11} />
+                      Motion
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function NetworkInviteCard({
+  connected,
+  handle,
+  onRequireWallet,
+}: {
+  connected: boolean;
+  handle: string;
+  onRequireWallet: () => void;
+}) {
+  const inviteUrl = typeof window === 'undefined' ? 'https://convictionmarkets.xyz/activity' : window.location.origin + '/activity';
+  const inviteText = handle
+    ? 'Follow ' + handle + ' on Conviction Markets for prediction market takes and public trades.'
+    : 'Join me on Conviction Markets, a leveraged marketplace for prediction markets.';
+
+  return (
+    <section className="rounded-lg border border-deep-orange/30 bg-[#161616] p-4 sm:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Invite network</p>
+          <h2 className="mt-1 text-xl font-bold text-white">Bring traders into Market Pulse</h2>
+          <p className="mt-1 max-w-2xl text-sm text-[#ccc3d8]">Share your profile, bring friends from social apps, and turn market takes into a real trader network.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+          <InviteAction label="X" href={'https://twitter.com/intent/tweet?text=' + encodeURIComponent(inviteText) + '&url=' + encodeURIComponent(inviteUrl)} />
+          <InviteAction label="WhatsApp" href={'https://wa.me/?text=' + encodeURIComponent(inviteText + ' ' + inviteUrl)} />
+          <InviteAction label="Farcaster" href={'https://warpcast.com/~/compose?text=' + encodeURIComponent(inviteText + ' ' + inviteUrl)} />
+          <button
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded border border-[#262626] bg-[#0A0A0A] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white"
+            onClick={() => void copyInstagramInvite(inviteText + ' ' + inviteUrl)}
+            type="button"
+          >
+            <Instagram size={13} />
+            Instagram
+          </button>
+        </div>
+      </div>
+      {!connected ? (
+        <button
+          className="mt-4 inline-flex min-h-10 items-center justify-center rounded bg-deep-orange px-4 font-mono text-[10px] font-bold uppercase tracking-widest text-black hover:bg-white"
+          onClick={onRequireWallet}
+          type="button"
+        >
+          Connect wallet to claim your invite card
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+function InviteAction({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      className="inline-flex min-h-10 items-center justify-center gap-2 rounded border border-[#262626] bg-[#0A0A0A] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-deep-orange hover:text-deep-orange"
+      href={href}
+      rel="noreferrer"
+      target="_blank"
+    >
+      <SendIcon size={13} />
+      {label}
+    </a>
+  );
+}
+
+function PeopleNetwork({
+  currentUserId,
+  networkStatus,
+  onFollow,
+  pendingActionId,
+  users,
+}: {
+  currentUserId?: string;
+  networkStatus: string;
+  onFollow: (userId: string) => void;
+  pendingActionId: string | null;
+  users: DiscoveredUser[];
+}) {
+  const visibleUsers = users.filter((user) => user.user.id !== currentUserId);
+
+  if (visibleUsers.length === 0) {
+    return (
+      <section className="rounded-lg border border-[#262626] bg-surface-card p-6 text-sm text-[#ccc3d8]">
+        <div className="mb-3 grid h-10 w-10 place-items-center rounded-full border border-deep-orange/30 bg-deep-orange/10 text-deep-orange">
+          <Users size={18} />
+        </div>
+        {networkStatus || 'No other users found yet.'}
+      </section>
+    );
+  }
+
+  return (
+    <section className="grid gap-4 md:grid-cols-2">
+      {visibleUsers.map((user) => {
+        const label = getDiscoveredUserLabel(user);
+        const avatar = user.traderProfile?.avatarUrl || user.socialAccount?.profileUrl;
+        const following = Boolean(user.viewer?.following);
+
+        return (
+          <article className="rounded-lg border border-[#262626] bg-surface-card p-4" key={user.user.id}>
+            <div className="flex items-start gap-3">
+              <div className="grid h-11 w-11 flex-shrink-0 place-items-center overflow-hidden rounded-full border border-[#262626] bg-[#252525] font-mono text-xs font-bold uppercase text-white">
+                {avatar ? <img alt="" className="h-full w-full object-cover" src={avatar} /> : label.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <Link className="block truncate text-sm font-bold text-white hover:text-deep-orange" href={user.traderProfile ? '/traders/' + user.traderProfile.id : '/activity'}>
+                  {label}
+                </Link>
+                <p className="mt-1 line-clamp-2 text-xs text-[#ccc3d8]/75">{user.traderProfile?.bio ?? user.user.displayName ?? 'Conviction network user'}</p>
+                <dl className="mt-3 grid grid-cols-3 gap-2 font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/65">
+                  <UserMetric label="Followers" value={user.stats.followers} />
+                  <UserMetric label="Signals" value={user.stats.publicSignals} />
+                  <UserMetric label="Trades" value={user.stats.publicPositions} />
+                </dl>
+              </div>
+            </div>
+            <button
+              className={
+                'mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded border px-3 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors disabled:cursor-wait disabled:opacity-60 ' +
+                (following ? 'border-[#262626] bg-[#0A0A0A] text-[#ccc3d8] hover:border-white/40 hover:text-white' : 'border-deep-orange bg-deep-orange text-black hover:bg-white')
+              }
+              disabled={pendingActionId === 'follow-' + user.user.id || Boolean(user.viewer?.isSelf)}
+              onClick={() => onFollow(user.user.id)}
+              type="button"
+            >
+              <UserPlus size={13} />
+              {following ? 'Following' : 'Follow'}
+            </button>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
+function UserMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded border border-[#262626] bg-[#0A0A0A] p-2">
+      <dt>{label}</dt>
+      <dd className="mt-1 text-xs font-bold text-white">{value}</dd>
+    </div>
+  );
+}
+
+function FollowButton({
+  actorUserId,
+  currentUserId,
+  isFollowing,
+  onFollow,
+  pending,
+}: {
+  actorUserId?: string;
+  currentUserId?: string;
+  isFollowing: boolean;
+  onFollow: (userId: string) => void;
+  pending: boolean;
+}) {
+  if (!actorUserId || actorUserId === currentUserId) return null;
+
+  return (
+    <button
+      className={`w-fit rounded border px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-widest transition-colors disabled:cursor-wait disabled:opacity-60 ${
+        isFollowing
+          ? 'border-[#262626] bg-[#0A0A0A] text-[#ccc3d8] hover:border-white/40 hover:text-white'
+          : 'border-deep-orange bg-deep-orange text-black hover:bg-white'
+      }`}
+      disabled={pending}
+      onClick={() => onFollow(actorUserId)}
+      type="button"
+    >
+      {isFollowing ? 'Following' : 'Follow'}
+    </button>
+  );
+}
+
+function SocialProof({ participants }: { participants?: SignalParticipants }) {
+  if (!participants) return null;
+
+  const rows = [
+    { label: 'Liked by', actors: participants.reactions, icon: Heart },
+    { label: 'Reposted by', actors: participants.bookmarks, icon: Repeat },
+    { label: 'Commented by', actors: participants.commenters, icon: MessageSquare },
+  ].filter((row) => row.actors.length > 0);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="mt-3 grid gap-2 rounded border border-[#262626] bg-[#0A0A0A] p-3">
+      {rows.map((row) => {
+        const Icon = row.icon;
+        return (
+          <div className="flex min-w-0 items-center gap-2 text-xs text-[#ccc3d8]" key={row.label}>
+            <Icon className="flex-shrink-0 text-deep-orange" size={13} />
+            <div className="flex min-w-0 items-center gap-2">
+              <ActorStack actors={row.actors} />
+              <span className="min-w-0 truncate">
+                {row.label} <strong className="text-white">{formatActorList(row.actors)}</strong>
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ActorStack({ actors }: { actors: SocialActor[] }) {
+  return (
+    <div className="flex flex-shrink-0 -space-x-1.5">
+      {actors.slice(0, 4).map((actor) => (
+        <span
+          className="grid h-6 w-6 place-items-center rounded-full border border-[#0A0A0A] bg-[#252525] font-mono text-[9px] font-bold uppercase text-white"
+          key={actor.userId}
+          title={getActorName(actor)}
+        >
+          {getActorInitials(actor)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function Avatar({ item }: { item: ActivityItem }) {
   if (item.type === 'system') {
     return (
@@ -708,6 +1422,110 @@ function PulseMetric({ label, value }: { label: string; value: number | string }
   );
 }
 
+function ShareCardPanel({
+  market,
+  onClose,
+  signalId,
+  text,
+  type,
+}: {
+  market: PredictionMarket;
+  onClose?: () => void;
+  signalId?: string;
+  text: string;
+  type: 'market' | 'signal';
+}) {
+  const path = type === 'signal' && signalId ? '/signals/' + signalId : '/markets/' + market.id;
+  const url = getShareUrl(path);
+  const cardUrl = getShareUrl('/api/miniapp-image?type=' + type + '&id=' + encodeURIComponent(type === 'signal' && signalId ? signalId : market.id));
+
+  return (
+    <div className="mt-4 rounded-lg border border-deep-orange/30 bg-[#0A0A0A] p-3">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="min-w-0">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Share card ready</p>
+              <p className="mt-1 text-sm text-[#ccc3d8]">This link renders a Conviction event card preview on social apps.</p>
+            </div>
+            {onClose ? (
+              <button
+                className="rounded border border-[#262626] px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white"
+                onClick={onClose}
+                type="button"
+              >
+                Close
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <ShareCardAction label="X" href={getXShareUrl(text, url)} />
+          <ShareCardAction label="WhatsApp" href={'https://wa.me/?text=' + encodeURIComponent(text + ' ' + url)} />
+          <ShareCardAction label="Farcaster" href={'https://warpcast.com/~/compose?text=' + encodeURIComponent(text) + '&embeds[]=' + encodeURIComponent(url)} />
+          <button
+            className="inline-flex min-h-9 items-center justify-center gap-2 rounded border border-[#262626] bg-[#111] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white"
+            onClick={() => void copyShareText(text + ' ' + url)}
+            type="button"
+          >
+            <Instagram size={13} />
+            Instagram
+          </button>
+        </div>
+      </div>
+      <a className="mt-3 block truncate rounded border border-[#262626] bg-[#050505] px-3 py-2 font-mono text-[10px] text-[#ccc3d8] hover:text-white" href={cardUrl} rel="noreferrer" target="_blank">
+        Preview card image
+      </a>
+    </div>
+  );
+}
+
+function ShareCardAction({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      className="inline-flex min-h-9 items-center justify-center gap-2 rounded border border-[#262626] bg-[#111] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-deep-orange hover:text-deep-orange"
+      href={href}
+      rel="noreferrer"
+      target="_blank"
+    >
+      <Share2 size={12} />
+      {label}
+    </a>
+  );
+}
+
+function ShareCardModal({ market, onClose }: { market: PredictionMarket; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-xl border border-[#262626] bg-[#111111] p-4 shadow-2xl shadow-black/50">
+        <ShareCardPanel
+          market={market}
+          onClose={onClose}
+          text={market.title + ' on Conviction Markets'}
+          type="market"
+        />
+      </div>
+    </div>
+  );
+}
+
+function getShareUrl(path: string) {
+  const base = typeof window === 'undefined' ? 'https://convictionmarkets.xyz' : window.location.origin;
+  return base + path;
+}
+
+function getXShareUrl(text: string, url: string) {
+  return 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url);
+}
+
+async function copyShareText(value: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    // Copy is best-effort for social share text.
+  }
+}
+
 function TradeMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded border border-[#262626] bg-[#050505] p-3">
@@ -717,39 +1535,13 @@ function TradeMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function buildSeededFeed(activity: ActivityItem[], markets: PredictionMarket[]) {
-  const socialItems: ActivityItem[] = activity.map((item) => ({
+function normalizeActivityFeed(activity: ActivityItem[]) {
+  return dedupeActivityItems(activity.map((item) => ({
     ...item,
     kind: item.kind ?? 'signal',
     replies: item.replies ?? [],
     topic: item.topic ?? 'Signal',
-  }));
-  const marketNews = markets.slice(0, 8).map((market, index): ActivityItem => ({
-    id: 'market-pulse-' + market.id,
-    username: 'marketdesk',
-    name: 'Market Desk',
-    time: index < 2 ? 'live' : market.syncedAt ? 'updated' : 'watching',
-    text: buildMarketPulseText(market),
-    type: 'request',
-    kind: 'news',
-    likes: Math.max(2, Math.round(market.currentOdds / 12)),
-    commentsCount: index % 3,
-    repeats: Math.max(1, Math.round((100 - market.currentOdds) / 18)),
-    marketId: market.id,
-    marketPrice: 'YES ' + formatChance(market.currentOdds),
-    marketTitle: market.title,
-    replies: [],
-    topic: market.discoveryTopic ?? market.category ?? 'Market pulse',
-  }));
-
-  return [...socialItems, ...marketNews];
-}
-
-function buildMarketPulseText(market: PredictionMarket) {
-  const description = market.description.replace(/\s+/g, ' ').trim();
-  const summary = description.length > 180 ? description.slice(0, 177).trimEnd() + '...' : description;
-
-  return `${market.discoveryTopic ?? market.category} market moving at ${formatChance(market.currentOdds)} YES.\n${summary}`;
+  })));
 }
 
 function dedupeActivityItems(items: ActivityItem[]) {
@@ -760,27 +1552,6 @@ function dedupeActivityItems(items: ActivityItem[]) {
     seen.add(item.id);
     return true;
   });
-}
-
-function applyInteractionState(item: ActivityItem, interaction: FeedInteraction | undefined): ActivityItem {
-  const localReplies = interaction?.replies ?? [];
-  const baseReplies = item.replies ?? [];
-  const baseLiked = item.likedByUser ?? false;
-  const baseReposted = item.repostedByUser ?? false;
-  const liked = interaction?.liked ?? baseLiked;
-  const reposted = interaction?.reposted ?? baseReposted;
-  const likeDelta = liked === baseLiked ? 0 : liked ? 1 : -1;
-  const repostDelta = reposted === baseReposted ? 0 : reposted ? 1 : -1;
-
-  return {
-    ...item,
-    commentsCount: item.commentsCount + localReplies.length,
-    likedByUser: liked,
-    likes: Math.max(0, item.likes + likeDelta),
-    replies: [...baseReplies, ...localReplies],
-    repeats: Math.max(0, item.repeats + repostDelta),
-    repostedByUser: reposted,
-  };
 }
 
 function filterFeed(feed: ActivityItem[], tab: FeedTab, query: string) {
@@ -802,6 +1573,7 @@ function filterFeed(feed: ActivityItem[], tab: FeedTab, query: string) {
 }
 
 function getTabLabel(tab: FeedTab) {
+  if (tab === 'people') return 'People';
   if (tab === 'news') return 'News';
   if (tab === 'markets') return 'Markets';
   if (tab === 'trades') return 'Trades';
@@ -814,39 +1586,6 @@ function getKindLabel(kind: ActivityItem['kind']) {
   if (kind === 'post') return 'Post';
   if (kind === 'signal') return 'Signal';
   return 'Pulse';
-}
-
-function readStoredActivityItems(key: string): ActivityItem[] {
-  const parsed = readStoredJson<ActivityItem[]>(key, []);
-
-  return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.id === 'string') : [];
-}
-
-function readStoredInteractions(): InteractionStore {
-  const parsed = readStoredJson<InteractionStore>(INTERACTIONS_KEY, {});
-
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-}
-
-function readStoredJson<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
-
-  try {
-    const value = window.localStorage.getItem(key);
-    return value ? JSON.parse(value) as T : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStoredJson(key: string, value: unknown) {
-  if (typeof window === 'undefined') return;
-
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Ignore storage failures; the feed remains interactive for this session.
-  }
 }
 
 const EXPLORER_TX_BASE_BY_CHAIN: Record<number, string> = {
@@ -878,8 +1617,59 @@ function getWalletUsername(portfolio: UserPortfolio) {
   return portfolio.address ? 'wallet' + portfolio.address.slice(-6).toLowerCase() : 'guest';
 }
 
+function getSessionUsername(session: UserSession | null, portfolio: UserPortfolio) {
+  return session?.traderProfile?.handle ?? session?.socialAccount?.username ?? getWalletUsername(portfolio);
+}
+
 function getSessionDisplayName(session: UserSession | null, portfolio: UserPortfolio) {
   return session?.traderProfile?.handle ?? session?.socialAccount?.username ?? (portfolio.address ? 'Wallet ' + compactHash(portfolio.address) : 'Conviction trader');
+}
+
+function parseFollowingIds(body: unknown) {
+  if (!body || typeof body !== 'object' || !('ok' in body)) return [];
+  const response = body as { ok?: boolean; data?: { following?: Array<{ followingId: string }> } };
+
+  return response.ok && Array.isArray(response.data?.following)
+    ? response.data.following.map((item) => item.followingId)
+    : [];
+}
+
+async function postFollowAction({
+  followerId,
+  followingId,
+  method,
+}: {
+  followerId: string;
+  followingId: string;
+  method: 'POST' | 'DELETE';
+}) {
+  try {
+    const response = await fetch('/api/social/follows', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ followerId, followingId }),
+    });
+    const body = (await response.json()) as { ok?: boolean };
+
+    return response.ok && body.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function postPositionReply({ positionId, userId, body }: { positionId: string; userId: string; body: string }): Promise<boolean> {
+  try {
+    const response = await fetch('/api/social/positions/' + encodeURIComponent(positionId) + '/replies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authorUserId: userId, body }),
+    });
+    const parsed = (await response.json()) as { ok?: boolean };
+
+    return response.ok && parsed.ok === true;
+  } catch {
+    return false;
+  }
 }
 
 async function postSocialAction({
@@ -941,6 +1731,95 @@ function formatReplyTime(value: string) {
 
   const hours = Math.floor(minutes / 60);
   return hours < 24 ? hours + 'h ago' : Math.floor(hours / 24) + 'd ago';
+}
+
+
+function getComposerPlaceholder(connected: boolean, hasCommunityIdentity: boolean) {
+  if (!connected) return 'Connect wallet to join Market Pulse';
+  if (!hasCommunityIdentity) return 'Claim a .viction name before posting';
+  return 'What changed, and how should the market price it?';
+}
+
+function getReplyPlaceholder(connected: boolean, hasCommunityIdentity: boolean) {
+  if (!connected) return 'Connect wallet to reply';
+  if (!hasCommunityIdentity) return 'Claim a .viction name before replying';
+  return 'Reply with a source, angle, or counterpoint...';
+}
+
+async function refreshMediaFeed(
+  userId: string,
+  setItems: (items: ActivityMediaItem[]) => void,
+  setStatus: (status: string) => void,
+) {
+  try {
+    const params = new URLSearchParams({ userId, limit: '12' });
+    const response = await fetch('/api/activity-media?' + params.toString());
+    const body = (await response.json()) as ActivityMediaResponse;
+    const items = response.ok && body.ok ? body.data.items ?? [] : [];
+    setItems(items);
+    if (items.length === 0) setStatus('Set preferences, then generate personalized market media.');
+  } catch {
+    setItems([]);
+    setStatus('Personalized media feed is unavailable right now.');
+  }
+}
+
+function absoluteMediaUrl(value: string) {
+  if (value.startsWith('http')) return value;
+  if (typeof window === 'undefined') return value;
+  return window.location.origin + value;
+}
+
+async function fetchSignalParticipants(signalId: string): Promise<SignalParticipants> {
+  try {
+    const response = await fetch('/api/social/signals/' + encodeURIComponent(signalId) + '/participants?limit=12');
+    const body = (await response.json()) as ParticipantsResponse;
+
+    if (!response.ok || !body.ok || !body.data.participants) {
+      return emptyParticipants();
+    }
+
+    return {
+      reactions: body.data.participants.reactions ?? [],
+      bookmarks: body.data.participants.bookmarks ?? [],
+      commenters: body.data.participants.commenters ?? [],
+    };
+  } catch {
+    return emptyParticipants();
+  }
+}
+
+function emptyParticipants(): SignalParticipants {
+  return { reactions: [], bookmarks: [], commenters: [] };
+}
+
+function formatActorList(actors: SocialActor[]) {
+  const names = actors.map(getActorName).filter(Boolean);
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return names[0] + ' and ' + names[1];
+  return names[0] + ', ' + names[1] + ' and ' + (names.length - 2) + ' others';
+}
+
+function getActorName(actor: SocialActor) {
+  return actor.handle ?? actor.username ?? actor.displayName ?? compactHash(actor.platformUserId ?? actor.userId);
+}
+
+function getActorInitials(actor: SocialActor) {
+  const name = getActorName(actor).replace(/^@/, '');
+  return name.slice(0, 2) || 'CM';
+}
+
+function getDiscoveredUserLabel(user: DiscoveredUser) {
+  return user.traderProfile?.handle ?? user.socialAccount?.username ?? user.user.displayName ?? compactHash(user.user.id);
+}
+
+async function copyInstagramInvite(value: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    // Copy is best-effort for social invite text.
+  }
 }
 
 function formatChance(value: number) {

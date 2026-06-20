@@ -6,29 +6,44 @@ import { MiniAppReady } from "../components/MiniAppReady";
 import "./globals.css";
 
 const appUrl = "https://convictionmarkets.xyz";
+const appName = "Conviction Markets";
+const productDescription =
+  "A leveraged prediction market platform where traders get more exposure to event markets and liquidity providers earn yield through vaults.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
-    default: "Conviction Markets | Prediction Market Discovery and Margin",
+    default: "Conviction Markets | Leveraged Prediction Markets",
     template: "%s | Conviction Markets",
   },
-  description:
-    "Browse prediction markets by topic and region, review event details, and request margin using Conviction vault liquidity.",
-  applicationName: "Conviction Markets",
+  description: productDescription,
+  applicationName: appName,
+  authors: [{ name: appName, url: appUrl }],
+  creator: appName,
+  publisher: appName,
+  category: "finance",
   alternates: {
     canonical: "/",
   },
   keywords: [
+    "leveraged prediction markets",
     "prediction markets",
-    "prediction market discovery",
+    "prediction market margin",
+    "prediction market leverage",
     "crypto prediction markets",
     "sports prediction markets",
+    "event markets",
+    "event trading",
     "geopolitics prediction markets",
-    "market odds",
+    "prediction market odds",
     "margin trading",
+    "vault yield",
+    "liquidity vaults",
+    "Polymarket leverage",
+    "Polymarket margin",
     "Conviction Markets",
   ],
+  manifest: "/site.webmanifest",
   icons: {
     icon: [
       { url: "/logo/icon-32.png", sizes: "32x32", type: "image/png" },
@@ -36,13 +51,16 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/logo/icon-180.png", sizes: "180x180", type: "image/png" }],
   },
+  other: {
+    "llms-txt": appUrl + "/llms.txt",
+  },
   openGraph: {
-    title: "Conviction Markets",
-    description:
-      "A prediction market discovery and margin terminal for crypto, sports, geopolitics, culture, economics, and social events.",
+    title: "Conviction Markets | Leveraged Prediction Markets",
+    description: productDescription,
     url: appUrl,
-    siteName: "Conviction Markets",
+    siteName: appName,
     type: "website",
+    locale: "en_US",
     images: [
       {
         url: "/logo/conviction-markets-3d-black-bg.png",
@@ -54,9 +72,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Conviction Markets",
-    description:
-      "Browse global prediction markets, review event rules, and request margin through Conviction vault liquidity.",
+    title: "Conviction Markets | Leveraged Prediction Markets",
+    description: productDescription,
     images: ["/logo/conviction-markets-3d-black-bg.png"],
   },
   robots: {
@@ -80,18 +97,71 @@ export const viewport: Viewport = {
 
 const structuredData = {
   "@context": "https://schema.org",
-  "@type": "WebApplication",
-  name: "Conviction Markets",
-  url: appUrl,
-  applicationCategory: "FinanceApplication",
-  operatingSystem: "Web",
-  description:
-    "Prediction market discovery and margin terminal for global event markets, wallet users, and liquidity vaults.",
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
-  },
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": appUrl + "/#organization",
+      name: appName,
+      url: appUrl,
+      logo: appUrl + "/logo/conviction-markets-landscape-light.png",
+      description:
+        "Conviction Markets builds vault-backed leverage for prediction market traders and yield opportunities for liquidity providers.",
+    },
+    {
+      "@type": "WebSite",
+      "@id": appUrl + "/#website",
+      name: appName,
+      url: appUrl,
+      description: productDescription,
+      publisher: {
+        "@id": appUrl + "/#organization",
+      },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: appUrl + "/markets?q={search_term_string}",
+        "query-input": "required name=search_term_string",
+      },
+    },
+    {
+      "@type": "WebApplication",
+      "@id": appUrl + "/#app",
+      name: appName,
+      alternateName: ["Conviction", "Conviction Markets App"],
+      url: appUrl,
+      applicationCategory: "FinanceApplication",
+      operatingSystem: "Web",
+      description: productDescription,
+      keywords:
+        "leveraged prediction markets, prediction market margin, event trading, liquidity vaults, vault yield",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+      },
+    },
+    {
+      "@type": "FAQPage",
+      "@id": appUrl + "/#faq",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "What is Conviction Markets?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Conviction Markets is a leveraged marketplace for prediction markets. Traders can get more exposure to event markets using vault-backed liquidity.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "How do liquidity providers earn on Conviction Markets?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Liquidity providers supply capital to vaults and earn yield from margin activity on the platform.",
+          },
+        },
+      ],
+    },
+  ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

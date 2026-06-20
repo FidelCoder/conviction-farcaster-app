@@ -36,6 +36,51 @@ export type Market = {
   volume24hr?: string | null;
 };
 
+
+export type UserPreference = {
+  id: string;
+  userId: string;
+  topics: string[];
+  regions: string[];
+  sports: string[];
+  mediaTypes: string[];
+  newsIntervalMinutes: number;
+  notifyInActivity: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ActivityMediaItem = {
+  id: string;
+  userId: string | null;
+  marketId: string | null;
+  kind: string;
+  title: string;
+  summary: string;
+  imageUrl: string | null;
+  videoUrl: string | null;
+  mediaBrief: unknown;
+  source: string;
+  status: string;
+  market: Market | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SupportTicket = {
+  id: string;
+  userId: string | null;
+  wallet: string | null;
+  email: string;
+  subject: string;
+  summary: string;
+  transcript: string | null;
+  status: string;
+  telegramSentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ExecutionCapabilityChain = {
   chainId: number;
   chainName: string;
@@ -190,6 +235,22 @@ export type UserSession = {
   traderProfile: TraderProfile | null;
 };
 
+export type DiscoveredUser = {
+  user: CoreUser;
+  socialAccount: SocialAccount | null;
+  traderProfile: TraderProfile | null;
+  stats: {
+    followers: number;
+    following: number;
+    publicSignals: number;
+    publicPositions: number;
+  };
+  viewer: {
+    isSelf: boolean;
+    following: boolean;
+  } | null;
+};
+
 export type CreateFarcasterSessionInput = {
   fid: number;
   username?: string | null;
@@ -238,6 +299,7 @@ export type Position = {
   chainTransactionHash?: string | null;
   idempotencyKey?: string | null;
   status: string;
+  visibility?: "PUBLIC" | "PRIVATE" | string | null;
   openedAt: string | null;
   closedAt: string | null;
   createdAt: string;
@@ -309,6 +371,7 @@ export type CreateMarginPositionInput = {
   leverageMultiplier: string;
   marginCollateral: string;
   idempotencyKey?: string | null;
+  visibility?: "PUBLIC" | "PRIVATE" | null;
 };
 
 export type CreateCopyIntentInput = {
@@ -361,6 +424,76 @@ export type SocialFeedItem = {
   recentReplies: SignalReply[];
 };
 
+export type SignalSocialParticipants = {
+  reactions: SocialActor[];
+  bookmarks: SocialActor[];
+  commenters: SocialActor[];
+};
+
+export type UserFollow = {
+  id: string;
+  followerId: string;
+  followingId: string;
+  follower: SocialActor;
+  following: SocialActor;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UserNotification = {
+  id: string;
+  userId: string;
+  actorUserId: string | null;
+  actor: SocialActor | null;
+  type: string;
+  entityType: string | null;
+  entityId: string | null;
+  message: string;
+  readAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PositionReply = {
+  id: string;
+  positionId: string;
+  authorUserId: string;
+  body: string;
+  status: string;
+  author: SocialActor;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PublicPosition = {
+  id: string;
+  userId: string;
+  marketId: string;
+  side: "YES" | "NO";
+  quantity: string;
+  executionMode: "SPOT" | "MARGIN";
+  leverageMultiplier: string | null;
+  marginCollateral: string | null;
+  notionalAmount: string | null;
+  status: string;
+  visibility: string;
+  createdAt: string;
+  updatedAt: string;
+  trader: SocialActor;
+  market: Market | null;
+  replies: PositionReply[];
+};
+
+export type SocialTimelineEvent = {
+  id: string;
+  type: "SIGNAL" | "REPOST" | "PUBLIC_TRADE" | "FOLLOW";
+  createdAt: string;
+  actor: SocialActor;
+  signal?: SocialFeedItem;
+  position?: PublicPosition;
+  follow?: UserFollow;
+};
+
 export type RecentSignalFeedResult =
   | { status: "ready"; signals: TradeSignal[]; message: null }
   | { status: "unavailable"; signals: []; message: string };
@@ -368,6 +501,10 @@ export type RecentSignalFeedResult =
 export type RecentSocialFeedResult =
   | { status: "ready"; feed: SocialFeedItem[]; message: null }
   | { status: "unavailable"; feed: []; message: string };
+
+export type SocialTimelineResult =
+  | { status: "ready"; events: SocialTimelineEvent[]; message: null }
+  | { status: "unavailable"; events: []; message: string };
 
 export type CreateTradeSignalInput = {
   traderProfileId: string;
@@ -517,6 +654,23 @@ export async function getTraderProfile(id: string) {
   );
 }
 
+export async function discoverUsers(options: { limit?: number; query?: string; viewerUserId?: string } = {}) {
+  const params = new URLSearchParams();
+  params.set("limit", String(options.limit ?? 50));
+  if (options.query?.trim()) params.set("query", options.query.trim());
+  if (options.viewerUserId) params.set("viewerUserId", options.viewerUserId);
+
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ users?: DiscoveredUser[] } | DiscoveredUser[]>(
+      "/users?" + params.toString(),
+      { allowNotFound: true },
+    );
+
+    if (!response) return [];
+    return Array.isArray(response) ? response : (response.users ?? []);
+  }, [] as DiscoveredUser[]);
+}
+
 export async function listLeaderboard(limit = 25) {
   return readOrFallback(async () => {
     const response = await coreRequest<{ leaderboard?: LeaderboardEntry[] } | LeaderboardEntry[]>(
@@ -629,6 +783,115 @@ export async function getSocialFeed(options: { limit?: number; viewerUserId?: st
 
     throw error;
   }
+}
+
+export async function getSignalSocialParticipants(signalId: string, limit = 20) {
+  const response = await coreRequest<
+    { participants?: SignalSocialParticipants } | SignalSocialParticipants
+  >(
+    "/signals/" +
+      encodeURIComponent(signalId) +
+      "/social/participants?limit=" +
+      encodeURIComponent(String(limit)),
+    { allowNotFound: true },
+  );
+
+  if (!response) {
+    return { reactions: [], bookmarks: [], commenters: [] } satisfies SignalSocialParticipants;
+  }
+
+  return "participants" in response && response.participants
+    ? response.participants
+    : (response as SignalSocialParticipants);
+}
+
+
+export async function getSocialTimeline(options: { limit?: number; userId?: string; scope?: "all" | "following" } = {}): Promise<SocialTimelineResult> {
+  const params = new URLSearchParams();
+  params.set("limit", String(options.limit ?? 50));
+
+  if (options.userId) params.set("userId", options.userId);
+  if (options.scope) params.set("scope", options.scope);
+
+  try {
+    const response = await coreRequest<{ events?: SocialTimelineEvent[] } | SocialTimelineEvent[]>(
+      "/social/timeline?" + params.toString(),
+      { allowNotFound: true },
+    );
+
+    if (!response) return { status: "ready", events: [], message: null };
+
+    return {
+      status: "ready",
+      events: Array.isArray(response) ? response : (response.events ?? []),
+      message: null,
+    };
+  } catch (error) {
+    if (isRecoverableReadError(error)) {
+      return {
+        status: "unavailable",
+        events: [],
+        message: error instanceof CoreApiError ? error.message : "Core API social timeline is unavailable.",
+      };
+    }
+
+    throw error;
+  }
+}
+
+export async function followUser(input: { followerId: string; followingId: string }) {
+  const response = await coreRequest<{ follow?: UserFollow } | UserFollow>("/social/follows", {
+    method: "POST",
+    body: input,
+  });
+
+  return "follow" in response && response.follow ? response.follow : (response as UserFollow);
+}
+
+export async function unfollowUser(input: { followerId: string; followingId: string }) {
+  return coreRequest<{ ok: boolean }>("/social/follows", {
+    method: "DELETE",
+    body: input,
+  });
+}
+
+export async function listUserFollowing(userId: string, limit = 100) {
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ following?: UserFollow[] } | UserFollow[]>(
+      "/users/" + encodeURIComponent(userId) + "/following?limit=" + encodeURIComponent(String(limit)),
+      { allowNotFound: true },
+    );
+
+    if (!response) return [];
+    return Array.isArray(response) ? response : (response.following ?? []);
+  }, [] as UserFollow[]);
+}
+
+export async function listUserNotifications(userId: string, limit = 50) {
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ notifications?: UserNotification[] } | UserNotification[]>(
+      "/users/" + encodeURIComponent(userId) + "/notifications?limit=" + encodeURIComponent(String(limit)),
+      { allowNotFound: true },
+    );
+
+    if (!response) return [];
+    return Array.isArray(response) ? response : (response.notifications ?? []);
+  }, [] as UserNotification[]);
+}
+
+export async function createPositionReply(input: { positionId: string; authorUserId: string; body: string }) {
+  const response = await coreRequest<{ reply?: PositionReply } | PositionReply>(
+    "/positions/" + encodeURIComponent(input.positionId) + "/replies",
+    {
+      method: "POST",
+      body: {
+        authorUserId: input.authorUserId,
+        body: input.body,
+      },
+    },
+  );
+
+  return "reply" in response && response.reply ? response.reply : (response as PositionReply);
 }
 
 export async function createSignalReply(input: { signalId: string; authorUserId: string; body: string }) {
@@ -883,6 +1146,54 @@ export async function startPositionExecution(positionId: string) {
     : (response as ExecutionAttempt);
 }
 
+
+export async function getUserPreference(userId: string) {
+  const response = await coreRequest<{ preference: UserPreference }>(
+    "/users/" + encodeURIComponent(userId) + "/preferences",
+  );
+  return response.preference;
+}
+
+export async function updateUserPreference(userId: string, input: Partial<Pick<UserPreference, "topics" | "regions" | "sports" | "mediaTypes" | "newsIntervalMinutes" | "notifyInActivity">>) {
+  const response = await coreRequest<{ preference: UserPreference }>(
+    "/users/" + encodeURIComponent(userId) + "/preferences",
+    { method: "PUT", body: input },
+  );
+  return response.preference;
+}
+
+export async function listActivityMedia(options: { userId?: string | null; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (options.userId) params.set("userId", options.userId);
+  if (options.limit) params.set("limit", String(options.limit));
+  const query = params.toString();
+  const response = await coreRequest<{ items: ActivityMediaItem[] }>("/activity-media" + (query ? "?" + query : ""));
+  return response.items;
+}
+
+export async function generateActivityMedia(input: { userId: string; limit?: number }) {
+  const response = await coreRequest<{ items: ActivityMediaItem[] }>("/activity-media/generate", {
+    method: "POST",
+    body: input,
+  });
+  return response.items;
+}
+
+export async function createSupportTicket(input: {
+  userId?: string | null;
+  wallet?: string | null;
+  email: string;
+  subject: string;
+  summary: string;
+  transcript?: string | null;
+}) {
+  const response = await coreRequest<{ ticket: SupportTicket }>("/support/tickets", {
+    method: "POST",
+    body: input,
+  });
+  return response.ticket;
+}
+
 export async function updateUserEmail(userId: string, email: string) {
   return coreRequest<{ email: string }>(
     "/users/" + encodeURIComponent(userId) + "/email",
@@ -915,7 +1226,7 @@ export async function createCopyIntent(input: CreateCopyIntentInput) {
 type CoreRequestOptions = {
   allowNotFound?: boolean;
   body?: unknown;
-  method?: "DELETE" | "GET" | "PATCH" | "POST";
+  method?: "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
 };
 
 const defaultCoreRequestTimeoutMs = 8000;

@@ -1,0 +1,21 @@
+{
+  "name": "Conviction Markets",
+  "short_name": "Conviction",
+  "description": "Leveraged prediction markets powered by vault liquidity.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f10",
+  "theme_color": "#ff6b12",
+  "icons": [
+    {
+      "src": "/logo/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

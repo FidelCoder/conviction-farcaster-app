@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const convictionLevel = optionalInteger(body.convictionLevel);
 
   if (!traderProfileId || !marketId || !side || !thesis) {
-    return validationError("Trader profile, market, side, and thesis are required.");
+    return validationError("Trader profile, market, side, and post text are required.");
   }
 
   if (!signalSides.has(side)) {
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   }
 
   if (thesis.length > 5000) {
-    return validationError("Thesis must be 5000 characters or less.");
+    return validationError("Post text must be 5000 characters or less.");
   }
 
   if (

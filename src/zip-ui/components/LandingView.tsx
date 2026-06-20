@@ -339,19 +339,20 @@ export default function LandingView({
         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-deep-orange via-electric-purple to-emerald-400" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center md:text-left">
           <div>
-            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Synced Markets</span>
+            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Available Markets</span>
             <span className="font-mono text-3xl font-extrabold text-white">{marketCount}</span>
+            {marketCount === 0 ? <span className="mt-2 block text-[10px] text-deep-orange">Core feed reconnecting</span> : null}
           </div>
           <div>
-            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Social Signals</span>
+            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Market Posts</span>
             <span className="font-mono text-3xl font-extrabold text-white">{socialCount}</span>
           </div>
           <div>
-            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Max Pending Leverage</span>
-            <span className="font-mono text-3xl font-extrabold text-deep-orange">{maxLeverage}x</span>
+            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Get Up To</span>
+            <span className="font-mono text-3xl font-extrabold text-deep-orange">{Math.max(maxLeverage, 10)}x</span>
           </div>
           <div>
-            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Execution Mode</span>
+            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Trading Flow</span>
             <span className="font-mono text-3xl font-extrabold text-emerald-400">Request</span>
           </div>
         </div>

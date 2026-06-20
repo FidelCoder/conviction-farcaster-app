@@ -6,8 +6,8 @@ import { createMiniAppPageMetadata, getMiniAppImagePath } from "../../lib/miniap
 export const dynamic = "force-dynamic";
 
 export const metadata = createMiniAppPageMetadata({
-  title: "Conviction Leaderboard",
-  description: "Real trader stats from Conviction Markets records.",
+  title: "Prediction Market Trader Leaderboard",
+  description: "Ranked Conviction traders, signals, and copy activity from recorded platform data.",
   imagePath: getMiniAppImagePath("leaderboard"),
   targetPath: "/leaderboard",
   buttonTitle: "Open leaderboard",

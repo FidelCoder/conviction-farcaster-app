@@ -226,13 +226,15 @@ export default function VaultsView({
             <h1 className="text-2xl font-sans font-bold text-white">Active Liquidity Vaults</h1>
             <p className="text-xs text-[#ccc3d8]/80 mt-1">Provide liquidity to back prediction contracts and claim institutional yields.</p>
           </div>
-          <button
-            onClick={() => setActiveModal('create')}
-            className="w-full sm:w-auto border border-[#F97316] text-[#F97316] hover:bg-[#F97316]/10 px-4 py-2 rounded text-xs font-mono font-bold tracking-wider uppercase transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <Plus size={14} />
-            <span>Create Vault</span>
-          </button>
+          {portfolio.connected ? (
+            <button
+              onClick={() => setActiveModal('create')}
+              className="w-full sm:w-auto border border-[#F97316] text-[#F97316] hover:bg-[#F97316]/10 px-4 py-2 rounded text-xs font-mono font-bold tracking-wider uppercase transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <Plus size={14} />
+              <span>Create Vault</span>
+            </button>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

@@ -17,7 +17,7 @@ export function formatDateTime(value: string) {
 }
 
 export function signalStatusLabel() {
-  return "Signal only";
+  return "Market call";
 }
 
 export function executionStatusLabel(status: string) {

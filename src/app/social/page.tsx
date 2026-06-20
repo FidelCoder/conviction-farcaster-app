@@ -11,11 +11,12 @@ import { createMiniAppPageMetadata, getMiniAppImagePath } from "../../lib/miniap
 export const dynamic = "force-dynamic";
 
 export const metadata = createMiniAppPageMetadata({
-  title: "Conviction Ideas",
-  description: "A real prediction-market social feed for Conviction Markets.",
+  title: "Prediction Market News and Signals",
+  description:
+    "Follow market takes, event news, odds moves, and trader signals connected to real prediction markets.",
   imagePath: getMiniAppImagePath("leaderboard"),
   targetPath: "/social",
-  buttonTitle: "Open ideas",
+  buttonTitle: "Open signals",
 });
 
 type FeedPost = SocialFeedItem;
@@ -125,7 +126,7 @@ function SocialSignalPost({ post }: { post: FeedPost }) {
     signal.side,
     priceLabel ? priceLabel + " current" : "price unavailable",
     signal.convictionLevel ? signal.convictionLevel + "% conviction" : null,
-    "Signal only",
+    "Market call",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -155,7 +156,7 @@ function SocialSignalPost({ post }: { post: FeedPost }) {
           />
           <SharePredictionActions
             className="social-post-share"
-            context={signal.side + " signal"}
+            context={signal.side + " market call"}
             path={"/signals/" + signal.id}
             title={marketTitle}
           />

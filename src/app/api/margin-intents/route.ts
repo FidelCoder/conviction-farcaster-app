@@ -25,6 +25,7 @@ export async function POST(request: Request) {
   const marginCollateral = stringField(body, "marginCollateral");
   const leverageMultiplier = stringField(body, "leverageMultiplier");
   const walletAddress = stringField(body, "walletAddress");
+  const visibility = stringField(body, "visibility") === "PUBLIC" ? "PUBLIC" : "PRIVATE";
   const chainId = numberField(body, "chainId");
 
   if (!userId || !marketId || !side || !quantity || !marginCollateral || !leverageMultiplier) {
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
       leverageMultiplier,
       marginCollateral,
       idempotencyKey: "farcaster-margin-" + randomUUID(),
+      visibility,
     });
     const executionAttempt = await startPositionExecution(position.id);
 

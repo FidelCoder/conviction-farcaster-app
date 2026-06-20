@@ -54,7 +54,7 @@ export function getMiniAppSplashImageUrl() {
 }
 
 export function getMiniAppImagePath(
-  type: "home" | "signal" | "position" | "leaderboard",
+  type: "home" | "market" | "signal" | "position" | "leaderboard",
   id?: string,
 ) {
   const params = new URLSearchParams({ type });
@@ -131,13 +131,20 @@ export function createMiniAppPageMetadata(options: {
     openGraph: {
       title: options.title,
       description: options.description,
+      url: getAbsoluteAppUrl(options.targetPath),
       images: [
         {
           url: imageUrl,
           width: 1200,
-          height: 800,
+          height: 630,
         },
       ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: options.title,
+      description: options.description,
+      images: [imageUrl],
     },
     other: {
       "fc:miniapp": JSON.stringify(miniAppEmbed),

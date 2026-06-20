@@ -46,7 +46,7 @@ interface MarginDeskViewProps {
   activeMarket: PredictionMarket;
   setActiveMarket: (market: PredictionMarket) => void;
   portfolio: UserPortfolio;
-  onRequestMargin: (vaultId: string, marginAmt: number, leverage: number, estPosition: number, liqPrice: number, outcomeType?: 'YES' | 'NO') => Promise<void> | void;
+  onRequestMargin: (vaultId: string, marginAmt: number, leverage: number, estPosition: number, liqPrice: number, outcomeType?: 'YES' | 'NO', visibility?: 'PUBLIC' | 'PRIVATE') => Promise<void> | void;
 }
 
 export default function MarginDeskView({
@@ -62,6 +62,7 @@ export default function MarginDeskView({
   const [leverage, setLeverage] = useState<number>(5);
   const [marginAmount, setMarginAmount] = useState<string>('');
   const [outcomeType, setOutcomeType] = useState<'YES' | 'NO'>('YES');
+  const [tradeVisibility, setTradeVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PRIVATE');
   const [isRequesting, setIsRequesting] = useState<boolean>(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [historyRange, setHistoryRange] = useState<MarketHistoryRange>('1w');
@@ -204,7 +205,8 @@ export default function MarginDeskView({
         leverage,
         estimatedPosition,
         liquidationOdds,
-        outcomeType
+        outcomeType,
+        tradeVisibility
       );
       setMarginAmount('');
     } finally {
@@ -514,6 +516,30 @@ export default function MarginDeskView({
           </div>
 
           <div className="mb-6">
+            <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">Trade Visibility</label>
+            <div className="grid grid-cols-2 gap-3">
+              {(['PRIVATE', 'PUBLIC'] as const).map((visibility) => (
+                <button
+                  key={visibility}
+                  type="button"
+                  onClick={() => setTradeVisibility(visibility)}
+                  aria-pressed={tradeVisibility === visibility}
+                  className={`rounded border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                    tradeVisibility === visibility
+                      ? 'border-deep-orange bg-deep-orange text-black'
+                      : 'border-[#262626] bg-[#0e0e0e] text-[#ccc3d8] hover:border-white/30'
+                  }`}
+                >
+                  {visibility === 'PUBLIC' ? 'Public' : 'Private'}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-[#ccc3d8]/75">
+              Public trades appear in Market Pulse for followers. Private trades stay in your portfolio.
+            </p>
+          </div>
+
+          <div className="mb-6">
             <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">
               Collateral From Vault ({selectedVault.asset})
             </label>
@@ -597,6 +623,10 @@ export default function MarginDeskView({
             <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
               <span>Estimated shares:</span>
               <span className="text-white font-semibold">{contractShares > 0 ? contractShares.toLocaleString() : '--'}</span>
+            </div>
+            <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
+              <span>Visibility:</span>
+              <span className="text-white font-semibold">{tradeVisibility}</span>
             </div>
             <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
               <span>Liquidation trigger:</span>

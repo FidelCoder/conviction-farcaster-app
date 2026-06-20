@@ -162,26 +162,30 @@ export default function Sidebar({
 
       {/* Footer Navigation details */}
       <div className="p-3 md:p-4 border-t border-[#262626] flex flex-col gap-1.5 mt-auto">
-        <a
-          href="/me/notifications"
-          onClick={onCloseMobile}
-          className="flex items-center gap-3 px-3 py-2 text-[#ccc3d8] hover:text-white transition-colors"
-        >
-          <Bell size={16} className="flex-shrink-0" />
-          <span className="font-mono text-[10px] uppercase tracking-wider inline">
-            Notifications
-          </span>
-        </a>
-        <a
-          href="/me/settings"
-          onClick={onCloseMobile}
-          className="flex items-center gap-3 px-3 py-2 text-[#ccc3d8] hover:text-white transition-colors"
-        >
-          <Settings size={16} className="flex-shrink-0" />
-          <span className="font-mono text-[10px] uppercase tracking-wider inline">
-            Settings
-          </span>
-        </a>
+        {portfolio.connected ? (
+          <>
+            <a
+              href="/me/notifications"
+              onClick={onCloseMobile}
+              className="flex items-center gap-3 px-3 py-2 text-[#ccc3d8] hover:text-white transition-colors"
+            >
+              <Bell size={16} className="flex-shrink-0" />
+              <span className="font-mono text-[10px] uppercase tracking-wider inline">
+                Notifications
+              </span>
+            </a>
+            <a
+              href="/me/settings"
+              onClick={onCloseMobile}
+              className="flex items-center gap-3 px-3 py-2 text-[#ccc3d8] hover:text-white transition-colors"
+            >
+              <Settings size={16} className="flex-shrink-0" />
+              <span className="font-mono text-[10px] uppercase tracking-wider inline">
+                Settings
+              </span>
+            </a>
+          </>
+        ) : null}
         <a
           href="/docs"
           onClick={onCloseMobile}
@@ -193,7 +197,7 @@ export default function Sidebar({
           </span>
         </a>
         <a
-          href="/docs#glossary"
+          href="/support"
           onClick={onCloseMobile}
           className="flex items-center gap-3 px-3 py-2 text-[#ccc3d8] hover:text-white transition-colors"
         >

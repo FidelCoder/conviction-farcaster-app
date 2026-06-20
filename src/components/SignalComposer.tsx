@@ -134,7 +134,7 @@ export function SignalComposer({ anchorId = "signal", markets }: SignalComposerP
     <section className="signal-composer" id={anchorId} aria-label="Create signal">
       <div className="signal-composer-copy">
         <p className="eyebrow">Signal desk</p>
-        <h2>Publish the thesis behind the trade.</h2>
+        <h2>Publish the market call behind the trade.</h2>
         <p>
           Signals are real Farcaster-sourced records tied to synced markets. They stay separate from
           execution until the core API confirms a live adapter.
@@ -257,7 +257,7 @@ export function SignalComposer({ anchorId = "signal", markets }: SignalComposerP
                 <dd>{formatCompactId(submitState.signal.id)}</dd>
               </div>
             </dl>
-            <p>Core stored the thesis as a signal only. No fill, balance, or PnL was created.</p>
+            <p>Core stored the post as a market call. No fill, balance, or PnL was created.</p>
           </div>
         ) : null}
 
@@ -308,7 +308,7 @@ function getSubmitBlockReason({
   }
 
   if (!thesis.trim()) {
-    return "Write a real thesis before publishing a signal.";
+    return "Write a real market call before publishing.";
   }
 
   const parsedConviction = convictionLevel ? Number(convictionLevel) : null;

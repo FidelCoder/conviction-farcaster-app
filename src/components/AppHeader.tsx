@@ -7,14 +7,27 @@ import { useEffect, useState } from "react";
 
 const navItems = [
   { href: "/markets", label: "Markets" },
-  { href: "/margin", label: "Margin" },
-  { href: "/#activity", label: "Activity" },
+  { href: "/margin-desk", label: "Margin" },
+  { href: "/activity", label: "Activity" },
   { href: "/me/notifications", label: "Notifications" },
   { href: "/me/settings", label: "Settings" },
   { href: "/social", label: "Social" },
   { href: "/leaderboard", label: "Leaders" },
   { href: "/docs", label: "Docs" },
   { href: "/me/profile", label: "Profile" },
+];
+
+const terminalRoutePrefixes = [
+  "/activity",
+  "/docs",
+  "/leaderboard",
+  "/margin",
+  "/margin-desk",
+  "/markets",
+  "/me",
+  "/social",
+  "/support",
+  "/vaults",
 ];
 
 export function AppHeader() {
@@ -42,10 +55,7 @@ export function AppHeader() {
 
   if (
     pathname === "/" ||
-    pathname === "/docs" ||
-    pathname === "/me/profile" ||
-    pathname === "/me/settings" ||
-    pathname === "/me/notifications"
+    terminalRoutePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"))
   ) {
     return null;
   }

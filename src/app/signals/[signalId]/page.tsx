@@ -75,7 +75,7 @@ export default async function SignalPage({ params }: SignalPageProps) {
       ) : (
         <EmptyState
           title="No copyable position yet"
-          body="This signal is thesis only. Copy intents require a real source position from the trader on the same market."
+          body="This post is a market call. Copy intents require a real source position from the trader on the same market."
         />
       )}
     </main>

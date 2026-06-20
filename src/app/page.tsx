@@ -1,31 +1,17 @@
-import { BrowserTerminal } from "../components/BrowserTerminal";
-import { getExecutionCapabilities, getSocialFeed, listLeaderboard, listMarkets } from "../lib/core-api";
+import { TerminalRoutePage } from "../components/TerminalRoutePage";
 import { createMiniAppPageMetadata, getMiniAppImagePath } from "../lib/miniapp";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = createMiniAppPageMetadata({
-  title: "Conviction Markets Browser Terminal",
-  description: "Core-backed prediction market terminal for browser wallets and margin intents.",
+  title: "Leveraged Prediction Markets",
+  description:
+    "Trade event markets with more exposure. Liquidity providers supply capital to Conviction vaults and earn yield from margin activity.",
   imagePath: getMiniAppImagePath("home"),
   targetPath: "/",
-  buttonTitle: "Launch terminal",
+  buttonTitle: "Open Conviction",
 });
 
 export default async function HomePage() {
-  const [markets, execution, socialFeedResult, leaderboard] = await Promise.all([
-    listMarkets(),
-    getExecutionCapabilities(),
-    getSocialFeed({ limit: 40 }),
-    listLeaderboard(12),
-  ]);
-
-  return (
-    <BrowserTerminal
-      execution={execution}
-      leaderboard={leaderboard}
-      markets={markets}
-      socialFeed={socialFeedResult.feed}
-    />
-  );
+  return <TerminalRoutePage initialTab="landing" />;
 }
