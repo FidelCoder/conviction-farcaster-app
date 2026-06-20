@@ -105,10 +105,7 @@ export function TerminalShell({
 
   async function handleConnectWallet() {
     if (portfolio.connected) {
-      applySession(null);
-      clearStoredBrowserWalletSession();
-      onSessionChange?.(null);
-      triggerAlert("info", "Wallet session closed.");
+      triggerAlert("info", "Wallet already connected. Open the wallet menu to copy or disconnect.");
       return;
     }
 
@@ -149,11 +146,19 @@ export function TerminalShell({
     }
   }
 
+  function handleDisconnectWallet() {
+    applySession(null);
+    clearStoredBrowserWalletSession();
+    onSessionChange?.(null);
+    triggerAlert("info", "Wallet session closed.");
+  }
+
   return (
     <div className="min-h-screen bg-background-base text-on-surface font-sans selection:bg-deep-orange selection:text-black">
       <Header
         activeTab={activeTab}
         onConnectWallet={handleConnectWallet}
+        onDisconnectWallet={handleDisconnectWallet}
         portfolio={portfolio}
         setActiveTab={navigateFromTab}
       />

@@ -264,7 +264,7 @@ export default function ActivityView({
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 flex flex-col gap-4">
-            <section className="rounded-lg border border-[#262626] bg-surface-card p-4 sm:p-5">
+            <section className="overflow-hidden rounded-lg border border-[#262626] bg-surface-card p-4 sm:p-5">
               <div className="mb-4 flex items-start gap-3">
                 <div className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full border border-deep-orange/30 bg-deep-orange/10 text-deep-orange">
                   <Radio size={18} />
@@ -276,16 +276,16 @@ export default function ActivityView({
               </div>
 
               <form className="grid gap-3" onSubmit={handlePostSubmit}>
-                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_14rem]">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
                   <textarea
-                    className="min-h-28 resize-y rounded border border-[#262626] bg-[#0A0A0A] p-3 text-sm leading-relaxed text-white outline-none transition-colors placeholder:text-[#ccc3d8]/45 focus:border-deep-orange"
+                    className="min-h-28 min-w-0 resize-y rounded border border-[#262626] bg-[#0A0A0A] p-3 text-sm leading-relaxed text-white outline-none transition-colors placeholder:text-[#ccc3d8]/45 focus:border-deep-orange"
                     disabled={!portfolio.connected}
                     maxLength={500}
                     onChange={(event) => setNewPostText(event.target.value)}
                     placeholder={portfolio.connected ? 'What changed, and how should the market price it?' : 'Connect wallet to post into Market Pulse'}
                     value={newPostText}
                   />
-                  <div className="grid gap-3">
+                  <div className="grid min-w-0 gap-3">
                     <div className="grid grid-cols-2 gap-2">
                       {(['YES', 'NO'] as ComposerSide[]).map((side) => (
                         <button
@@ -305,10 +305,10 @@ export default function ActivityView({
                         </button>
                       ))}
                     </div>
-                    <label className="grid gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]/70">
+                    <label className="grid min-w-0 gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]/70">
                       Market
                       <select
-                        className="min-h-11 rounded border border-[#262626] bg-[#0A0A0A] p-2 text-xs text-white outline-none focus:border-deep-orange"
+                        className="min-h-11 w-full min-w-0 max-w-full truncate rounded border border-[#262626] bg-[#0A0A0A] p-2 text-xs text-white outline-none focus:border-deep-orange"
                         onChange={(event) => setSelectedMarketId(event.target.value)}
                         value={selectedMarket?.id ?? ''}
                       >
@@ -318,7 +318,7 @@ export default function ActivityView({
                       </select>
                     </label>
                     <button
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded bg-deep-orange px-4 py-2 font-sans text-xs font-bold uppercase tracking-widest text-black transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded bg-deep-orange px-4 py-2 font-sans text-xs font-bold uppercase tracking-widest text-black transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                       disabled={!portfolio.connected || !newPostText.trim() || pendingActionId === 'compose'}
                       type="submit"
                     >

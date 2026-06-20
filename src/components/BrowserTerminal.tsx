@@ -263,9 +263,7 @@ export function BrowserTerminal({
 
   async function handleConnectWallet() {
     if (portfolio.connected) {
-      applySession(null);
-      clearStoredBrowserWalletSession();
-      triggerAlert("info", "Wallet session closed.");
+      triggerAlert("info", "Wallet already connected. Open the wallet menu to copy or disconnect.");
       return;
     }
 
@@ -303,6 +301,12 @@ export function BrowserTerminal({
     } catch {
       triggerAlert("info", "Wallet connection was cancelled or failed.");
     }
+  }
+
+  function handleDisconnectWallet() {
+    applySession(null);
+    clearStoredBrowserWalletSession();
+    triggerAlert("info", "Wallet session closed.");
   }
 
   function handleOpenMargin(market: PredictionMarket) {
@@ -669,6 +673,7 @@ export function BrowserTerminal({
       <Header
         activeTab={activeTab}
         onConnectWallet={handleConnectWallet}
+        onDisconnectWallet={handleDisconnectWallet}
         onOpenMenu={() => setIsMobileMenuOpen(true)}
         portfolio={portfolio}
         setActiveTab={setActiveTab}
