@@ -26,7 +26,7 @@ export default function Header({
   const walletMenuRef = useRef<HTMLDivElement | null>(null);
   const walletLabel = portfolio.connected && portfolio.address
     ? `${portfolio.address.slice(0, 6)}...${portfolio.address.slice(-4)}`
-    : "CONNECT WALLET";
+    : "SIGN IN";
   const tabs = [
     { id: "markets", label: "Markets" },
     { id: "margin-desk", label: "Margin Desk" },
@@ -161,7 +161,7 @@ export default function Header({
           </>
         ) : null}
 
-        {/* Wallet Connector */}
+        {/* Account connector */}
         <div className="relative" ref={walletMenuRef}>
           <button
             aria-expanded={portfolio.connected ? walletMenuOpen : undefined}
@@ -184,7 +184,7 @@ export default function Header({
               role="menu"
             >
               <div className="border-b border-[#262626] px-3 py-3">
-                <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">Connected wallet</p>
+                <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">Signed-in wallet</p>
                 <p className="mt-1 truncate font-mono text-xs font-bold text-white">{portfolio.address}</p>
               </div>
               <button

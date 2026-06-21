@@ -91,7 +91,7 @@ export function ThirdwebWalletBridge({
         }
 
         onSessionReady(body.data.session);
-        onStatus("success", "Wallet connected and registered with core.");
+        onStatus("success", "Signed in and registered with core.");
       })
       .catch((error) => {
         onStatus("info", error instanceof Error ? error.message : "Wallet session failed.");
@@ -123,11 +123,11 @@ export function ThirdwebWalletBridge({
         client={thirdwebClient}
         connectButton={{
           className: "thirdweb-connect-trigger",
-          label: "Connect wallet",
+          label: "Sign in",
         }}
         connectModal={{
           size: "compact",
-          title: "Connect to Conviction Markets",
+          title: "Sign in to Conviction Markets",
           titleIcon: "/logo/conviction-markets-icon.png",
         }}
         detailsButton={detailsButton}

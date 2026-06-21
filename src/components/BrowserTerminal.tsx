@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { encodeFunctionData, erc20Abi, parseAbi, parseUnits } from "viem";
 
 import { MobileWalletLauncher } from "./MobileWalletLauncher";
@@ -66,6 +66,10 @@ type BrowserSessionResponse =
   | { ok: true; data: { session: UserSession } }
   | { ok: false; error: { code: string; message: string } };
 
+type ProfileClaimResponse =
+  | { ok: true; data: { session: UserSession } }
+  | { ok: false; error: { code: string; message: string } };
+
 type MarginIntentResponse =
   | {
       ok: true;
@@ -108,6 +112,15 @@ const TERMINAL_PATH_TABS: Record<string, TerminalTab> = {
   "/vaults": "vaults",
 };
 const TERMINAL_TAB_STORAGE_KEY = "conviction-active-terminal-tab";
+const VICTION_SUFFIX = ".viction";
+const ONBOARDING_AVATARS = [
+  { id: "bottts", label: "Signal Bot", style: "bottts" },
+  { id: "rings", label: "Orbit Ring", style: "rings" },
+  { id: "identicon", label: "Vault Sigil", style: "identicon" },
+  { id: "shapes", label: "Market Shape", style: "shapes" },
+  { id: "adventurer", label: "Desk Avatar", style: "adventurer-neutral" },
+] as const;
+type OnboardingAvatarId = (typeof ONBOARDING_AVATARS)[number]["id"];
 
 const emptyPortfolio: UserPortfolio = {
   connected: false,
@@ -334,7 +347,7 @@ export function BrowserTerminal({
 
   async function handleConnectWallet() {
     if (portfolio.connected) {
-      triggerAlert("info", "Wallet already connected. Open the wallet menu to copy or disconnect.");
+      triggerAlert("info", "You are already signed in. Open the account menu to copy or disconnect.");
       return;
     }
 
@@ -373,7 +386,7 @@ export function BrowserTerminal({
 
       applySession(body.data.session);
       setStoredBrowserWalletSession(body.data.session);
-      triggerAlert("success", "Wallet connected and registered with core.");
+      triggerAlert("success", "Signed in and registered with core.");
     } catch {
       triggerAlert("info", "Wallet connection was cancelled or failed.");
     }
@@ -383,7 +396,7 @@ export function BrowserTerminal({
     window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
     applySession(null);
     clearStoredBrowserWalletSession();
-    triggerAlert("info", "Wallet session closed.");
+    triggerAlert("info", "Session closed.");
   }
 
   function handleThirdwebSessionReady(nextSession: UserSession) {
@@ -394,6 +407,16 @@ export function BrowserTerminal({
   function handleThirdwebDisconnectSession() {
     applySession(null);
     clearStoredBrowserWalletSession();
+  }
+
+  function handleProfileClaimed(nextSession: UserSession) {
+    applySession(nextSession);
+    setStoredBrowserWalletSession(nextSession);
+    triggerAlert("success", "Your .viction identity is active.");
+  }
+
+  function handleOpenProfileSettings() {
+    window.location.href = "/me/profile";
   }
 
   function handleOpenMargin(market: PredictionMarket) {
@@ -411,7 +434,7 @@ export function BrowserTerminal({
     visibility: "PUBLIC" | "PRIVATE" = "PRIVATE",
   ) {
     if (!portfolio.connected || !portfolio.address || !session) {
-      triggerAlert("info", "Connect an EVM wallet before requesting margin.");
+      triggerAlert("info", "Sign in with an EVM account before requesting margin.");
       return;
     }
 
@@ -539,7 +562,7 @@ export function BrowserTerminal({
 
   async function handleDeposit(vaultId: string, amount: number): Promise<DepositResult> {
     if (!portfolio.connected || !portfolio.address) {
-      triggerAlert("info", "Connect an EVM wallet before depositing into a vault.");
+      triggerAlert("info", "Sign in with an EVM account before depositing into a vault.");
       return false;
     }
 
@@ -766,6 +789,11 @@ export function BrowserTerminal({
           onSessionReady={handleThirdwebSessionReady}
           onStatus={triggerAlert}
         />
+        <RequiredVictionOnboarding
+          onClaimed={handleProfileClaimed}
+          onOpenProfile={handleOpenProfileSettings}
+          session={session}
+        />
       <Header
         activeTab={activeTab}
         onConnectWallet={handleConnectWallet}
@@ -878,6 +906,243 @@ export function BrowserTerminal({
       </div>
     </ThirdwebWalletProvider>
   );
+}
+
+function RequiredVictionOnboarding({
+  onClaimed,
+  onOpenProfile,
+  session,
+}: {
+  onClaimed: (session: UserSession) => void;
+  onOpenProfile: () => void;
+  session: UserSession | null;
+}) {
+  const walletAddress = getSessionWalletAddress(session);
+  const existingHandle = session?.traderProfile?.handle ?? "";
+  const requiresClaim = Boolean(walletAddress && !isCompleteVictionProfile(existingHandle));
+  const [handle, setHandle] = useState("");
+  const [bio, setBio] = useState("");
+  const [email, setEmail] = useState(session?.user.email ?? "");
+  const [avatarId, setAvatarId] = useState<OnboardingAvatarId>("bottts");
+  const [status, setStatus] = useState<{ type: "idle" | "saving" | "error"; message: string }>({
+    type: "idle",
+    message: "",
+  });
+
+  const fullHandle = buildOnboardingHandle(handle);
+  const avatarUrl = buildOnboardingAvatarUrl(avatarId, fullHandle);
+
+  useEffect(() => {
+    if (!requiresClaim) {
+      setStatus({ type: "idle", message: "" });
+      return;
+    }
+
+    setEmail(session?.user.email ?? "");
+    setHandle(suggestHandleFromSession(session));
+  }, [requiresClaim, session]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!walletAddress) return;
+
+    const cleanHandle = normalizeVictionHandle(handle);
+
+    if (cleanHandle.length < 2) {
+      setStatus({ type: "error", message: "Choose a handle with at least 2 characters." });
+      return;
+    }
+
+    setStatus({ type: "saving", message: "Claiming your .viction identity..." });
+
+    try {
+      const profileResponse = await fetch("/api/trader-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          walletAddress,
+          handle: buildOnboardingHandle(cleanHandle),
+          bio: bio.trim() || null,
+          avatarUrl,
+        }),
+      });
+      const profileBody = (await profileResponse.json()) as ProfileClaimResponse;
+
+      if (!profileResponse.ok || !profileBody.ok) {
+        setStatus({
+          type: "error",
+          message: profileBody.ok ? "Profile claim failed." : profileBody.error.message,
+        });
+        return;
+      }
+
+      let nextSession = profileBody.data.session;
+
+      if (email.trim()) {
+        const emailResponse = await fetch("/api/user-email", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ walletAddress, email: email.trim() }),
+        });
+        const emailBody = (await emailResponse.json()) as ProfileClaimResponse;
+
+        if (!emailResponse.ok || !emailBody.ok) {
+          setStatus({
+            type: "error",
+            message: emailBody.ok ? "Email update failed." : emailBody.error.message,
+          });
+          return;
+        }
+
+        nextSession = {
+          ...nextSession,
+          user: { ...nextSession.user, email: email.trim() },
+        };
+      }
+
+      onClaimed(nextSession);
+    } catch {
+      setStatus({ type: "error", message: "Core API did not accept the profile claim." });
+    }
+  }
+
+  if (!requiresClaim) return null;
+
+  return (
+    <div className="viction-onboarding-overlay" role="dialog" aria-modal="true" aria-labelledby="viction-onboarding-title">
+      <form className="viction-onboarding-card" onSubmit={handleSubmit}>
+        <div className="viction-onboarding-heading">
+          <span>Required setup</span>
+          <h2 id="viction-onboarding-title">Claim your .viction identity</h2>
+          <p>Pick the name and avatar attached to this signed-in wallet before using Conviction.</p>
+        </div>
+
+        <div className="viction-onboarding-preview">
+          <img alt="Selected .viction avatar" src={avatarUrl} />
+          <div>
+            <span>Profile tag</span>
+            <strong>{fullHandle}</strong>
+            <small>{walletAddress ? formatWalletForOnboarding(walletAddress) : "Signed-in wallet"}</small>
+          </div>
+        </div>
+
+        <label className="viction-onboarding-field">
+          <span>Handle</span>
+          <div className="viction-onboarding-handle">
+            <input
+              autoFocus
+              onChange={(event) => setHandle(normalizeVictionHandle(event.target.value))}
+              placeholder="sue"
+              type="text"
+              value={handle}
+            />
+            <b>.viction</b>
+          </div>
+        </label>
+
+        <label className="viction-onboarding-field">
+          <span>Email</span>
+          <input
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            type="email"
+            value={email}
+          />
+        </label>
+
+        <label className="viction-onboarding-field">
+          <span>Bio</span>
+          <textarea
+            maxLength={160}
+            onChange={(event) => setBio(event.target.value)}
+            placeholder="Prediction markets, sports edges, macro theses."
+            value={bio}
+          />
+        </label>
+
+        <div className="viction-onboarding-avatars" aria-label="Choose profile avatar">
+          {ONBOARDING_AVATARS.map((avatar) => (
+            <button
+              aria-pressed={avatar.id === avatarId}
+              className={avatar.id === avatarId ? "selected" : ""}
+              key={avatar.id}
+              onClick={() => setAvatarId(avatar.id)}
+              type="button"
+            >
+              <img alt="" src={buildOnboardingAvatarUrl(avatar.id, fullHandle)} />
+              <span>{avatar.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {status.message ? (
+          <p className={status.type === "error" ? "viction-onboarding-message error" : "viction-onboarding-message"}>
+            {status.message}
+          </p>
+        ) : null}
+
+        <div className="viction-onboarding-actions">
+          <button disabled={status.type === "saving"} type="submit">
+            {status.type === "saving" ? "Claiming..." : "Claim identity"}
+          </button>
+          <button onClick={onOpenProfile} type="button">
+            Full profile setup
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function isCompleteVictionProfile(handle: string) {
+  const normalized = handle.trim().toLowerCase();
+
+  return normalized.endsWith(VICTION_SUFFIX) && !/^wallet[a-f0-9]{10}\.viction$/i.test(normalized);
+}
+
+function normalizeVictionHandle(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\.viction$/i, "")
+    .replace(/[^a-z0-9_.-]/g, "")
+    .slice(0, 32);
+}
+
+function buildOnboardingHandle(value: string) {
+  const clean = normalizeVictionHandle(value) || "yourname";
+  return clean + VICTION_SUFFIX;
+}
+
+function buildOnboardingAvatarUrl(avatarId: OnboardingAvatarId, handle: string) {
+  const option = ONBOARDING_AVATARS.find((item) => item.id === avatarId) ?? ONBOARDING_AVATARS[0];
+
+  return (
+    "https://api.dicebear.com/10.x/" +
+    option.style +
+    "/svg?seed=" +
+    encodeURIComponent(handle + "-" + avatarId) +
+    "&backgroundColor=0e0e0e,161616,201f1f&radius=12"
+  );
+}
+
+function suggestHandleFromSession(session: UserSession | null) {
+  const username = session?.socialAccount.username ?? "";
+  const displayName = session?.user.displayName ?? "";
+  const source = username.includes("...") ? displayName : username || displayName;
+
+  if (!source || source.includes("...") || /^wallet\s+0x/i.test(source) || /^0x/i.test(source)) {
+    return "";
+  }
+
+  const clean = normalizeVictionHandle(source.replace(/^wallet\s+/i, ""));
+
+  return clean.length >= 2 ? clean : "";
+}
+
+function formatWalletForOnboarding(walletAddress: string) {
+  return walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
 }
 
 const emptyPredictionMarket: PredictionMarket = {

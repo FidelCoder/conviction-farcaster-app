@@ -821,7 +821,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
             <p>{walletState.message}</p>
             {walletState.status === "available" ? (
               <button onClick={connectWallet} type="button">
-                Connect wallet
+                Sign in
               </button>
             ) : null}
           </section>

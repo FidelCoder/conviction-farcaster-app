@@ -182,7 +182,7 @@ export default function MarginDeskView({
     e.preventDefault();
 
     if (!portfolio.connected) {
-      alert('Connect your wallet before requesting margin. Your request is tied to the connected wallet address.');
+      alert('Sign in before requesting margin. Your request is tied to the signed-in wallet address.');
       return;
     }
 

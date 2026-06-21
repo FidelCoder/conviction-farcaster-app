@@ -1037,13 +1037,13 @@ function CommunityIdentityNotice({
 
   return (
     <div className="mb-4 flex flex-col gap-3 rounded border border-[#262626] bg-[#0A0A0A] p-3 text-sm text-[#ccc3d8] sm:flex-row sm:items-center sm:justify-between">
-      <span>Connect a wallet, claim a .viction name, then join Market Pulse.</span>
+      <span>Sign in, claim a .viction name, then join Market Pulse.</span>
       <button
         className="inline-flex min-h-9 items-center justify-center rounded border border-deep-orange bg-deep-orange px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-black hover:bg-white"
         onClick={onRequireWallet}
         type="button"
       >
-        Connect wallet
+        Sign in
       </button>
     </div>
   );
@@ -1190,7 +1190,7 @@ function NetworkInviteCard({
           onClick={onRequireWallet}
           type="button"
         >
-          Connect wallet to claim your invite card
+          Sign in to claim your invite card
         </button>
       ) : null}
     </section>
@@ -1736,13 +1736,13 @@ function formatReplyTime(value: string) {
 
 
 function getComposerPlaceholder(connected: boolean, hasCommunityIdentity: boolean) {
-  if (!connected) return 'Connect wallet to join Market Pulse';
+  if (!connected) return 'Sign in to join Market Pulse';
   if (!hasCommunityIdentity) return 'Claim a .viction name before posting';
   return 'What changed, and how should the market price it?';
 }
 
 function getReplyPlaceholder(connected: boolean, hasCommunityIdentity: boolean) {
-  if (!connected) return 'Connect wallet to reply';
+  if (!connected) return 'Sign in to reply';
   if (!hasCommunityIdentity) return 'Claim a .viction name before replying';
   return 'Reply with a source, angle, or counterpoint...';
 }

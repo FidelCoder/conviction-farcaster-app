@@ -35,7 +35,7 @@ export function MyActivityDashboard() {
   const [session, setSession] = useState<UserSession | null>(null);
   const [activityState, setActivityState] = useState<ActivityState>({
     status: "idle",
-    message: "Connect a wallet to load your portfolio.",
+    message: "Sign in to load your portfolio.",
   });
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export function MyActivityDashboard() {
 
   useEffect(() => {
     if (!session) {
-      setActivityState({ status: "idle", message: "Connect a wallet to load your portfolio." });
+      setActivityState({ status: "idle", message: "Sign in to load your portfolio." });
       return;
     }
 
@@ -126,7 +126,7 @@ export function MyActivityDashboard() {
       <section className="profile-session-card">
         <div>
           <p className="eyebrow">Wallet portfolio</p>
-          <h2>{session?.traderProfile?.handle ?? "Connect wallet"}</h2>
+          <h2>{session?.traderProfile?.handle ?? "Sign in"}</h2>
           <span>{walletAddress ? truncateHash(walletAddress) : "Wallet required for portfolio records."}</span>
         </div>
         <Link className="text-link" href="/me/profile">
@@ -226,7 +226,7 @@ export function MyActivityDashboard() {
       ) : session ? null : (
         <EmptyState
           title="Wallet not connected"
-          body="Connect from the top-right wallet button, then return here to see your portfolio."
+          body="Sign in from the top-right action, then return here to see your portfolio."
         />
       )}
     </section>

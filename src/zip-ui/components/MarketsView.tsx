@@ -302,7 +302,7 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
                 onClick={handleLoadMore}
                 className="rounded border border-deep-orange/60 bg-deep-orange px-6 py-3 font-sans text-xs font-bold uppercase tracking-widest text-black transition-colors hover:bg-white"
               >
-                {walletConnected ? 'Load more markets' : 'Connect wallet to load more markets'}
+                {walletConnected ? 'Load more markets' : 'Sign in to load more markets'}
               </button>
             </div>
           ) : null}

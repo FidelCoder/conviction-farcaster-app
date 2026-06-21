@@ -103,7 +103,7 @@ export default function VaultsView({
     if (!currentVault) return;
 
     if (!portfolio.connected || !portfolio.address) {
-      alert('Connect your wallet from the top-right action before funding or depositing into a vault.');
+      alert('Sign in from the top-right action before funding or depositing into a vault.');
       return;
     }
 
@@ -352,7 +352,7 @@ export default function VaultsView({
                     </button>
                   </>
                 ) : (
-                  <div className="text-xs text-[#ccc3d8]">Connect wallet to reveal funding QR.</div>
+                  <div className="text-xs text-[#ccc3d8]">Sign in to reveal funding QR.</div>
                 )}
               </section>
 

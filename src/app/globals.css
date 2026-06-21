@@ -8129,3 +8129,260 @@ body::after {
   opacity: 0 !important;
   pointer-events: auto !important;
 }
+
+.viction-onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.82);
+  padding: 1rem;
+  backdrop-filter: blur(12px);
+}
+
+.viction-onboarding-card {
+  width: min(100%, 42rem);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  border: 1px solid #262626;
+  border-top: 2px solid #f97316;
+  border-radius: 8px;
+  background: #161616;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
+  padding: 1.2rem;
+}
+
+.viction-onboarding-heading {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.viction-onboarding-heading > span,
+.viction-onboarding-preview span,
+.viction-onboarding-field > span {
+  color: #f97316;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.viction-onboarding-heading h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(1.55rem, 4vw, 2.15rem);
+  line-height: 1.05;
+}
+
+.viction-onboarding-heading p,
+.viction-onboarding-preview small,
+.viction-onboarding-message {
+  margin: 0;
+  color: rgba(204, 195, 216, 0.8);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.viction-onboarding-preview {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: center;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  background: rgba(10, 10, 10, 0.7);
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.viction-onboarding-preview img {
+  width: 5.5rem;
+  height: 5.5rem;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  background: #0a0a0a;
+  object-fit: cover;
+}
+
+.viction-onboarding-preview strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: #ffffff;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 1.1rem;
+  overflow-wrap: anywhere;
+}
+
+.viction-onboarding-field {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+.viction-onboarding-field input,
+.viction-onboarding-field textarea,
+.viction-onboarding-handle b {
+  width: 100%;
+  border: 1px solid #262626;
+  border-radius: 6px;
+  background: #0a0a0a;
+  color: #ffffff;
+  font: inherit;
+  padding: 0.8rem 0.85rem;
+  outline: none;
+}
+
+.viction-onboarding-field textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.viction-onboarding-field input:focus,
+.viction-onboarding-field textarea:focus {
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.14);
+}
+
+.viction-onboarding-handle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.viction-onboarding-handle b {
+  display: grid;
+  place-items: center;
+  width: auto;
+  min-width: 7rem;
+  color: #f97316;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+
+.viction-onboarding-avatars {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.viction-onboarding-avatars button {
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  background: rgba(10, 10, 10, 0.76);
+  color: rgba(204, 195, 216, 0.82);
+  cursor: pointer;
+  padding: 0.45rem;
+  text-align: center;
+  transition: border-color 150ms ease, transform 150ms ease, background 150ms ease;
+}
+
+.viction-onboarding-avatars button:hover,
+.viction-onboarding-avatars button.selected {
+  border-color: #f97316;
+  background: rgba(249, 115, 22, 0.1);
+  transform: translateY(-1px);
+}
+
+.viction-onboarding-avatars img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.viction-onboarding-avatars span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.viction-onboarding-message {
+  min-height: 1.4rem;
+  margin-top: 0.8rem;
+}
+
+.viction-onboarding-message.error {
+  color: #ef4444;
+}
+
+.viction-onboarding-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.viction-onboarding-actions button {
+  min-height: 2.8rem;
+  border: 1px solid #f97316;
+  border-radius: 6px;
+  background: #f97316;
+  color: #000000;
+  cursor: pointer;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.75rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  padding: 0 1rem;
+  text-transform: uppercase;
+}
+
+.viction-onboarding-actions button[type="button"] {
+  border-color: rgba(204, 195, 216, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  color: #ccc3d8;
+}
+
+.viction-onboarding-actions button:hover:not(:disabled) {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #000000;
+}
+
+.viction-onboarding-actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@media (max-width: 640px) {
+  .viction-onboarding-overlay {
+    align-items: flex-start;
+    padding: 0.75rem;
+  }
+
+  .viction-onboarding-card {
+    max-height: calc(100vh - 1.5rem);
+    padding: 1rem;
+  }
+
+  .viction-onboarding-preview {
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+  }
+
+  .viction-onboarding-preview img {
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+
+  .viction-onboarding-avatars {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .viction-onboarding-actions,
+  .viction-onboarding-handle {
+    grid-template-columns: 1fr;
+  }
+
+  .viction-onboarding-handle b {
+    min-width: 0;
+  }
+}

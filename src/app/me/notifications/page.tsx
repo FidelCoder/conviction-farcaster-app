@@ -229,7 +229,7 @@ export default function NotificationsPage() {
               ? "Saving..."
               : isWalletConnected
                 ? "Save notifications"
-                : "Connect wallet to save"}
+                : "Sign in to save"}
           </button>
 
           <p

@@ -179,7 +179,7 @@ export default function LandingView({
                   <label className="block font-mono text-[9px] text-[#ccc3d8]/80 uppercase tracking-widest font-extrabold">
                     Your Collateral (USDC)
                   </label>
-                  <span className="font-mono text-[10px] text-[#ccc3d8]">Available: {walletConnected ? 'Connect balance adapter' : 'Wallet Unconnected'}</span>
+                  <span className="font-mono text-[10px] text-[#ccc3d8]">Available: {walletConnected ? 'Connect balance adapter' : 'Not signed in'}</span>
                 </div>
                 <div className="relative">
                   <input 

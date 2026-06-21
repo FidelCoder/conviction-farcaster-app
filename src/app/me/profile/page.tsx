@@ -493,7 +493,7 @@ export default function ProfilePage() {
                   ? "Claiming..."
                   : isWalletConnected
                     ? "Claim .viction profile"
-                    : "Connect wallet to claim"}
+                    : "Sign in to claim"}
               </button>
 
               <p
@@ -551,7 +551,7 @@ export default function ProfilePage() {
                   </>
                 ) : (
                   <button onClick={() => promptWalletConnection()} type="button">
-                    Connect wallet to share
+                    Sign in to share
                   </button>
                 )}
               </div>
