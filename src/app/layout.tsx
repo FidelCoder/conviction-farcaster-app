@@ -8,7 +8,7 @@ import "./globals.css";
 const appUrl = "https://convictionmarkets.xyz";
 const appName = "Conviction Markets";
 const productDescription =
-  "A leveraged prediction market platform where traders get more exposure to event markets and liquidity providers earn yield through vaults.";
+  "Conviction Markets is a leveraged prediction market platform for event trading, market discovery, margin trading, and vault liquidity yield.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
@@ -42,6 +42,11 @@ export const metadata: Metadata = {
     "Polymarket leverage",
     "Polymarket margin",
     "Conviction Markets",
+    "conviction markets",
+    "Conviction Markets prediction markets",
+    "prediction market trading",
+    "leveraged event markets",
+    "margin trading prediction markets",
   ],
   manifest: "/site.webmanifest",
   icons: {
@@ -106,6 +111,10 @@ const structuredData = {
       logo: appUrl + "/logo/conviction-markets-landscape-light.png",
       description:
         "Conviction Markets builds vault-backed leverage for prediction market traders and yield opportunities for liquidity providers.",
+      sameAs: [
+        "https://x.com/VictionMarkets",
+        "https://t.me/+KYjXR2Tz2P4xMGY0",
+      ],
     },
     {
       "@type": "WebSite",
@@ -126,13 +135,18 @@ const structuredData = {
       "@type": "WebApplication",
       "@id": appUrl + "/#app",
       name: appName,
-      alternateName: ["Conviction", "Conviction Markets App"],
+      alternateName: [
+        "Conviction",
+        "Conviction Markets App",
+        "Conviction Markets prediction markets",
+        "Conviction margin trading",
+      ],
       url: appUrl,
       applicationCategory: "FinanceApplication",
       operatingSystem: "Web",
       description: productDescription,
       keywords:
-        "leveraged prediction markets, prediction market margin, event trading, liquidity vaults, vault yield",
+        "Conviction Markets, leveraged prediction markets, prediction markets, prediction market margin, margin trading, event trading, event markets, liquidity vaults, vault yield, crypto prediction markets, sports prediction markets",
       offers: {
         "@type": "Offer",
         price: "0",
@@ -157,6 +171,22 @@ const structuredData = {
           acceptedAnswer: {
             "@type": "Answer",
             text: "Liquidity providers supply capital to vaults and earn yield from margin activity on the platform.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Is Conviction Markets a prediction markets platform?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Yes. Conviction Markets helps users discover event markets, review rules and odds, discuss market news, and use vault-backed margin tools for more exposure when the rails are available.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "How is Conviction Markets different from a regular prediction market?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Conviction adds a margin desk, vault liquidity, portfolio tracking, .viction identity, and a social Market Pulse layer around prediction market data.",
           },
         },
       ],

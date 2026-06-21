@@ -358,6 +358,63 @@ export default function LandingView({
         </div>
       </section>
 
+      <footer className="mt-10 border-t border-[#262626] pt-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-mono text-[9px] font-extrabold uppercase tracking-widest text-[#ccc3d8]/50">
+              Conviction Markets
+            </p>
+            <p className="mt-1 text-sm text-[#ccc3d8]">
+              Follow market updates, community calls, and product releases.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <SocialLink
+              href="https://x.com/VictionMarkets"
+              label="X"
+              icon={<XLogo />}
+            />
+            <SocialLink
+              href="https://t.me/+KYjXR2Tz2P4xMGY0"
+              label="Telegram"
+              icon={<TelegramLogo />}
+            />
+          </div>
+        </div>
+      </footer>
+
     </main>
+  );
+}
+
+function SocialLink({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={'Open Conviction Markets on ' + label}
+      className="inline-flex h-10 items-center gap-2 rounded border border-[#262626] bg-[#0A0A0A] px-3 text-xs font-extrabold uppercase tracking-widest text-white transition hover:border-deep-orange hover:text-deep-orange"
+    >
+      {icon}
+      {label}
+    </a>
+  );
+}
+
+function XLogo() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.244 2H21.5l-7.11 8.13L22.75 22h-6.55l-5.13-6.7L5.2 22H1.94l7.6-8.69L1.5 2h6.72l4.64 6.13L18.244 2Zm-1.14 17.91h1.8L7.24 3.98H5.31l11.794 15.93Z" />
+    </svg>
+  );
+}
+
+function TelegramLogo() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M21.88 4.14c.28-1.18-.84-1.7-1.7-1.36L2.86 9.48c-1.18.46-1.16 1.1-.2 1.4l4.45 1.39L17.43 5.8c.49-.3.93-.14.57.18l-8.36 7.55-.32 4.72c.47 0 .68-.22.94-.48l2.26-2.2 4.7 3.47c.86.48 1.48.23 1.7-.8l2.96-14.1Z" />
+    </svg>
   );
 }
