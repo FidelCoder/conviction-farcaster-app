@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { encodeFunctionData, erc20Abi, parseAbi, parseUnits } from "viem";
 
 import { MobileWalletLauncher } from "./MobileWalletLauncher";
+import { ThirdwebWalletBridge, ThirdwebWalletProvider } from "./ThirdwebWalletBridge";
 import {
   clearStoredBrowserWalletSession,
   getSessionWalletAddress,
@@ -28,6 +29,7 @@ import {
   resolveEvmWalletProvider,
   type EthereumProvider,
 } from "../lib/evm-wallet-provider";
+import { isThirdwebConfigured } from "../lib/thirdweb-client";
 import { resolveVaultCollateral } from "../lib/vault-token-config";
 import { readVaultWalletBalances } from "../lib/wallet-balances";
 import ActivityView from "../zip-ui/components/ActivityView";
@@ -336,6 +338,11 @@ export function BrowserTerminal({
       return;
     }
 
+    if (isThirdwebConfigured()) {
+      window.dispatchEvent(new Event("conviction-thirdweb-connect"));
+      return;
+    }
+
     const provider = await resolveEvmWalletProvider();
 
     if (!provider) {
@@ -373,9 +380,20 @@ export function BrowserTerminal({
   }
 
   function handleDisconnectWallet() {
+    window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
     applySession(null);
     clearStoredBrowserWalletSession();
     triggerAlert("info", "Wallet session closed.");
+  }
+
+  function handleThirdwebSessionReady(nextSession: UserSession) {
+    applySession(nextSession);
+    setStoredBrowserWalletSession(nextSession);
+  }
+
+  function handleThirdwebDisconnectSession() {
+    applySession(null);
+    clearStoredBrowserWalletSession();
   }
 
   function handleOpenMargin(market: PredictionMarket) {
@@ -740,7 +758,14 @@ export function BrowserTerminal({
   }
 
   return (
-    <div className="min-h-screen bg-background-base text-on-surface font-sans selection:bg-deep-orange selection:text-black">
+    <ThirdwebWalletProvider>
+      <div className="min-h-screen bg-background-base text-on-surface font-sans selection:bg-deep-orange selection:text-black">
+        <ThirdwebWalletBridge
+          activeAddress={portfolio.address}
+          onDisconnectSession={handleThirdwebDisconnectSession}
+          onSessionReady={handleThirdwebSessionReady}
+          onStatus={triggerAlert}
+        />
       <Header
         activeTab={activeTab}
         onConnectWallet={handleConnectWallet}
@@ -850,7 +875,8 @@ export function BrowserTerminal({
           </div>
         </div>
       ) : null}
-    </div>
+      </div>
+    </ThirdwebWalletProvider>
   );
 }
 

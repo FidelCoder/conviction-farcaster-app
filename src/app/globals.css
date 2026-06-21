@@ -8110,3 +8110,22 @@ body::after {
 .brand--image::before {
   display: none;
 }
+
+.thirdweb-wallet-bridge {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.thirdweb-connect-trigger {
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: auto !important;
+}
