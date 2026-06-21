@@ -1,6 +1,24 @@
 import { NextResponse } from "next/server";
 
-import { createSupportTicket } from "../../../../lib/core-api";
+import { CoreApiError, createSupportTicket, listSupportTickets } from "../../../../lib/core-api";
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+
+  try {
+    const tickets = await listSupportTickets({
+      userId: url.searchParams.get("userId"),
+      email: url.searchParams.get("email"),
+      limit: normalizeLimit(url.searchParams.get("limit")),
+    });
+    return NextResponse.json({ ok: true, data: { tickets } });
+  } catch (error) {
+    if (error instanceof CoreApiError) {
+      return NextResponse.json({ ok: false, error: { code: error.code, message: error.message } }, { status: error.statusCode });
+    }
+    return NextResponse.json({ ok: false, error: { code: "SUPPORT_TICKETS_FAILED", message: "Core API did not return support tickets." } }, { status: 502 });
+  }
+}
 
 export async function POST(request: Request) {
   const body = await parseBody(request);
@@ -40,4 +58,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function stringField(record: Record<string, unknown>, key: string) {
   const value = record[key];
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeLimit(value: string | null) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 100) : 25;
 }

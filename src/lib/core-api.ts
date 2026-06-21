@@ -67,6 +67,19 @@ export type ActivityMediaItem = {
   updatedAt: string;
 };
 
+export type SupportTicketReply = {
+  id: string;
+  ticketId: string;
+  authorType: "USER" | "SUPPORT" | "AI" | string;
+  authorUserId: string | null;
+  authorName: string | null;
+  subject: string | null;
+  body: string;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type SupportTicket = {
   id: string;
   userId: string | null;
@@ -77,6 +90,10 @@ export type SupportTicket = {
   transcript: string | null;
   status: string;
   telegramSentAt: string | null;
+  resolvedAt?: string | null;
+  closedAt?: string | null;
+  autoCloseAt?: string | null;
+  replies?: SupportTicketReply[];
   createdAt: string;
   updatedAt: string;
 };
@@ -1192,6 +1209,41 @@ export async function createSupportTicket(input: {
     body: input,
   });
   return response.ticket;
+}
+
+export async function listSupportTickets(input: { userId?: string | null; email?: string | null; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (input.userId) params.set("userId", input.userId);
+  if (input.email) params.set("email", input.email);
+  if (input.limit) params.set("limit", String(input.limit));
+  const query = params.toString();
+  const response = await coreRequest<{ tickets: SupportTicket[] }>("/support/tickets" + (query ? "?" + query : ""));
+  return response.tickets;
+}
+
+export async function getSupportTicket(ticketId: string) {
+  const response = await coreRequest<{ ticket: SupportTicket }>("/support/tickets/" + encodeURIComponent(ticketId));
+  return response.ticket;
+}
+
+export async function createSupportReply(input: {
+  ticketId: string;
+  userId?: string | null;
+  subject?: string | null;
+  body: string;
+}) {
+  const response = await coreRequest<{ ticket: SupportTicket; reply: SupportTicketReply }>(
+    "/support/tickets/" + encodeURIComponent(input.ticketId) + "/replies",
+    {
+      method: "POST",
+      body: {
+        userId: input.userId ?? null,
+        subject: input.subject ?? null,
+        body: input.body,
+      },
+    },
+  );
+  return response;
 }
 
 export async function updateUserEmail(userId: string, email: string) {
