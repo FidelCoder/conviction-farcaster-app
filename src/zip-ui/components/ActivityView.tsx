@@ -1170,6 +1170,7 @@ function NetworkInviteCard({
           <p className="mt-1 max-w-2xl text-sm text-[#ccc3d8]">Share your profile, bring friends from social apps, and turn market takes into a real trader network.</p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+          <InviteAction label="Telegram" href="https://t.me/+KYjXR2Tz2P4xMGY0" />
           <InviteAction label="X" href={'https://twitter.com/intent/tweet?text=' + encodeURIComponent(inviteText) + '&url=' + encodeURIComponent(inviteUrl)} />
           <InviteAction label="WhatsApp" href={'https://wa.me/?text=' + encodeURIComponent(inviteText + ' ' + inviteUrl)} />
           <InviteAction label="Farcaster" href={'https://warpcast.com/~/compose?text=' + encodeURIComponent(inviteText + ' ' + inviteUrl)} />
