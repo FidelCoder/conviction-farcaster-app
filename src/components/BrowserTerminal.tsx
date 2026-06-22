@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { encodeFunctionData, erc20Abi, parseAbi, parseUnits } from "viem";
 
+import { BrowserWalletMarks, GoogleWalletMark } from "./AuthWalletMarks";
 import { MobileWalletLauncher } from "./MobileWalletLauncher";
 import { ThirdwebWalletBridge, ThirdwebWalletProvider } from "./ThirdwebWalletBridge";
 import {
@@ -945,8 +946,12 @@ export function BrowserTerminal({
         onConnectWallet={handleConnectWallet}
         onDisconnectWallet={handleDisconnectWallet}
         onOpenMenu={() => setIsMobileMenuOpen(true)}
+        onOpenPortfolio={() => {
+          window.location.href = "/me";
+        }}
         onOpenSignInMenu={handleOpenSignInMenu}
         portfolio={portfolio}
+        session={session}
         setActiveTab={setActiveTab}
       />
       <Sidebar
@@ -1072,19 +1077,21 @@ function SignInChoiceDialog({
       <div className="viction-onboarding-card sign-in-choice-card">
         <div className="viction-onboarding-heading">
           <span>Sign in</span>
-          <h2 id="sign-in-choice-title">Choose account type</h2>
-          <p>Use a Google smart wallet or connect your own EOA wallet with private keys.</p>
+          <h2 id="sign-in-choice-title">Choose how to enter</h2>
+          <p>Use Google for a smart wallet or connect the self-custody wallet where you already hold funds.</p>
         </div>
         <div className="sign-in-choice-grid">
-          <button onClick={() => onSelect("smart")} type="button">
-            <span>Smart wallet</span>
-            <strong>Google + thirdweb</strong>
-            <small>Creates or opens a smart account for users who do not want to manage a browser wallet first.</small>
+          <button className="sign-in-choice-option" onClick={() => onSelect("smart")} type="button">
+            <GoogleWalletMark className="sign-in-choice-mark" />
+            <span>Google</span>
+            <strong>Smart wallet</strong>
+            <small>Google sign-in creates or opens your thirdweb smart account for Conviction.</small>
           </button>
-          <button onClick={() => onSelect("eoa")} type="button">
-            <span>EOA wallet</span>
-            <strong>MetaMask and more</strong>
-            <small>Use MetaMask, Coinbase Wallet, Rabby, Trust, Phantom, OKX, or another private-key wallet.</small>
+          <button className="sign-in-choice-option" onClick={() => onSelect("eoa")} type="button">
+            <BrowserWalletMarks className="sign-in-choice-marks" />
+            <span>Other wallets</span>
+            <strong>Self-custody wallet</strong>
+            <small>MetaMask, Coinbase, Trust Wallet, Rabby, Phantom, OKX, and other EOA wallets.</small>
           </button>
         </div>
         <div className="viction-onboarding-actions">

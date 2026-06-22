@@ -8450,3 +8450,91 @@ body::after {
     min-height: 0;
   }
 }
+
+
+.wallet-brand-mark,
+.wallet-brand-chip {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.wallet-brand-mark-google {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.08);
+}
+
+.wallet-brand-mark-google svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.wallet-brand-cluster {
+  display: inline-flex;
+  align-items: center;
+  min-width: 6.25rem;
+}
+
+.wallet-brand-chip {
+  width: 2.05rem;
+  height: 2.05rem;
+  margin-left: -0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  color: #ffffff;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.22);
+}
+
+.wallet-brand-chip:first-child {
+  margin-left: 0;
+}
+
+.wallet-brand-chip-metamask {
+  background: linear-gradient(135deg, #f6851b, #e2761b 58%, #763d16);
+}
+
+.wallet-brand-chip-coinbase {
+  background: #0052ff;
+}
+
+.wallet-brand-chip-trust {
+  background: #3375bb;
+}
+
+.wallet-brand-chip-trust svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.wallet-brand-chip-more {
+  background: #171717;
+  color: #f97316;
+}
+
+.sign-in-choice-option {
+  align-content: start;
+}
+
+.sign-in-choice-mark {
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.sign-in-choice-mark svg {
+  width: 1.65rem;
+  height: 1.65rem;
+}
+
+.sign-in-choice-marks {
+  margin-bottom: 0.7rem;
+}

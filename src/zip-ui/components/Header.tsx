@@ -1,8 +1,10 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
-import { UserPortfolio } from "../types";
-import { Bell, Check, Copy, KeyRound, LogOut, Menu, Settings, Sparkles, Wallet } from "lucide-react";
+import type { UserSession } from "../../lib/core-api";
+import { BrowserWalletMarks, GoogleWalletMark } from "../../components/AuthWalletMarks";
+import type { PortfolioWalletBalance, UserPortfolio } from "../types";
+import { Bell, Briefcase, Check, Copy, LogOut, Menu, Settings, Wallet } from "lucide-react";
 
 interface HeaderProps {
   activeTab: string;
@@ -12,6 +14,8 @@ interface HeaderProps {
   onOpenSignInMenu?: () => void;
   onDisconnectWallet?: () => void;
   onOpenMenu?: () => void;
+  onOpenPortfolio?: () => void;
+  session?: UserSession | null;
 }
 
 export default function Header({
@@ -22,13 +26,15 @@ export default function Header({
   onDisconnectWallet,
   onOpenSignInMenu,
   onOpenMenu,
+  onOpenPortfolio,
+  session,
 }: HeaderProps) {
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const walletMenuRef = useRef<HTMLDivElement | null>(null);
-  const walletLabel = portfolio.connected && portfolio.address
-    ? `${portfolio.address.slice(0, 6)}...${portfolio.address.slice(-4)}`
-    : "SIGN IN";
+  const walletBalances = getReadyWalletBalances(portfolio);
+  const walletLabel = portfolio.connected ? getWalletButtonLabel(portfolio, walletBalances) : "SIGN IN";
+  const accountLabel = session?.traderProfile?.handle ?? (portfolio.connected ? "Conviction wallet" : "Guest");
   const tabs = [
     { id: "markets", label: "Markets" },
     { id: "margin-desk", label: "Margin Desk" },
@@ -84,6 +90,16 @@ export default function Header({
   function handleSignInMode(mode: "smart" | "eoa") {
     setWalletMenuOpen(false);
     onConnectWallet(mode);
+  }
+
+  function handleOpenPortfolio() {
+    setWalletMenuOpen(false);
+    if (onOpenPortfolio) {
+      onOpenPortfolio();
+      return;
+    }
+
+    window.location.href = "/me";
   }
 
   function handleDisconnectWallet() {
@@ -174,7 +190,7 @@ export default function Header({
             aria-expanded={portfolio.connected ? walletMenuOpen : undefined}
             aria-haspopup={portfolio.connected ? "menu" : undefined}
             onClick={handleWalletButtonClick}
-            className={`px-2 sm:px-4 py-1.5 rounded text-[10px] sm:text-xs font-mono font-bold tracking-wider transition-all duration-300 flex items-center gap-1.5 sm:gap-2 border cursor-pointer max-w-[8.25rem] sm:max-w-none ${
+            className={`px-2 sm:px-4 py-1.5 rounded text-[10px] sm:text-xs font-mono font-bold tracking-wider transition-all duration-300 flex items-center gap-1.5 sm:gap-2 border cursor-pointer max-w-[9.75rem] sm:max-w-[13rem] ${
               portfolio.connected
                 ? "bg-[#1c1b1b] border-deep-orange text-deep-orange shadow-[0_0_10px_rgba(249,115,22,0.1)] hover:border-white hover:text-white"
                 : "bg-deep-orange border-deep-orange text-black hover:bg-white hover:border-white hover:text-black font-semibold"
@@ -193,11 +209,28 @@ export default function Header({
               {portfolio.connected && portfolio.address ? (
                 <>
                   <div className="border-b border-[#262626] px-3 py-3">
-                    <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">Signed-in wallet</p>
-                    <p className="mt-1 truncate font-mono text-xs font-bold text-white">{portfolio.address}</p>
+                    <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">Signed-in account</p>
+                    <p className="mt-1 truncate font-mono text-sm font-bold text-white">{accountLabel}</p>
+                    <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3 rounded border border-[#262626] bg-black/35 px-3 py-2">
+                      <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">Wallet balance</span>
+                      <strong className="font-mono text-xs text-[#10B981]">{walletLabel}</strong>
+                    </div>
+                    <div className="mt-2 flex min-w-0 items-center gap-2 rounded border border-[#262626] bg-[#0a0a0a] px-3 py-2 text-[#ccc3d8]">
+                      <Wallet size={13} className="flex-shrink-0 text-deep-orange" />
+                      <span className="truncate font-mono text-[11px] font-bold text-white">{portfolio.address}</span>
+                    </div>
                   </div>
                   <button
                     className="flex w-full items-center gap-2 px-3 py-3 text-left font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:bg-white/5 hover:text-white"
+                    onClick={handleOpenPortfolio}
+                    role="menuitem"
+                    type="button"
+                  >
+                    <Briefcase size={14} />
+                    Check portfolio
+                  </button>
+                  <button
+                    className="flex w-full items-center gap-2 border-t border-[#262626] px-3 py-3 text-left font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:bg-white/5 hover:text-white"
                     onClick={() => void copyWalletAddress()}
                     role="menuitem"
                     type="button"
@@ -205,6 +238,19 @@ export default function Header({
                     {copyState === "copied" ? <Check size={14} className="text-[#10B981]" /> : <Copy size={14} />}
                     {copyState === "copied" ? "Copied" : "Copy address"}
                   </button>
+                  {walletBalances.length > 0 ? (
+                    <div className="border-t border-[#262626] px-3 py-3">
+                      <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">Supported chain balances</p>
+                      <div className="mt-2 grid gap-1.5">
+                        {walletBalances.slice(0, 4).map((balance) => (
+                          <div key={balanceKey(balance)} className="flex items-center justify-between gap-3 font-mono text-[10px]">
+                            <span className="truncate text-[#ccc3d8]">{balance.chainName}</span>
+                            <strong className="text-white">{formatTokenAmount(balance.amount, balance.symbol)}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   <button
                     className="flex w-full items-center gap-2 border-t border-[#262626] px-3 py-3 text-left font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange transition-colors hover:bg-deep-orange hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={!onDisconnectWallet}
@@ -219,31 +265,31 @@ export default function Header({
               ) : (
                 <>
                   <div className="border-b border-[#262626] px-3 py-3">
-                    <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">Choose sign-in mode</p>
-                    <p className="mt-1 text-xs leading-relaxed text-[#ccc3d8]/80">Use a Google smart wallet or connect your own EOA wallet.</p>
+                    <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">Choose sign-in method</p>
+                    <p className="mt-1 text-xs leading-relaxed text-[#ccc3d8]/80">Start with Google smart wallet or use the wallet where you already hold funds.</p>
                   </div>
                   <button
-                    className="flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-white/5"
+                    className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-white/5"
                     onClick={() => handleSignInMode("smart")}
                     role="menuitem"
                     type="button"
                   >
-                    <Sparkles size={16} className="mt-0.5 text-deep-orange" />
+                    <GoogleWalletMark className="h-9 w-9" />
                     <span>
-                      <strong className="block font-mono text-[10px] uppercase tracking-widest text-white">Smart wallet</strong>
-                      <small className="mt-1 block text-xs leading-relaxed text-[#ccc3d8]/75">Google sign-in with a thirdweb smart account.</small>
+                      <strong className="block font-mono text-[10px] uppercase tracking-widest text-white">Google</strong>
+                      <small className="mt-1 block text-xs leading-relaxed text-[#ccc3d8]/75">Smart wallet</small>
                     </span>
                   </button>
                   <button
-                    className="flex w-full items-start gap-3 border-t border-[#262626] px-3 py-3 text-left transition-colors hover:bg-white/5"
+                    className="flex w-full items-center gap-3 border-t border-[#262626] px-3 py-3 text-left transition-colors hover:bg-white/5"
                     onClick={() => handleSignInMode("eoa")}
                     role="menuitem"
                     type="button"
                   >
-                    <KeyRound size={16} className="mt-0.5 text-deep-orange" />
+                    <BrowserWalletMarks className="scale-90 origin-left" />
                     <span>
-                      <strong className="block font-mono text-[10px] uppercase tracking-widest text-white">EOA wallet</strong>
-                      <small className="mt-1 block text-xs leading-relaxed text-[#ccc3d8]/75">MetaMask, Coinbase, Rabby, Trust, Phantom, OKX, or another private-key wallet.</small>
+                      <strong className="block font-mono text-[10px] uppercase tracking-widest text-white">Other wallets</strong>
+                      <small className="mt-1 block text-xs leading-relaxed text-[#ccc3d8]/75">MetaMask, Coinbase, Trust Wallet, and more</small>
                     </span>
                   </button>
                 </>
@@ -254,4 +300,49 @@ export default function Header({
       </div>
     </header>
   );
+}
+
+function getReadyWalletBalances(portfolio: UserPortfolio) {
+  const uniqueBalances = new Map<string, PortfolioWalletBalance>();
+
+  for (const balance of Object.values(portfolio.walletBalances)) {
+    if (balance.status !== "ready") continue;
+    const key = balanceKey(balance);
+    if (!uniqueBalances.has(key)) uniqueBalances.set(key, balance);
+  }
+
+  return [...uniqueBalances.values()].sort((left, right) => {
+    if (left.symbol !== right.symbol) return left.symbol.localeCompare(right.symbol);
+    return left.chainName.localeCompare(right.chainName);
+  });
+}
+
+function getWalletButtonLabel(portfolio: UserPortfolio, balances: PortfolioWalletBalance[]) {
+  if (portfolio.walletBalancesStatus === "loading") return "SYNCING";
+
+  const totals = balances.reduce<Record<string, number>>((nextTotals, balance) => {
+    nextTotals[balance.symbol] = (nextTotals[balance.symbol] ?? 0) + balance.amount;
+    return nextTotals;
+  }, {});
+
+  if (totals.USDC !== undefined) return formatTokenAmount(totals.USDC, "USDC");
+  if (totals.WETH !== undefined) return formatTokenAmount(totals.WETH, "WETH");
+  if (portfolio.usdcBalance > 0) return formatTokenAmount(portfolio.usdcBalance, "USDC");
+  if (portfolio.wethBalance > 0) return formatTokenAmount(portfolio.wethBalance, "WETH");
+
+  return "0.00 USDC";
+}
+
+function formatTokenAmount(amount: number, symbol: string) {
+  const decimals = symbol === "WETH" ? 4 : 2;
+  const formatted = amount.toLocaleString("en", {
+    maximumFractionDigits: decimals,
+    minimumFractionDigits: amount > 0 && amount < 1 ? Math.min(decimals, 4) : 2,
+  });
+
+  return formatted + " " + symbol;
+}
+
+function balanceKey(balance: PortfolioWalletBalance) {
+  return [balance.chainId, balance.tokenAddress, balance.symbol].join(":").toLowerCase();
 }
