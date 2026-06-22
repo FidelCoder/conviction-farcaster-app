@@ -171,6 +171,7 @@ export function BrowserTerminal({
   const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSignInChoiceOpen, setIsSignInChoiceOpen] = useState(false);
+  const isLandingTab = activeTab === "landing";
 
   const currentMarket =
     displayMarkets.find((market) => market.id === activeMarket.id) ?? displayMarkets[0];
@@ -955,7 +956,7 @@ export function BrowserTerminal({
         activeTab={activeTab}
         onConnectWallet={handleConnectWallet}
         onDisconnectWallet={handleDisconnectWallet}
-        onOpenMenu={() => setIsMobileMenuOpen(true)}
+        onOpenMenu={isLandingTab ? undefined : () => setIsMobileMenuOpen(true)}
         onOpenPortfolio={() => {
           window.location.href = "/me";
         }}
@@ -964,15 +965,17 @@ export function BrowserTerminal({
         session={session}
         setActiveTab={setActiveTab}
       />
-      <Sidebar
-        activeTab={activeTab}
-        mobileOpen={isMobileMenuOpen}
-        onCloseMobile={() => setIsMobileMenuOpen(false)}
-        onOpenRequest={() => setActiveTab("margin-desk")}
-        portfolio={portfolio}
-        session={session}
-        setActiveTab={setActiveTab}
-      />
+      {isLandingTab ? null : (
+        <Sidebar
+          activeTab={activeTab}
+          mobileOpen={isMobileMenuOpen}
+          onCloseMobile={() => setIsMobileMenuOpen(false)}
+          onOpenRequest={() => setActiveTab("margin-desk")}
+          portfolio={portfolio}
+          session={session}
+          setActiveTab={setActiveTab}
+        />
+      )}
 
       <div className="pt-16">
         {activeTab === "landing" ? (
@@ -1039,11 +1042,13 @@ export function BrowserTerminal({
         ) : null}
       </div>
 
-      <StatusBar
-        contractStatus="TESTNET"
-        executionMode={execution.marginExecutionEnabled ? "Live" : "Request"}
-        marketCount={markets.length}
-      />
+      {isLandingTab ? null : (
+        <StatusBar
+          contractStatus="TESTNET"
+          executionMode={execution.marginExecutionEnabled ? "Live" : "Request"}
+          marketCount={markets.length}
+        />
+      )}
 
       <MobileWalletLauncher
         message={mobileWalletMessage ?? undefined}

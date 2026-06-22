@@ -47,7 +47,7 @@ export default function LandingView({
   const totalReturnOnCollateral = ((payoutPotential - borrowCapital - collateral) / collateral) * 100;
 
   return (
-    <main className="flex-1 pt-24 md:pl-64 px-4 md:px-10 pb-32 max-w-[1280px] mx-auto w-full bg-grid-tech">
+    <main className="flex-1 pt-24 px-4 md:px-10 pb-24 max-w-[1280px] mx-auto w-full bg-grid-tech">
       
       {/* 1. HERO SECTION */}
       <section className="relative z-10 mb-16 mt-4">
