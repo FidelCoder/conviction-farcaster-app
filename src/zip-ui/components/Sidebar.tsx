@@ -38,12 +38,12 @@ export default function Sidebar({
 }: SidebarProps) {
   const isMobileOpen = Boolean(mobileOpen);
   const primaryNavigation = [
-    { id: "landing", label: "Home", icon: Home },
-    { id: "markets", label: "Markets", icon: TrendingUp },
-    { id: "margin-desk", label: "Margin Desk", icon: Wallet },
-    { id: "vaults", label: "Vaults", icon: Lock },
-    { id: "activity", label: "Pulse", icon: History },
-    ...(portfolio.connected ? [{ id: "portfolio", label: "Portfolio", icon: Briefcase }] : []),
+    { href: "/", id: "landing", label: "Home", icon: Home },
+    { href: "/markets", id: "markets", label: "Markets", icon: TrendingUp },
+    { href: "/margin-desk", id: "margin-desk", label: "Margin Desk", icon: Wallet },
+    { href: "/vaults", id: "vaults", label: "Vaults", icon: Lock },
+    { href: "/activity", id: "activity", label: "Pulse", icon: History },
+    ...(portfolio.connected ? [{ href: "/me", id: "portfolio", label: "Portfolio", icon: Briefcase }] : []),
   ];
 
   return (
@@ -130,8 +130,13 @@ export default function Sidebar({
             <button
               key={nav.id}
               onClick={() => {
-                setActiveTab(nav.id);
                 onCloseMobile();
+                if (window.location.pathname === nav.href) {
+                  setActiveTab(nav.id);
+                  return;
+                }
+
+                window.location.href = nav.href;
               }}
               className={`flex items-center gap-3.5 px-3 py-3 rounded text-left transition-all cursor-pointer ${
                 isSelected
@@ -147,13 +152,16 @@ export default function Sidebar({
           );
         })}
 
-        {/* Hardcoded visual tabs from design */}
         <button
           onClick={() => {
-            setActiveTab("activity");
             onCloseMobile();
+            window.location.href = "/leaderboard";
           }}
-          className={`flex items-center gap-3.5 px-3 py-3 rounded text-left transition-all text-[#ccc3d8] hover:text-white hover:bg-white/5 cursor-pointer`}
+          className={`flex items-center gap-3.5 px-3 py-3 rounded text-left transition-all cursor-pointer ${
+            activeTab === "leaderboard"
+              ? "bg-deep-orange/10 text-deep-orange border-r-2 border-deep-orange"
+              : "text-[#ccc3d8] hover:text-white hover:bg-white/5"
+          }`}
         >
           <ShieldCheck size={18} className="flex-shrink-0" />
           <span className="font-mono text-[10px] uppercase tracking-widest inline font-bold">

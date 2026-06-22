@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { MobileWalletLauncher } from "./MobileWalletLauncher";
 import { ThirdwebWalletBridge, ThirdwebWalletProvider } from "./ThirdwebWalletBridge";
@@ -13,6 +13,8 @@ import {
   setStoredBrowserWalletSession,
 } from "../lib/browser-wallet-session";
 import type { ExecutionCapabilities, UserSession } from "../lib/core-api";
+import { mapExecutionToVaults, mergeReadyVaultBalances } from "../lib/execution-vaults";
+import { readVaultWalletBalances } from "../lib/wallet-balances";
 import {
   getNoWalletDetectedMessage,
   isMobileWalletEnvironment,
@@ -67,18 +69,30 @@ export function TerminalShell({
   const [alertMessage, setAlertMessage] = useState<AlertMessage>(null);
   const [mobileWalletMessage, setMobileWalletMessage] = useState<string | null>(null);
   const [sessionWalletKind, setSessionWalletKind] = useState<SessionWalletKind | null>(null);
+  const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
+  const vaults = useMemo(() => mapExecutionToVaults(execution), [execution]);
 
   const applySession = useCallback((nextSession: UserSession | null) => {
     setSession(nextSession);
-    setPortfolio((current) =>
-      nextSession
-        ? {
-            ...current,
-            connected: true,
-            address: getSessionWalletAddress(nextSession) ?? current.address,
-          }
-        : emptyPortfolio,
-    );
+    setPortfolio((current) => {
+      if (!nextSession) {
+        return emptyPortfolio;
+      }
+
+      const nextAddress = getSessionWalletAddress(nextSession) ?? current.address;
+      const isSameWallet = current.address?.toLowerCase() === nextAddress?.toLowerCase();
+
+      return {
+        ...current,
+        connected: true,
+        address: nextAddress,
+        vaultBalances: isSameWallet ? current.vaultBalances : {},
+        walletBalances: isSameWallet ? current.walletBalances : {},
+        vaultTransactions: isSameWallet ? current.vaultTransactions : [],
+        walletBalancesMessage: nextAddress ? "Reading wallet token balances..." : undefined,
+        walletBalancesStatus: nextAddress ? "loading" : "idle",
+      };
+    });
   }, []);
 
   useEffect(() => {
@@ -96,6 +110,68 @@ export function TerminalShell({
 
     applySession(sessionOverride);
   }, [applySession, sessionOverride]);
+
+  useEffect(() => {
+    if (!portfolio.connected || !portfolio.address) return;
+
+    let isCurrent = true;
+    const walletAddress = portfolio.address;
+
+    setPortfolio((current) =>
+      current.address?.toLowerCase() === walletAddress.toLowerCase()
+        ? {
+            ...current,
+            walletBalancesMessage: "Reading wallet token balances...",
+            walletBalancesStatus: "loading",
+          }
+        : current,
+    );
+
+    void readVaultWalletBalances({ address: walletAddress, execution, vaults })
+      .then(({ depositedBalances, walletBalances }) => {
+        if (!isCurrent) return;
+
+        const primaryUsdcBalance = Object.values(walletBalances).find(
+          (balance) => balance.status === "ready" && balance.symbol === "USDC",
+        );
+        const primaryWethBalance = Object.values(walletBalances).find(
+          (balance) => balance.status === "ready" && balance.symbol === "WETH",
+        );
+
+        setPortfolio((current) => {
+          if (current.address?.toLowerCase() !== walletAddress.toLowerCase()) {
+            return current;
+          }
+
+          return {
+            ...current,
+            usdcBalance: primaryUsdcBalance?.amount ?? current.usdcBalance,
+            wethBalance: primaryWethBalance?.amount ?? current.wethBalance,
+            vaultBalances: mergeReadyVaultBalances(current.vaultBalances, depositedBalances),
+            walletBalances,
+            walletBalancesMessage: "Wallet token balances updated.",
+            walletBalancesStatus: "ready",
+          };
+        });
+      })
+      .catch(() => {
+        if (!isCurrent) return;
+
+        setPortfolio((current) =>
+          current.address?.toLowerCase() === walletAddress.toLowerCase()
+            ? {
+                ...current,
+                walletBalancesMessage: "Unable to read wallet token balances.",
+                walletBalancesStatus: "error",
+              }
+            : current,
+        );
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [execution, portfolio.address, portfolio.connected, vaults, walletBalanceRefreshNonce]);
 
   function triggerAlert(type: "success" | "info", text: string) {
     setAlertMessage({ type, text });
@@ -162,6 +238,7 @@ export function TerminalShell({
       setStoredBrowserSessionWalletKind("eoa");
       onSessionChange?.(body.data.session);
       triggerAlert("success", "Wallet connected and registered with core.");
+      setWalletBalanceRefreshNonce((current) => current + 1);
     } catch {
       triggerAlert("info", "Wallet connection was cancelled or failed.");
     }
@@ -195,6 +272,7 @@ export function TerminalShell({
     setStoredBrowserWalletSession(nextSession);
     setStoredBrowserSessionWalletKind("smart");
     onSessionChange?.(nextSession);
+    setWalletBalanceRefreshNonce((current) => current + 1);
   }
 
   function handleThirdwebDisconnectSession() {
