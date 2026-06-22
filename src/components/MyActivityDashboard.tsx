@@ -4,8 +4,10 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
-import { getStoredBrowserWalletSession } from "../lib/browser-wallet-session";
+import { getSessionWalletAddress, getStoredBrowserWalletSession } from "../lib/browser-wallet-session";
+import { fetchWalletBalanceSnapshot, applyWalletBalanceSnapshot } from "../lib/client-wallet-balances";
 import type { CopyIntent, Market, Position, TradeSignal, UserSession } from "../lib/core-api";
+import type { UserPortfolio } from "../zip-ui/types";
 import { executionStatusLabel, formatDate } from "../lib/display";
 import { EmptyState } from "./EmptyState";
 import { PositionCard } from "./PositionCard";
@@ -30,6 +32,18 @@ type MyActivityResponse =
 
 export function MyActivityDashboard() {
   const [session, setSession] = useState<UserSession | null>(null);
+  const [portfolio, setPortfolio] = useState<UserPortfolio>({
+    connected: false,
+    address: null,
+    usdcBalance: 0,
+    wethBalance: 0,
+    vaultBalances: {},
+    walletBalances: {},
+    vaultTransactions: [],
+    walletBalancesStatus: "idle",
+    activeRequestsCount: 0,
+    activePositions: [],
+  });
   const [activityState, setActivityState] = useState<ActivityState>({
     status: "idle",
     message: "Sign in to load your portfolio.",
@@ -38,10 +52,12 @@ export function MyActivityDashboard() {
   useEffect(() => {
     const storedSession = getStoredBrowserWalletSession();
     setSession(storedSession);
+    setPortfolio((current) => applySessionToPortfolio(current, storedSession));
 
     function handleSessionChange(event: Event) {
       const detail = (event as CustomEvent<UserSession | null>).detail;
       setSession(detail);
+      setPortfolio((current) => applySessionToPortfolio(current, detail));
     }
 
     window.addEventListener("conviction-browser-session", handleSessionChange as EventListener);
@@ -50,6 +66,41 @@ export function MyActivityDashboard() {
       window.removeEventListener("conviction-browser-session", handleSessionChange as EventListener);
     };
   }, []);
+
+
+  useEffect(() => {
+    if (!portfolio.connected || !portfolio.address) return;
+
+    let isCurrent = true;
+    const walletAddress = portfolio.address;
+
+    setPortfolio((current) =>
+      current.address?.toLowerCase() === walletAddress.toLowerCase()
+        ? { ...current, walletBalancesStatus: "loading", walletBalancesMessage: "Reading wallet token balances..." }
+        : current,
+    );
+
+    void fetchWalletBalanceSnapshot(walletAddress)
+      .then((snapshot) => {
+        if (!isCurrent) return;
+        setPortfolio((current) => {
+          if (current.address?.toLowerCase() !== walletAddress.toLowerCase()) return current;
+          return applyWalletBalanceSnapshot(current, snapshot);
+        });
+      })
+      .catch(() => {
+        if (!isCurrent) return;
+        setPortfolio((current) =>
+          current.address?.toLowerCase() === walletAddress.toLowerCase()
+            ? { ...current, walletBalancesStatus: "error", walletBalancesMessage: "Unable to read wallet token balances." }
+            : current,
+        );
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [portfolio.address, portfolio.connected]);
 
   useEffect(() => {
     if (!session) {
@@ -121,6 +172,8 @@ export function MyActivityDashboard() {
   const copyIntentCount = activity?.copyIntents.length ?? 0;
   const displayHandle = session?.traderProfile?.handle ?? (session ? "trader.viction" : "Sign in");
   const emailLabel = session?.user.email ?? "No email set";
+  const walletBalanceLabel = formatTokenBalance(portfolio.usdcBalance, "USDC");
+  const walletStatusLabel = portfolio.walletBalancesStatus === "loading" ? "Syncing" : portfolio.walletBalancesStatus === "error" ? "Retry from wallet menu" : "Available";
 
   return (
     <section className="wallet-portfolio-shell" aria-label="My portfolio">
@@ -134,6 +187,14 @@ export function MyActivityDashboard() {
           <div>
             <dt>Account email</dt>
             <dd>{emailLabel}</dd>
+          </div>
+          <div>
+            <dt>Wallet balance</dt>
+            <dd>{walletBalanceLabel}</dd>
+          </div>
+          <div>
+            <dt>Balance status</dt>
+            <dd>{walletStatusLabel}</dd>
           </div>
           <div>
             <dt>Vault collateral</dt>
@@ -167,6 +228,7 @@ export function MyActivityDashboard() {
               <Link className="text-link" href="/me/profile">Manage identity</Link>
             </div>
             <div className="wallet-summary-grid" aria-label="Portfolio summary">
+              <SummaryTile label="Wallet balance" value={walletBalanceLabel} />
               <SummaryTile label="Active positions" value={activePositions.length} />
               <SummaryTile label="Past positions" value={pastPositions.length} />
               <SummaryTile label="Signals" value={publicSignalCount} />
@@ -273,6 +335,35 @@ export function MyActivityDashboard() {
   );
 }
 
+function applySessionToPortfolio(current: UserPortfolio, nextSession: UserSession | null): UserPortfolio {
+  if (!nextSession) {
+    return {
+      connected: false,
+      address: null,
+      usdcBalance: 0,
+      wethBalance: 0,
+      vaultBalances: {},
+      walletBalances: {},
+      vaultTransactions: [],
+      walletBalancesStatus: "idle",
+      activeRequestsCount: 0,
+      activePositions: [],
+    };
+  }
+
+  const nextAddress = getSessionWalletAddress(nextSession) ?? current.address;
+  const isSameWallet = current.address?.toLowerCase() === nextAddress?.toLowerCase();
+
+  return {
+    ...current,
+    connected: true,
+    address: nextAddress,
+    vaultBalances: isSameWallet ? current.vaultBalances : {},
+    walletBalances: isSameWallet ? current.walletBalances : {},
+    walletBalancesStatus: nextAddress ? "loading" : "idle",
+  };
+}
+
 function SummaryTile({ label, value }: { label: string; value: number | string }) {
   return (
     <div>
@@ -318,4 +409,8 @@ function ActivitySection({
 
 function formatUsd(value: number) {
   return "$" + value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function formatTokenBalance(value: number, symbol: string) {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 }) + " " + symbol;
 }

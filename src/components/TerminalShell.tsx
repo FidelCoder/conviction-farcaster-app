@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { MobileWalletLauncher } from "./MobileWalletLauncher";
 import { ThirdwebWalletBridge, ThirdwebWalletProvider } from "./ThirdwebWalletBridge";
@@ -13,8 +13,7 @@ import {
   setStoredBrowserWalletSession,
 } from "../lib/browser-wallet-session";
 import type { ExecutionCapabilities, UserSession } from "../lib/core-api";
-import { mapExecutionToVaults, mergeReadyVaultBalances } from "../lib/execution-vaults";
-import { readVaultWalletBalances } from "../lib/wallet-balances";
+import { fetchWalletBalanceSnapshot, applyWalletBalanceSnapshot } from "../lib/client-wallet-balances";
 import {
   getNoWalletDetectedMessage,
   isMobileWalletEnvironment,
@@ -70,7 +69,6 @@ export function TerminalShell({
   const [mobileWalletMessage, setMobileWalletMessage] = useState<string | null>(null);
   const [sessionWalletKind, setSessionWalletKind] = useState<SessionWalletKind | null>(null);
   const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
-  const vaults = useMemo(() => mapExecutionToVaults(execution), [execution]);
 
   const applySession = useCallback((nextSession: UserSession | null) => {
     setSession(nextSession);
@@ -127,31 +125,16 @@ export function TerminalShell({
         : current,
     );
 
-    void readVaultWalletBalances({ address: walletAddress, execution, vaults })
-      .then(({ depositedBalances, walletBalances }) => {
+    void fetchWalletBalanceSnapshot(walletAddress)
+      .then((snapshot) => {
         if (!isCurrent) return;
-
-        const primaryUsdcBalance = Object.values(walletBalances).find(
-          (balance) => balance.status === "ready" && balance.symbol === "USDC",
-        );
-        const primaryWethBalance = Object.values(walletBalances).find(
-          (balance) => balance.status === "ready" && balance.symbol === "WETH",
-        );
 
         setPortfolio((current) => {
           if (current.address?.toLowerCase() !== walletAddress.toLowerCase()) {
             return current;
           }
 
-          return {
-            ...current,
-            usdcBalance: primaryUsdcBalance?.amount ?? current.usdcBalance,
-            wethBalance: primaryWethBalance?.amount ?? current.wethBalance,
-            vaultBalances: mergeReadyVaultBalances(current.vaultBalances, depositedBalances),
-            walletBalances,
-            walletBalancesMessage: "Wallet token balances updated.",
-            walletBalancesStatus: "ready",
-          };
+          return applyWalletBalanceSnapshot(current, snapshot);
         });
       })
       .catch(() => {
@@ -171,7 +154,7 @@ export function TerminalShell({
     return () => {
       isCurrent = false;
     };
-  }, [execution, portfolio.address, portfolio.connected, vaults, walletBalanceRefreshNonce]);
+  }, [portfolio.address, portfolio.connected, walletBalanceRefreshNonce]);
 
   function triggerAlert(type: "success" | "info", text: string) {
     setAlertMessage({ type, text });
@@ -362,4 +345,3 @@ function navigateFromTab(tab: string) {
 
   window.location.href = hrefByTab[tab] ?? "/";
 }
-

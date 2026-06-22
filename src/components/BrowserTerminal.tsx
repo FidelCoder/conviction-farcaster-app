@@ -32,9 +32,9 @@ import {
   resolveEvmWalletProvider,
   type EthereumProvider,
 } from "../lib/evm-wallet-provider";
-import { mapExecutionToVaults, mergeReadyVaultBalances } from "../lib/execution-vaults";
+import { fetchWalletBalanceSnapshot, applyWalletBalanceSnapshot } from "../lib/client-wallet-balances";
+import { mapExecutionToVaults } from "../lib/execution-vaults";
 import { isThirdwebConfigured } from "../lib/thirdweb-client";
-import { readVaultWalletBalances } from "../lib/wallet-balances";
 import ActivityView from "../zip-ui/components/ActivityView";
 import Header from "../zip-ui/components/Header";
 import LandingView from "../zip-ui/components/LandingView";
@@ -301,31 +301,16 @@ export function BrowserTerminal({
         : current,
     );
 
-    void readVaultWalletBalances({ address: walletAddress, execution, vaults })
-      .then(({ depositedBalances, walletBalances }) => {
+    void fetchWalletBalanceSnapshot(walletAddress)
+      .then((snapshot) => {
         if (!isCurrent) return;
-
-        const primaryUsdcBalance = Object.values(walletBalances).find(
-          (balance) => balance.status === "ready" && balance.symbol === "USDC",
-        );
-        const primaryWethBalance = Object.values(walletBalances).find(
-          (balance) => balance.status === "ready" && balance.symbol === "WETH",
-        );
 
         setPortfolio((current) => {
           if (current.address?.toLowerCase() !== walletAddress.toLowerCase()) {
             return current;
           }
 
-          return {
-            ...current,
-            usdcBalance: primaryUsdcBalance?.amount ?? current.usdcBalance,
-            wethBalance: primaryWethBalance?.amount ?? current.wethBalance,
-            vaultBalances: mergeReadyVaultBalances(current.vaultBalances, depositedBalances),
-            walletBalances,
-            walletBalancesMessage: "Wallet token balances updated.",
-            walletBalancesStatus: "ready",
-          };
+          return applyWalletBalanceSnapshot(current, snapshot);
         });
       })
       .catch(() => {
@@ -345,7 +330,7 @@ export function BrowserTerminal({
     return () => {
       isCurrent = false;
     };
-  }, [execution, portfolio.address, portfolio.connected, vaults, walletBalanceRefreshNonce]);
+  }, [portfolio.address, portfolio.connected, walletBalanceRefreshNonce]);
 
   const refreshWalletBalances = useCallback(() => {
     setWalletBalanceRefreshNonce((current) => current + 1);
