@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { MobileWalletLauncher } from "./MobileWalletLauncher";
+import { RequiredVictionOnboarding } from "./RequiredVictionOnboarding";
 import { ThirdwebWalletBridge, ThirdwebWalletProvider } from "./ThirdwebWalletBridge";
 import {
   clearStoredBrowserWalletSession,
@@ -267,6 +268,13 @@ export function TerminalShell({
     onSessionChange?.(null);
   }
 
+  function handleProfileClaimed(nextSession: UserSession) {
+    applySession(nextSession);
+    setStoredBrowserWalletSession(nextSession);
+    onSessionChange?.(nextSession);
+    triggerAlert("success", "Your .viction identity is active.");
+  }
+
   return (
     <ThirdwebWalletProvider>
       <div className="min-h-screen bg-background-base text-on-surface font-sans selection:bg-deep-orange selection:text-black">
@@ -277,6 +285,10 @@ export function TerminalShell({
           onSmartWalletActive={handleSmartWalletActive}
           onStatus={triggerAlert}
         />
+      <RequiredVictionOnboarding
+        onClaimed={handleProfileClaimed}
+        session={session}
+      />
       <Header
         activeTab={activeTab}
         onConnectWallet={handleConnectWallet}

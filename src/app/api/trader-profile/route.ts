@@ -5,6 +5,11 @@ import {
   createBrowserWalletSession,
   upsertTraderProfile,
 } from "../../../lib/core-api";
+import {
+  buildVictionHandle,
+  isClaimedVictionHandle,
+  normalizeVictionHandle,
+} from "../../../lib/viction-profile";
 
 const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
 
@@ -16,7 +21,7 @@ export async function POST(request: Request) {
   }
 
   const walletAddress = stringField(body, "walletAddress");
-  const handle = stringField(body, "handle");
+  const handle = buildVictionHandle(normalizeVictionHandle(stringField(body, "handle")));
   const bio = optionalString(body.bio);
   const avatarUrl = optionalString(body.avatarUrl);
 
@@ -24,8 +29,8 @@ export async function POST(request: Request) {
     return validationError("Connect a valid EVM wallet before updating a profile.");
   }
 
-  if (!handle || handle.length < 2) {
-    return validationError("Handle must be at least 2 characters.");
+  if (!isClaimedVictionHandle(handle)) {
+    return validationError("Choose a unique .viction handle that is not a generated wallet or trader fallback.");
   }
 
   try {

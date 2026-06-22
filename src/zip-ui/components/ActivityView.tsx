@@ -2,6 +2,7 @@ import Link from 'next/link';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityItem, LeaderboardItem, PredictionMarket, UserPortfolio } from '../types';
 import type { DiscoveredUser, SocialActor, UserSession } from '../../lib/core-api';
+import { isClaimedVictionHandle, isClaimedVictionProfile } from '../../lib/viction-profile';
 import {
   AlertTriangle,
   ExternalLink,
@@ -125,7 +126,7 @@ export default function ActivityView({
 
   const realMarkets = markets.filter((market) => market.id !== 'empty-market-state');
   const selectedMarket = selectedMarketId ? realMarkets.find((market) => market.id === selectedMarketId) ?? null : null;
-  const communityHandle = session?.traderProfile?.handle ?? '';
+  const communityHandle = isClaimedVictionProfile(session?.traderProfile) ? session?.traderProfile?.handle ?? '' : '';
   const hasCommunityIdentity = Boolean(portfolio.connected && session && communityHandle);
   const feed = useMemo(() => normalizeActivityFeed(activity), [activity]);
   const filteredFeed = useMemo(
@@ -1281,7 +1282,9 @@ function PeopleNetwork({
   pendingActionId: string | null;
   users: DiscoveredUser[];
 }) {
-  const visibleUsers = users.filter((user) => user.user.id !== currentUserId);
+  const visibleUsers = users.filter(
+    (user) => user.user.id !== currentUserId && isClaimedVictionProfile(user.traderProfile),
+  );
 
   if (visibleUsers.length === 0) {
     return (
@@ -1934,7 +1937,11 @@ function getActorInitials(actor: SocialActor) {
 }
 
 function getDiscoveredUserLabel(user: DiscoveredUser) {
-  return normalizeVictionLabel(user.traderProfile?.handle ?? user.socialAccount?.username ?? user.user.displayName, 'trader' + user.user.id.slice(-5));
+  if (isClaimedVictionHandle(user.traderProfile?.handle)) {
+    return normalizeVictionLabel(user.traderProfile?.handle, 'trader');
+  }
+
+  return 'Profile pending';
 }
 
 function normalizeVictionLabel(value: string | null | undefined, fallback: string) {

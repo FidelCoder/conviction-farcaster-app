@@ -16,6 +16,12 @@ import {
   type TraderProfile,
   type UserSession,
 } from "../../../lib/core-api";
+import {
+  buildVictionHandle,
+  isClaimedVictionProfile,
+  normalizeVictionHandle,
+  stripVictionSuffix,
+} from "../../../lib/viction-profile";
 
 type ProfileEditState =
   | { status: "idle"; message: string }
@@ -46,8 +52,6 @@ const avatarOptions = [
 ] as const;
 
 type AvatarVariant = (typeof avatarOptions)[number]["id"];
-
-const victionSuffix = ".viction";
 
 export default function ProfilePage() {
   const [terminalData, setTerminalData] = useState<{
@@ -91,7 +95,7 @@ export default function ProfilePage() {
     "https://twitter.com/intent/tweet?text=" +
     encodeURIComponent(shareText) +
     (shareTarget ? "&url=" + encodeURIComponent(shareTarget) : "");
-  const hasClaimedProfile = Boolean(isWalletConnected && traderProfile);
+  const hasClaimedProfile = Boolean(isWalletConnected && isClaimedVictionProfile(traderProfile));
   const shouldShowProfileView = hasClaimedProfile && !isEditing;
 
   useEffect(() => {
@@ -213,7 +217,7 @@ export default function ProfilePage() {
       setEmail(nextEmail ?? "");
       setState({ status: "success", message: "Claimed " + nextFullHandle + "." });
       setShowEmailPrompt(false);
-      setIsEditing(false);
+      setIsEditing(!isClaimedVictionProfile(profileBody.data.traderProfile));
 
       setTimeout(() => {
         setState((current) =>
@@ -571,24 +575,8 @@ export default function ProfilePage() {
 
 const getConnectedWalletAddress = getSessionWalletAddress;
 
-function normalizeHandleInput(value: string) {
-  return stripVictionSuffix(value)
-    .replace(/[^a-zA-Z0-9_.-]/g, "")
-    .toLowerCase()
-    .slice(0, 32);
-}
-
-function buildFullHandle(value: string) {
-  const base = normalizeHandleInput(value) || "yourname";
-
-  return base + victionSuffix;
-}
-
-function stripVictionSuffix(value: string) {
-  const trimmed = value.trim().toLowerCase();
-
-  return trimmed.endsWith(victionSuffix) ? trimmed.slice(0, -victionSuffix.length) : trimmed;
-}
+const normalizeHandleInput = normalizeVictionHandle;
+const buildFullHandle = buildVictionHandle;
 
 function rotateAvatarOptions(seed: string) {
   const offset = hashAvatarSeed(seed) % avatarOptions.length;
