@@ -6,8 +6,7 @@ import {
   Coins,
   Gauge,
   Sparkles,
-  Activity,
-  Lock
+  BookOpen,
 } from 'lucide-react';
 
 interface LandingViewProps {
@@ -91,30 +90,6 @@ export default function LandingView({
           </div>
         </div>
 
-        {/* Powered by / Integration logos */}
-        <div className="mt-16 text-center border-t border-[#262626]/60 pt-6">
-          <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-widest font-extrabold block mb-4">
-            MARKET DATA AND GOVERNANCE ROADMAP
-          </span>
-          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-70">
-            <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
-              <span className="w-2 h-2 rounded-full bg-[#3B82F6]" />
-              <span>LIVE MARKET FEEDS</span>
-            </div>
-            <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
-              <span className="w-2 h-2 rounded-full bg-[#10B981]" />
-              <span>GLOBAL EVENT DATA</span>
-            </div>
-            <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
-              <span className="w-2 h-2 rounded-full bg-deep-orange" />
-              <span>PREDICTIT ADAPTER PLANNED</span>
-            </div>
-            <div className="flex items-center gap-1.5 font-sans font-extrabold text-xs tracking-tight text-white">
-              <span className="w-2 h-2 rounded-full bg-electric-purple" />
-              <span>CONVICTION DAO RISK RULES</span>
-            </div>
-          </div>
-        </div>
       </section>
 
       {/* 2. REAL-TIME INTERACTIVE LEVERAGE SIMULATOR */}
@@ -295,46 +270,7 @@ export default function LandingView({
         </div>
       </section>
 
-      {/* 3. THREE COLLATERAL VERTICAL CORE STATS */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-        <div className="bg-surface-card border border-[#262626] rounded-lg p-6 relative flex gap-4">
-          <div className="p-3 bg-deep-orange/10 border border-deep-orange/20 rounded text-deep-orange h-fit">
-            <Coins size={18} />
-          </div>
-          <div>
-            <h4 className="text-base font-sans font-bold text-white mb-2">Leveraged Margins</h4>
-            <p className="text-sm text-[#ccc3d8]/85 leading-relaxed font-sans">
-              Open larger YES/NO positions with configured margin multipliers and clear collateral requirements before you submit.
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-surface-card border border-[#262626] rounded-lg p-6 relative flex gap-4">
-          <div className="p-3 bg-electric-purple/10 border border-electric-purple/20 rounded text-electric-purple h-fit">
-            <Lock size={18} />
-          </div>
-          <div>
-            <h4 className="text-base font-sans font-bold text-white mb-2">High-Yield Pools</h4>
-            <p className="text-sm text-[#ccc3d8]/85 leading-relaxed font-sans">
-              Supply vault liquidity and earn from fees and risk premiums as traders borrow from the pool.
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-surface-card border border-[#262626] rounded-lg p-6 relative flex gap-4">
-          <div className="p-3 bg-[#10B981]/10 border border-[#10B981]/20 rounded text-[#10B981] h-fit">
-            <Activity size={18} />
-          </div>
-          <div>
-            <h4 className="text-base font-sans font-bold text-white mb-2">Delta-Neutral Hedging</h4>
-            <p className="text-sm text-[#ccc3d8]/85 leading-relaxed font-sans">
-              Track market exposure, wallet activity, and social signals in one Conviction profile.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. ECOSYSTEM METRICS DETAILS */}
+      {/* 3. ECOSYSTEM METRICS DETAILS */}
       <section className="bg-surface-card border border-[#262626] rounded-xl p-8 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-deep-orange via-electric-purple to-emerald-400" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center md:text-left">
@@ -365,11 +301,16 @@ export default function LandingView({
               Conviction Markets
             </p>
             <p className="mt-1 text-sm text-[#ccc3d8]">
-              Follow market updates, community calls, and product releases.
+              Docs, community, and product updates.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <SocialLink
+              href="/docs"
+              label="Docs"
+              icon={<BookOpen size={16} />}
+            />
             <SocialLink
               href="https://x.com/VictionMarkets"
               label="X"
