@@ -46,43 +46,43 @@ export default function LandingView({
   const totalReturnOnCollateral = ((payoutPotential - borrowCapital - collateral) / collateral) * 100;
 
   return (
-    <main className="flex-1 pt-24 px-4 md:px-10 pb-24 max-w-[1280px] mx-auto w-full bg-grid-tech">
+    <main className="flex-1 px-4 pb-28 pt-28 md:px-10 md:pb-36 md:pt-32 max-w-[1280px] mx-auto w-full bg-grid-tech">
       
       {/* 1. HERO SECTION */}
-      <section className="relative z-10 mb-16 mt-4">
+      <section className="relative z-10 mb-24 md:mb-32">
         {/* Decorative ambient radial lights */}
         <div className="absolute top-[-50px] left-[15%] w-72 h-72 bg-electric-purple/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-[20px] right-[10%] w-80 h-80 bg-deep-orange/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="text-center max-w-3xl mx-auto">
           {/* Tag */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-deep-orange/10 border border-deep-orange/20 rounded-full text-xs font-mono font-bold text-deep-orange mb-6 uppercase tracking-wider">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-deep-orange/10 border border-deep-orange/20 rounded-full text-xs font-mono font-bold text-deep-orange mb-8 uppercase tracking-wider">
             <Sparkles size={12} className="animate-pulse" />
             <span>Prediction markets, sorted for your interests</span>
           </div>
 
           {/* Heading */}
-          <h1 className="text-4xl md:text-6xl font-sans font-extrabold tracking-tight text-white mb-6 leading-tight">
+          <h1 className="text-4xl md:text-6xl font-sans font-extrabold tracking-tight text-white mb-8 leading-tight">
             Find Markets. <span className="text-transparent bg-clip-text bg-gradient-to-r from-deep-orange to-[#a78bfa]">Trade With Margin</span>
           </h1>
 
           {/* Subheading */}
-          <p className="text-sm md:text-base text-[#ccc3d8] leading-relaxed mb-10 max-w-2xl mx-auto font-sans">
+          <p className="text-sm md:text-base text-[#ccc3d8] leading-relaxed mb-12 max-w-2xl mx-auto font-sans">
             Discover live event markets and back your strongest calls with margin powered by vault liquidity.
           </p>
 
           {/* CTAs */}
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-5">
             <button
               onClick={onLaunchTerminal}
-              className="w-full sm:w-auto bg-deep-orange text-black font-sans font-extrabold text-xs tracking-widest uppercase px-8 py-4 rounded hover:bg-white transition-all duration-200 shadow-lg shadow-deep-orange/10 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto bg-deep-orange text-black font-sans font-extrabold text-xs tracking-widest uppercase px-9 py-4 rounded hover:bg-white transition-all duration-200 shadow-lg shadow-deep-orange/10 flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>Find Markets</span>
               <ArrowRight size={14} />
             </button>
             <button
               onClick={onExploreVaults}
-              className="w-full sm:w-auto border border-[#ccc3d8]/40 text-[#ccc3d8] hover:text-white hover:border-white hover:bg-white/5 font-sans font-bold text-xs tracking-widest uppercase px-8 py-4 rounded transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto border border-[#ccc3d8]/40 text-[#ccc3d8] hover:text-white hover:border-white hover:bg-white/5 font-sans font-bold text-xs tracking-widest uppercase px-9 py-4 rounded transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
             >
               <Coins size={14} />
               <span>Earn Yield</span>
@@ -93,17 +93,17 @@ export default function LandingView({
       </section>
 
       {/* 2. REAL-TIME INTERACTIVE LEVERAGE SIMULATOR */}
-      <section className="mb-16">
-        <div className="text-center mb-10">
-          <h2 className="text-2xl font-sans font-bold text-white mb-2">Preview Margin Mechanics</h2>
-          <p className="text-xs text-[#ccc3d8]/80 mt-1">
+      <section className="mb-24 md:mb-28">
+        <div className="text-center mb-12 md:mb-14">
+          <h2 className="text-2xl md:text-3xl font-sans font-bold text-white mb-4">Preview Margin Mechanics</h2>
+          <p className="mx-auto max-w-xl text-sm text-[#ccc3d8]/80">
             Estimate how collateral, borrowed vault liquidity, and YES/NO prices shape a margin request.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 xl:gap-10 items-stretch">
           {/* SIMULATOR CONTROLS (cols 5) */}
-          <div className="lg:col-span-5 bg-surface-card border border-[#262626] rounded-xl p-6 flex flex-col justify-between glow-orange relative overflow-hidden">
+          <div className="lg:col-span-5 bg-surface-card border border-[#262626] rounded-xl p-6 md:p-8 flex flex-col justify-between glow-orange relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-deep-orange/5 rounded-full blur-xl pointer-events-none" />
             
             <div>
@@ -207,7 +207,7 @@ export default function LandingView({
           </div>
 
           {/* SIMULATED OUTCOME DYNAMIC CHART (cols 7) */}
-          <div className="lg:col-span-7 bg-[#1c1b1b]/60 border border-[#262626] rounded-xl p-6 flex flex-col justify-between">
+          <div className="lg:col-span-7 bg-[#1c1b1b]/60 border border-[#262626] rounded-xl p-6 md:p-8 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-baseline mb-6 border-b border-[#262626] pb-4">
                 <span className="font-mono text-xs font-bold text-[#ccc3d8] uppercase tracking-wide">Margin Estimate</span>
@@ -218,7 +218,7 @@ export default function LandingView({
               </div>
 
               {/* Grid representation */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-8">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mb-8">
                 <div className="p-4 bg-[#0a0a0a] border border-[#262626] rounded">
                   <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-wider block mb-1">Your Collateral</span>
                   <span className="font-mono text-[#e5e2e1] font-bold text-base">${collateral.toLocaleString()}</span>
@@ -259,7 +259,7 @@ export default function LandingView({
             </div>
 
             {/* Explanatory text */}
-            <div className="p-4.5 bg-[#201f1f] rounded border border-[#262626] text-sm text-[#ccc3d8] leading-relaxed flex gap-3.5 items-start">
+            <div className="mt-2 p-5 bg-[#201f1f] rounded border border-[#262626] text-sm text-[#ccc3d8] leading-relaxed flex gap-3.5 items-start">
               <ShieldCheck size={20} className="text-deep-orange flex-shrink-0 mt-0.5" />
               <div>
                 <span className="font-sans text-base font-bold text-white block mb-1">Automated Collateral Guard:</span>
@@ -271,9 +271,9 @@ export default function LandingView({
       </section>
 
       {/* 3. ECOSYSTEM METRICS DETAILS */}
-      <section className="bg-surface-card border border-[#262626] rounded-xl p-8 relative overflow-hidden">
+      <section className="mb-20 bg-surface-card border border-[#262626] rounded-xl p-6 md:p-9 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-deep-orange via-electric-purple to-emerald-400" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center md:text-left">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10 text-center md:text-left">
           <div>
             <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Available Markets</span>
             <span className="font-mono text-3xl font-extrabold text-white">{marketCount}</span>
@@ -294,8 +294,8 @@ export default function LandingView({
         </div>
       </section>
 
-      <footer className="mt-10 border-t border-[#262626] pt-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <footer className="border-t border-[#262626] pt-8 md:pt-10">
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="font-mono text-[9px] font-extrabold uppercase tracking-widest text-[#ccc3d8]/50">
               Conviction Markets
@@ -305,7 +305,7 @@ export default function LandingView({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 md:gap-4">
             <SocialLink
               href="/docs"
               label="Docs"
