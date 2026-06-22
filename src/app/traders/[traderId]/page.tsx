@@ -1,10 +1,10 @@
-import { EmptyState } from "../../../components/EmptyState";
-import { PositionCard } from "../../../components/PositionCard";
-import { SignalCard } from "../../../components/SignalCard";
-import { TraderCard } from "../../../components/TraderCard";
+import { PublicTraderProfile } from "../../../components/PublicTraderProfile";
+import { TerminalShell } from "../../../components/TerminalShell";
 import {
+  getExecutionCapabilities,
   getTraderProfile,
   getTraderStats,
+  listMarkets,
   listTraderPositions,
   listTraderSignals,
 } from "../../../lib/core-api";
@@ -17,54 +17,25 @@ type TraderPageProps = {
 
 export default async function TraderPage({ params }: TraderPageProps) {
   const { traderId } = await params;
-  const [trader, stats, signals, positions] = await Promise.all([
+  const [trader, stats, signals, positions, markets, execution] = await Promise.all([
     getTraderProfile(traderId),
     getTraderStats(traderId),
     listTraderSignals(traderId),
     listTraderPositions(traderId),
+    listMarkets(),
+    getExecutionCapabilities(),
   ]);
 
   return (
-    <main className="page-shell">
-      <TraderCard stats={stats} trader={trader} traderId={traderId} />
-
-      <section className="section-heading">
-        <div>
-          <p className="eyebrow">Signals</p>
-          <h2>Trader signals</h2>
-        </div>
-      </section>
-      {signals.length > 0 ? (
-        <section className="card-grid">
-          {signals.map((signal) => (
-            <SignalCard key={signal.id} signal={signal} />
-          ))}
-        </section>
-      ) : (
-        <EmptyState
-          title="No signals returned"
-          body="The core API returned no signals for this trader."
-        />
-      )}
-
-      <section className="section-heading">
-        <div>
-          <p className="eyebrow">Positions</p>
-          <h2>Trader positions</h2>
-        </div>
-      </section>
-      {positions.length > 0 ? (
-        <section className="card-grid">
-          {positions.map((position) => (
-            <PositionCard key={position.id} position={position} />
-          ))}
-        </section>
-      ) : (
-        <EmptyState
-          title="No positions returned"
-          body="The core API returned no positions for this trader."
-        />
-      )}
-    </main>
+    <TerminalShell activeTab="activity" execution={execution} marketCount={markets.length}>
+      <PublicTraderProfile
+        markets={markets}
+        positions={positions}
+        signals={signals}
+        stats={stats}
+        trader={trader}
+        traderId={traderId}
+      />
+    </TerminalShell>
   );
 }

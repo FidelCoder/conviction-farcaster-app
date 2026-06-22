@@ -27,6 +27,7 @@ const terminalRoutePrefixes = [
   "/me",
   "/social",
   "/support",
+  "/traders",
   "/vaults",
 ];
 
