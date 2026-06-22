@@ -21,8 +21,9 @@ const googleWallet = inAppWallet({
   },
 });
 
-export const convictionWallets = [
-  googleWallet,
+export const convictionSmartWallets = [googleWallet];
+
+export const convictionEoaWallets = [
   createWallet("io.metamask"),
   createWallet("com.coinbase.wallet"),
   createWallet("me.rainbow"),
@@ -34,4 +35,8 @@ export const convictionWallets = [
 
 export function isThirdwebConfigured() {
   return thirdwebClientId.trim().length > 0;
+}
+
+export function getThirdwebChain(chainId: number) {
+  return convictionThirdwebChains.find((chain) => chain.id === chainId) ?? null;
 }

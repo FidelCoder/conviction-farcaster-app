@@ -2,13 +2,14 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { UserPortfolio } from "../types";
-import { Bell, Check, Copy, LogOut, Menu, Settings, Wallet } from "lucide-react";
+import { Bell, Check, Copy, KeyRound, LogOut, Menu, Settings, Sparkles, Wallet } from "lucide-react";
 
 interface HeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   portfolio: UserPortfolio;
-  onConnectWallet: () => void;
+  onConnectWallet: (mode?: "smart" | "eoa") => void;
+  onOpenSignInMenu?: () => void;
   onDisconnectWallet?: () => void;
   onOpenMenu?: () => void;
 }
@@ -19,6 +20,7 @@ export default function Header({
   portfolio,
   onConnectWallet,
   onDisconnectWallet,
+  onOpenSignInMenu,
   onOpenMenu,
 }: HeaderProps) {
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
@@ -71,12 +73,17 @@ export default function Header({
   }
 
   function handleWalletButtonClick() {
-    if (!portfolio.connected) {
-      onConnectWallet();
+    if (!portfolio.connected && onOpenSignInMenu) {
+      onOpenSignInMenu();
       return;
     }
 
     setWalletMenuOpen((open) => !open);
+  }
+
+  function handleSignInMode(mode: "smart" | "eoa") {
+    setWalletMenuOpen(false);
+    onConnectWallet(mode);
   }
 
   function handleDisconnectWallet() {
@@ -178,34 +185,69 @@ export default function Header({
             <span className="truncate">{walletLabel}</span>
           </button>
 
-          {portfolio.connected && portfolio.address && walletMenuOpen ? (
+          {walletMenuOpen ? (
             <div
-              className="absolute right-0 top-[calc(100%+0.6rem)] z-[70] w-64 overflow-hidden rounded border border-[#262626] bg-[#101010] shadow-2xl shadow-black/50"
+              className="absolute right-0 top-[calc(100%+0.6rem)] z-[70] w-72 overflow-hidden rounded border border-[#262626] bg-[#101010] shadow-2xl shadow-black/50"
               role="menu"
             >
-              <div className="border-b border-[#262626] px-3 py-3">
-                <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">Signed-in wallet</p>
-                <p className="mt-1 truncate font-mono text-xs font-bold text-white">{portfolio.address}</p>
-              </div>
-              <button
-                className="flex w-full items-center gap-2 px-3 py-3 text-left font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:bg-white/5 hover:text-white"
-                onClick={() => void copyWalletAddress()}
-                role="menuitem"
-                type="button"
-              >
-                {copyState === "copied" ? <Check size={14} className="text-[#10B981]" /> : <Copy size={14} />}
-                {copyState === "copied" ? "Copied" : "Copy address"}
-              </button>
-              <button
-                className="flex w-full items-center gap-2 border-t border-[#262626] px-3 py-3 text-left font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange transition-colors hover:bg-deep-orange hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={!onDisconnectWallet}
-                onClick={handleDisconnectWallet}
-                role="menuitem"
-                type="button"
-              >
-                <LogOut size={14} />
-                Disconnect
-              </button>
+              {portfolio.connected && portfolio.address ? (
+                <>
+                  <div className="border-b border-[#262626] px-3 py-3">
+                    <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">Signed-in wallet</p>
+                    <p className="mt-1 truncate font-mono text-xs font-bold text-white">{portfolio.address}</p>
+                  </div>
+                  <button
+                    className="flex w-full items-center gap-2 px-3 py-3 text-left font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:bg-white/5 hover:text-white"
+                    onClick={() => void copyWalletAddress()}
+                    role="menuitem"
+                    type="button"
+                  >
+                    {copyState === "copied" ? <Check size={14} className="text-[#10B981]" /> : <Copy size={14} />}
+                    {copyState === "copied" ? "Copied" : "Copy address"}
+                  </button>
+                  <button
+                    className="flex w-full items-center gap-2 border-t border-[#262626] px-3 py-3 text-left font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange transition-colors hover:bg-deep-orange hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!onDisconnectWallet}
+                    onClick={handleDisconnectWallet}
+                    role="menuitem"
+                    type="button"
+                  >
+                    <LogOut size={14} />
+                    Disconnect
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="border-b border-[#262626] px-3 py-3">
+                    <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">Choose sign-in mode</p>
+                    <p className="mt-1 text-xs leading-relaxed text-[#ccc3d8]/80">Use a Google smart wallet or connect your own EOA wallet.</p>
+                  </div>
+                  <button
+                    className="flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-white/5"
+                    onClick={() => handleSignInMode("smart")}
+                    role="menuitem"
+                    type="button"
+                  >
+                    <Sparkles size={16} className="mt-0.5 text-deep-orange" />
+                    <span>
+                      <strong className="block font-mono text-[10px] uppercase tracking-widest text-white">Smart wallet</strong>
+                      <small className="mt-1 block text-xs leading-relaxed text-[#ccc3d8]/75">Google sign-in with a thirdweb smart account.</small>
+                    </span>
+                  </button>
+                  <button
+                    className="flex w-full items-start gap-3 border-t border-[#262626] px-3 py-3 text-left transition-colors hover:bg-white/5"
+                    onClick={() => handleSignInMode("eoa")}
+                    role="menuitem"
+                    type="button"
+                  >
+                    <KeyRound size={16} className="mt-0.5 text-deep-orange" />
+                    <span>
+                      <strong className="block font-mono text-[10px] uppercase tracking-widest text-white">EOA wallet</strong>
+                      <small className="mt-1 block text-xs leading-relaxed text-[#ccc3d8]/75">MetaMask, Coinbase, Rabby, Trust, Phantom, OKX, or another private-key wallet.</small>
+                    </span>
+                  </button>
+                </>
+              )}
             </div>
           ) : null}
         </div>

@@ -8,7 +8,9 @@ import { ThirdwebWalletBridge, ThirdwebWalletProvider } from "./ThirdwebWalletBr
 import {
   clearStoredBrowserWalletSession,
   getSessionWalletAddress,
+  getStoredBrowserSessionWalletKind,
   getStoredBrowserWalletSession,
+  setStoredBrowserSessionWalletKind,
   setStoredBrowserWalletSession,
 } from "../lib/browser-wallet-session";
 import type {
@@ -82,6 +84,16 @@ type MarginIntentResponse =
 
 type AlertMessage = { type: "success" | "info"; text: string } | null;
 type DepositResult = VaultDepositTransaction | false;
+type SignInMode = "smart" | "eoa";
+type SessionWalletKind = "smart" | "eoa";
+
+type SmartVaultTransactionResult = {
+  approvalHash: string | null;
+  depositHash: string;
+  requestId: string;
+};
+
+type SmartVaultTransactionFailure = { message: string; requestId: string };
 
 type VaultPrepareResponse =
   | { ok: true; data: PreparedContractTransaction }
@@ -157,6 +169,7 @@ export function BrowserTerminal({
   const [activeTab, setActiveTabState] = useState<TerminalTab>(initialTab);
   const [portfolio, setPortfolio] = useState<UserPortfolio>(emptyPortfolio);
   const [session, setSession] = useState<UserSession | null>(null);
+  const [sessionWalletKind, setSessionWalletKind] = useState<SessionWalletKind | null>(null);
   const [activeMarket, setActiveMarket] = useState<PredictionMarket>(() =>
     displayMarkets.find((market) => market.id === initialMarketId) ?? displayMarkets[0],
   );
@@ -164,6 +177,7 @@ export function BrowserTerminal({
   const [mobileWalletMessage, setMobileWalletMessage] = useState<string | null>(null);
   const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSignInChoiceOpen, setIsSignInChoiceOpen] = useState(false);
 
   const currentMarket =
     displayMarkets.find((market) => market.id === activeMarket.id) ?? displayMarkets[0];
@@ -217,6 +231,7 @@ export function BrowserTerminal({
 
     if (storedSession) {
       applySession(storedSession);
+      setSessionWalletKind(getStoredBrowserSessionWalletKind() ?? "eoa");
     }
   }, [applySession]);
 
@@ -345,17 +360,27 @@ export function BrowserTerminal({
     triggerAlert("info", message);
   }
 
-  async function handleConnectWallet() {
+  async function handleConnectWallet(mode?: SignInMode) {
+    if (!mode) {
+      setIsSignInChoiceOpen(true);
+      return;
+    }
     if (portfolio.connected) {
       triggerAlert("info", "You are already signed in. Open the account menu to copy or disconnect.");
       return;
     }
 
-    if (isThirdwebConfigured()) {
-      window.dispatchEvent(new Event("conviction-thirdweb-connect"));
+    if (mode === "smart") {
+      if (isThirdwebConfigured()) {
+        window.dispatchEvent(new Event("conviction-thirdweb-smart-connect"));
+        return;
+      }
+
+      triggerAlert("info", "Smart wallet auth is not configured yet. Use EOA wallet sign-in.");
       return;
     }
 
+    window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
     const provider = await resolveEvmWalletProvider();
 
     if (!provider) {
@@ -385,27 +410,51 @@ export function BrowserTerminal({
       }
 
       applySession(body.data.session);
+      setSessionWalletKind("eoa");
       setStoredBrowserWalletSession(body.data.session);
-      triggerAlert("success", "Signed in and registered with core.");
+      setStoredBrowserSessionWalletKind("eoa");
+      triggerAlert("success", "EOA wallet signed in and registered with core.");
     } catch {
       triggerAlert("info", "Wallet connection was cancelled or failed.");
     }
   }
 
+  function handleOpenSignInMenu() {
+    if (portfolio.connected) return;
+    setIsSignInChoiceOpen(true);
+  }
+
   function handleDisconnectWallet() {
     window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
     applySession(null);
+    setSessionWalletKind(null);
     clearStoredBrowserWalletSession();
     triggerAlert("info", "Session closed.");
   }
 
   function handleThirdwebSessionReady(nextSession: UserSession) {
     applySession(nextSession);
+    setSessionWalletKind("smart");
     setStoredBrowserWalletSession(nextSession);
+    setStoredBrowserSessionWalletKind("smart");
   }
+
+  const handleSmartWalletActive = useCallback((address: string) => {
+    setSessionWalletKind((current) => {
+      const activeAddress = portfolio.address?.toLowerCase();
+
+      if (activeAddress && activeAddress === address.toLowerCase()) {
+        setStoredBrowserSessionWalletKind("smart");
+        return "smart";
+      }
+
+      return current;
+    });
+  }, [portfolio.address]);
 
   function handleThirdwebDisconnectSession() {
     applySession(null);
+    setSessionWalletKind(null);
     clearStoredBrowserWalletSession();
   }
 
@@ -578,13 +627,6 @@ export function BrowserTerminal({
       return false;
     }
 
-    const provider = await resolveEvmWalletProvider();
-
-    if (!provider) {
-      promptMobileWallet();
-      return false;
-    }
-
     const vaultAddress = getVaultAddress(execution, vault);
 
     if (!vaultAddress) {
@@ -593,6 +635,40 @@ export function BrowserTerminal({
     }
 
     try {
+      const amountUnits = parseUnits(String(amount), vault.collateralTokenDecimals ?? 6);
+
+      if (sessionWalletKind === "smart") {
+        triggerAlert("info", "Preparing smart wallet deposit for " + amount.toFixed(2) + " " + vault.asset + ".");
+        const smartResult = await submitSmartWalletDeposit({
+          amountUnits: amountUnits.toString(),
+          chainId: vault.chainId,
+          collateralTokenAddress: vault.collateralTokenAddress,
+          vaultAddress,
+        });
+
+        if (!smartResult) return false;
+
+        const transaction = buildVaultDepositTransaction({
+          amount,
+          approvalHash: smartResult.approvalHash,
+          depositHash: smartResult.depositHash,
+          vault,
+          vaultId,
+        });
+
+        recordVaultDepositTransaction(transaction, vaultId, amount);
+        refreshWalletBalances();
+        triggerAlert("success", "Vault deposit confirmed.");
+        return transaction;
+      }
+
+      const provider = await resolveEvmWalletProvider();
+
+      if (!provider) {
+        promptMobileWallet();
+        return false;
+      }
+
       triggerAlert("info", "Preparing wallet approval for " + amount.toFixed(2) + " " + vault.asset + ".");
       const currentAccounts = normalizeAccounts(
         await provider.request({ method: "eth_requestAccounts" }),
@@ -600,13 +676,11 @@ export function BrowserTerminal({
       const walletAddress = currentAccounts[0];
 
       if (!walletAddress || walletAddress.toLowerCase() !== portfolio.address.toLowerCase()) {
-        triggerAlert("info", "Connected wallet does not match the active Conviction session.");
+        triggerAlert("info", "Connected EOA wallet does not match the active Conviction session. Disconnect and sign in with that EOA, or use Smart wallet sign-in.");
         return false;
       }
 
       await ensureWalletChain(provider, vault.chainId);
-
-      const amountUnits = parseUnits(String(amount), vault.collateralTokenDecimals ?? 6);
       const currentAllowance = await readCollateralAllowance({
         owner: walletAddress,
         provider,
@@ -679,28 +753,15 @@ export function BrowserTerminal({
         return false;
       }
 
-      const transaction: VaultDepositTransaction = {
-        id: depositHash,
+      const transaction = buildVaultDepositTransaction({
         amount,
         approvalHash,
-        asset: vault.asset,
-        chainId: vault.chainId,
-        chainName: vault.chainName,
         depositHash,
-        status: "confirmed" as const,
-        timestamp: new Date().toISOString(),
+        vault,
         vaultId,
-        vaultName: vault.name,
-      };
+      });
 
-      setPortfolio((current) => ({
-        ...current,
-        vaultBalances: {
-          ...current.vaultBalances,
-          [vaultId]: (current.vaultBalances[vaultId] ?? 0) + amount,
-        },
-        vaultTransactions: [transaction, ...current.vaultTransactions].slice(0, 20),
-      }));
+      recordVaultDepositTransaction(transaction, vaultId, amount);
       refreshWalletBalances();
       triggerAlert("success", "Vault deposit confirmed.");
       return transaction;
@@ -708,6 +769,82 @@ export function BrowserTerminal({
       triggerAlert("info", getWalletErrorMessage(error));
       return false;
     }
+  }
+
+  function submitSmartWalletDeposit(input: {
+    amountUnits: string;
+    chainId: number;
+    collateralTokenAddress: string;
+    vaultAddress: string;
+  }) {
+    const requestId = "smart-deposit-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+
+    return new Promise<SmartVaultTransactionResult | null>((resolve) => {
+      const cleanup = () => {
+        window.removeEventListener("conviction-thirdweb-smart-deposit-result", handleResult as EventListener);
+        window.removeEventListener("conviction-thirdweb-smart-deposit-error", handleError as EventListener);
+      };
+
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        triggerAlert("info", "Smart wallet deposit timed out before confirmation.");
+        resolve(null);
+      }, 180000);
+
+      const handleResult = (event: CustomEvent<SmartVaultTransactionResult>) => {
+        if (event.detail.requestId !== requestId) return;
+        window.clearTimeout(timeout);
+        cleanup();
+        resolve(event.detail);
+      };
+
+      const handleError = (event: CustomEvent<SmartVaultTransactionFailure>) => {
+        if (event.detail.requestId !== requestId) return;
+        window.clearTimeout(timeout);
+        cleanup();
+        triggerAlert("info", event.detail.message);
+        resolve(null);
+      };
+
+      window.addEventListener("conviction-thirdweb-smart-deposit-result", handleResult as EventListener);
+      window.addEventListener("conviction-thirdweb-smart-deposit-error", handleError as EventListener);
+      window.dispatchEvent(new CustomEvent("conviction-thirdweb-smart-deposit", {
+        detail: { ...input, requestId },
+      }));
+    });
+  }
+
+  function buildVaultDepositTransaction(input: {
+    amount: number;
+    approvalHash: string | null;
+    depositHash: string;
+    vault: Vault;
+    vaultId: string;
+  }): VaultDepositTransaction {
+    return {
+      id: input.depositHash,
+      amount: input.amount,
+      approvalHash: input.approvalHash,
+      asset: input.vault.asset,
+      chainId: input.vault.chainId,
+      chainName: input.vault.chainName,
+      depositHash: input.depositHash,
+      status: "confirmed" as const,
+      timestamp: new Date().toISOString(),
+      vaultId: input.vaultId,
+      vaultName: input.vault.name,
+    };
+  }
+
+  function recordVaultDepositTransaction(transaction: VaultDepositTransaction, vaultId: string, amount: number) {
+    setPortfolio((current) => ({
+      ...current,
+      vaultBalances: {
+        ...current.vaultBalances,
+        [vaultId]: (current.vaultBalances[vaultId] ?? 0) + amount,
+      },
+      vaultTransactions: [transaction, ...current.vaultTransactions].slice(0, 20),
+    }));
   }
 
   function handleWithdraw() {
@@ -787,6 +924,7 @@ export function BrowserTerminal({
           activeAddress={portfolio.address}
           onDisconnectSession={handleThirdwebDisconnectSession}
           onSessionReady={handleThirdwebSessionReady}
+          onSmartWalletActive={handleSmartWalletActive}
           onStatus={triggerAlert}
         />
         <RequiredVictionOnboarding
@@ -794,11 +932,20 @@ export function BrowserTerminal({
           onOpenProfile={handleOpenProfileSettings}
           session={session}
         />
+        <SignInChoiceDialog
+          onClose={() => setIsSignInChoiceOpen(false)}
+          onSelect={(mode) => {
+            setIsSignInChoiceOpen(false);
+            void handleConnectWallet(mode);
+          }}
+          open={isSignInChoiceOpen && !portfolio.connected}
+        />
       <Header
         activeTab={activeTab}
         onConnectWallet={handleConnectWallet}
         onDisconnectWallet={handleDisconnectWallet}
         onOpenMenu={() => setIsMobileMenuOpen(true)}
+        onOpenSignInMenu={handleOpenSignInMenu}
         portfolio={portfolio}
         setActiveTab={setActiveTab}
       />
@@ -905,6 +1052,46 @@ export function BrowserTerminal({
       ) : null}
       </div>
     </ThirdwebWalletProvider>
+  );
+}
+
+
+function SignInChoiceDialog({
+  onClose,
+  onSelect,
+  open,
+}: {
+  onClose: () => void;
+  onSelect: (mode: SignInMode) => void;
+  open: boolean;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="viction-onboarding-overlay" role="dialog" aria-modal="true" aria-labelledby="sign-in-choice-title">
+      <div className="viction-onboarding-card sign-in-choice-card">
+        <div className="viction-onboarding-heading">
+          <span>Sign in</span>
+          <h2 id="sign-in-choice-title">Choose account type</h2>
+          <p>Use a Google smart wallet or connect your own EOA wallet with private keys.</p>
+        </div>
+        <div className="sign-in-choice-grid">
+          <button onClick={() => onSelect("smart")} type="button">
+            <span>Smart wallet</span>
+            <strong>Google + thirdweb</strong>
+            <small>Creates or opens a smart account for users who do not want to manage a browser wallet first.</small>
+          </button>
+          <button onClick={() => onSelect("eoa")} type="button">
+            <span>EOA wallet</span>
+            <strong>MetaMask and more</strong>
+            <small>Use MetaMask, Coinbase Wallet, Rabby, Trust, Phantom, OKX, or another private-key wallet.</small>
+          </button>
+        </div>
+        <div className="viction-onboarding-actions">
+          <button onClick={onClose} type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
