@@ -27,6 +27,7 @@ interface ActivityViewProps {
   leaderboard: LeaderboardItem[];
   markets: PredictionMarket[];
   onCreateSignal: (input: { marketId: string; side: 'YES' | 'NO'; thesis: string }) => Promise<{ id: string; createdAt: string } | null>;
+  onCreatePost: (input: { body: string; mediaUrl?: string | null; mediaType?: string | null }) => Promise<{ id: string; createdAt: string } | null>;
   onOpenMarket: (market: PredictionMarket) => void;
   onRequireWallet: () => void;
   onTimelineRefresh?: () => void;
@@ -34,7 +35,7 @@ interface ActivityViewProps {
   session: UserSession | null;
 }
 
-type FeedTab = 'all' | 'news' | 'markets' | 'trades' | 'people';
+type FeedTab = 'all' | 'highlights' | 'markets' | 'trades' | 'people';
 type ComposerSide = 'YES' | 'NO';
 
 type SignalParticipants = {
@@ -94,6 +95,7 @@ export default function ActivityView({
   leaderboard,
   markets,
   onCreateSignal,
+  onCreatePost,
   onOpenMarket,
   onRequireWallet,
   onTimelineRefresh,
@@ -110,7 +112,7 @@ export default function ActivityView({
   const [feedTab, setFeedTab] = useState<FeedTab>('all');
   const [participants, setParticipants] = useState<ParticipantsStore>({});
   const [query, setQuery] = useState('');
-  const [selectedMarketId, setSelectedMarketId] = useState(markets[0]?.id ?? '');
+  const [selectedMarketId, setSelectedMarketId] = useState('');
   const [showFullLeaderboardModal, setShowFullLeaderboardModal] = useState<boolean>(false);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [networkUsers, setNetworkUsers] = useState<DiscoveredUser[]>([]);
@@ -122,7 +124,7 @@ export default function ActivityView({
   const [preferenceDraft, setPreferenceDraft] = useState('Sports, World Cup, Crypto, Geopolitics');
 
   const realMarkets = markets.filter((market) => market.id !== 'empty-market-state');
-  const selectedMarket = realMarkets.find((market) => market.id === selectedMarketId) ?? realMarkets[0];
+  const selectedMarket = selectedMarketId ? realMarkets.find((market) => market.id === selectedMarketId) ?? null : null;
   const communityHandle = session?.traderProfile?.handle ?? '';
   const hasCommunityIdentity = Boolean(portfolio.connected && session && communityHandle);
   const feed = useMemo(() => normalizeActivityFeed(activity), [activity]);
@@ -273,10 +275,27 @@ export default function ActivityView({
     }
 
     const body = newPostText.trim();
-    if (!body || !selectedMarket) return;
+    if (!body) return;
 
     setPendingActionId('compose');
     setPublishedSignalId(null);
+
+    if (!selectedMarket) {
+      setComposerStatus('Publishing Pulse post...');
+      const post = await onCreatePost({ body });
+      setPendingActionId(null);
+
+      if (!post) {
+        setComposerStatus('Core did not record the Pulse post. Nothing was posted.');
+        return;
+      }
+
+      setComposerStatus('Published to Pulse.');
+      setNewPostText('');
+      onTimelineRefresh?.();
+      return;
+    }
+
     setComposerStatus('Publishing signal...');
     const signal = await onCreateSignal({ marketId: selectedMarket.id, side: composerSide, thesis: body });
     setPendingActionId(null);
@@ -292,7 +311,7 @@ export default function ActivityView({
       username: getSessionUsername(session, portfolio),
       name: getSessionDisplayName(session, portfolio),
       time: 'now',
-      text: composerSide + ' call: ' + body,
+      text: body,
       type: 'request',
       kind: 'signal',
       likes: 0,
@@ -302,6 +321,8 @@ export default function ActivityView({
       marketId: selectedMarket.id,
       marketPrice: 'YES ' + formatChance(selectedMarket.currentOdds),
       marketTitle: selectedMarket.title,
+      signalSide: composerSide,
+      convictionLevel: 70,
       replies: [],
       topic: selectedMarket.discoveryTopic ?? selectedMarket.category ?? 'Market pulse',
     };
@@ -323,17 +344,18 @@ export default function ActivityView({
 
     const nextLiked = !item.likedByUser;
 
-    if (!item.signalId) return;
+    if (!item.signalId && !item.postId) return;
 
     setPendingActionId('like-' + item.id);
     const accepted = await postSocialAction({
-      signalId: item.signalId,
+      targetType: item.postId ? 'posts' : 'signals',
+      targetId: item.postId ?? item.signalId ?? '',
       userId: activeSession.user.id,
       action: 'reactions',
       method: nextLiked ? 'POST' : 'DELETE',
     });
     if (accepted) {
-      await refreshSignalParticipants(item.signalId);
+      if (item.signalId) await refreshSignalParticipants(item.signalId);
       onTimelineRefresh?.();
     }
     setPendingActionId(null);
@@ -349,16 +371,18 @@ export default function ActivityView({
 
     const nextReposted = !item.repostedByUser;
 
-    if (!item.signalId) return;
+    if (!item.signalId && !item.postId) return;
 
     setPendingActionId('repost-' + item.id);
     const accepted = await postSocialAction({
-      signalId: item.signalId,
+      targetType: item.postId ? 'posts' : 'signals',
+      targetId: item.postId ?? item.signalId ?? '',
       userId: activeSession.user.id,
       action: 'bookmarks',
       method: nextReposted ? 'POST' : 'DELETE',
     });
-    if (accepted) await refreshSignalParticipants(item.signalId);
+    if (accepted && item.signalId) await refreshSignalParticipants(item.signalId);
+    if (accepted) onTimelineRefresh?.();
     setPendingActionId(null);
   };
 
@@ -383,6 +407,8 @@ export default function ActivityView({
       const coreReply = await postSignalReply({ signalId: item.signalId, userId: activeSession.user.id, body });
       accepted = Boolean(coreReply);
       await refreshSignalParticipants(item.signalId);
+    } else if (item.postId) {
+      accepted = Boolean(await postPulseReply({ postId: item.postId, userId: activeSession.user.id, body }));
     } else if (item.position?.id) {
       accepted = Boolean(await postPositionReply({ positionId: item.position.id, userId: activeSession.user.id, body }));
     }
@@ -525,7 +551,7 @@ export default function ActivityView({
           <div className="grid grid-cols-3 gap-2 rounded border border-[#262626] bg-[#101010] p-2 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8] sm:flex">
             <PulseMetric label="Posts" value={feed.length} />
             <PulseMetric label="Markets" value={realMarkets.length} />
-            <PulseMetric label="Wallet" value={portfolio.connected ? 'Live' : 'Guest'} />
+            <PulseMetric label="Profile" value={portfolio.connected ? 'Live' : 'Guest'} />
           </div>
         </header>
 
@@ -537,8 +563,8 @@ export default function ActivityView({
                   <Radio size={18} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">Post a market take</h2>
-                  <p className="text-sm text-[#ccc3d8]/80">Attach a market and publish a signal traders can reply to.</p>
+                  <h2 className="text-lg font-bold text-white">Post to Pulse</h2>
+                  <p className="text-sm text-[#ccc3d8]/80">Share a market take, source, meme, or trade idea with your .viction identity.</p>
                 </div>
               </div>
 
@@ -550,14 +576,30 @@ export default function ActivityView({
 
               <form className="grid gap-3" onSubmit={handlePostSubmit}>
                 <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
-                  <textarea
-                    className="min-h-28 min-w-0 resize-y rounded border border-[#262626] bg-[#0A0A0A] p-3 text-sm leading-relaxed text-white outline-none transition-colors placeholder:text-[#ccc3d8]/45 focus:border-deep-orange"
-                    disabled={!portfolio.connected || !hasCommunityIdentity}
-                    maxLength={500}
-                    onChange={(event) => setNewPostText(event.target.value)}
-                    placeholder={getComposerPlaceholder(portfolio.connected, hasCommunityIdentity)}
-                    value={newPostText}
-                  />
+                  <div className="grid gap-2">
+                    <textarea
+                      className="min-h-28 min-w-0 resize-y rounded border border-[#262626] bg-[#0A0A0A] p-3 text-sm leading-relaxed text-white outline-none transition-colors placeholder:text-[#ccc3d8]/45 focus:border-deep-orange"
+                      disabled={!portfolio.connected || !hasCommunityIdentity}
+                      maxLength={500}
+                      onChange={(event) => setNewPostText(event.target.value)}
+                      placeholder={getComposerPlaceholder(portfolio.connected, hasCommunityIdentity)}
+                      value={newPostText}
+                    />
+                    <div className="flex flex-wrap gap-1.5" aria-label="Quick Pulse stickers">
+                      {QUICK_PULSE_STICKERS.map((sticker) => (
+                        <button
+                          className="grid h-8 w-8 place-items-center rounded border border-[#262626] bg-[#0A0A0A] text-base transition-colors hover:border-deep-orange hover:bg-deep-orange/10 disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={!portfolio.connected || !hasCommunityIdentity || newPostText.length + sticker.length > 500}
+                          key={sticker}
+                          onClick={() => setNewPostText((current) => (current + ' ' + sticker).trimStart())}
+                          title={sticker}
+                          type="button"
+                        >
+                          {sticker}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="grid min-w-0 gap-3">
                     <div className="grid grid-cols-2 gap-2">
                       {(['YES', 'NO'] as ComposerSide[]).map((side) => (
@@ -579,12 +621,13 @@ export default function ActivityView({
                       ))}
                     </div>
                     <label className="grid min-w-0 gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]/70">
-                      Market
+                      Market optional
                       <select
                         className="min-h-11 w-full min-w-0 max-w-full truncate rounded border border-[#262626] bg-[#0A0A0A] p-2 text-xs text-white outline-none focus:border-deep-orange"
                         onChange={(event) => setSelectedMarketId(event.target.value)}
                         value={selectedMarket?.id ?? ''}
                       >
+                        <option value="">General Pulse post</option>
                         {realMarkets.slice(0, 40).map((market) => (
                           <option key={market.id} value={market.id}>{market.title}</option>
                         ))}
@@ -617,22 +660,10 @@ export default function ActivityView({
 
             <NetworkInviteCard handle={communityHandle} connected={portfolio.connected} onRequireWallet={onRequireWallet} />
 
-            <PreferenceMediaPanel
-              connected={portfolio.connected}
-              draft={preferenceDraft}
-              mediaItems={mediaItems}
-              mediaStatus={mediaStatus}
-              preference={preference}
-              onDraftChange={setPreferenceDraft}
-              onGenerate={() => void generateNewsNow()}
-              onRequireWallet={onRequireWallet}
-              onSave={() => void savePreferences()}
-            />
-
             <section className="rounded-lg border border-[#262626] bg-[#111111] p-3">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="flex flex-wrap gap-2">
-                  {(['all', 'people', 'news', 'markets', 'trades'] as FeedTab[]).map((tab) => (
+                  {(['all', 'people', 'highlights', 'markets', 'trades'] as FeedTab[]).map((tab) => (
                     <button
                       aria-pressed={feedTab === tab}
                       className={`rounded border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
@@ -661,7 +692,19 @@ export default function ActivityView({
               </div>
             </section>
 
-            {feedTab === 'people' ? (
+            {feedTab === 'highlights' ? (
+              <PreferenceMediaPanel
+                connected={portfolio.connected}
+                draft={preferenceDraft}
+                mediaItems={mediaItems}
+                mediaStatus={mediaStatus}
+                preference={preference}
+                onDraftChange={setPreferenceDraft}
+                onGenerate={() => void generateNewsNow()}
+                onRequireWallet={onRequireWallet}
+                onSave={() => void savePreferences()}
+              />
+            ) : feedTab === 'people' ? (
               <PeopleNetwork
                 currentUserId={session?.user.id}
                 networkStatus={networkStatus}
@@ -685,13 +728,23 @@ export default function ActivityView({
                     <div className={`absolute left-0 top-0 hidden h-[2px] w-full rounded-t-lg opacity-70 group-hover:block ${isSystem ? 'bg-deep-orange' : 'bg-electric-purple'}`} />
 
                     <div className="flex items-start gap-4">
-                      <Avatar item={item} />
+                      <ProfileHover item={item}>
+                        <Avatar item={item} />
+                      </ProfileHover>
                       <div className="min-w-0 flex-1">
                         <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
-                            <span className={`font-mono text-sm font-bold ${isSystem ? 'text-deep-orange' : 'text-white'}`}>
-                              {isSystem ? item.name : '@' + item.username}
-                            </span>
+                            <ProfileHover item={item} compact>
+                              {item.traderProfileId ? (
+                                <Link className={`font-mono text-sm font-bold transition-colors hover:text-deep-orange ${isSystem ? 'text-deep-orange' : 'text-white'}`} href={'/traders/' + item.traderProfileId}>
+                                  {isSystem ? item.name : '@' + item.username}
+                                </Link>
+                              ) : (
+                                <span className={`font-mono text-sm font-bold ${isSystem ? 'text-deep-orange' : 'text-white'}`}>
+                                  {isSystem ? item.name : '@' + item.username}
+                                </span>
+                              )}
+                            </ProfileHover>
                             <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/70">
                               {item.topic ?? getKindLabel(item.kind)}
                             </span>
@@ -706,7 +759,9 @@ export default function ActivityView({
                           />
                         </div>
 
-                        <p className="mb-4 whitespace-pre-wrap text-sm leading-relaxed text-[#ccc3d8]">{item.text}</p>
+                        <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-[#ccc3d8]">{item.text}</p>
+
+                        <SignalMeta item={item} />
 
                         {item.marketTitle ? (
                           <div className="mb-4 rounded border border-[#262626] bg-[#0A0A0A] p-3">
@@ -743,7 +798,7 @@ export default function ActivityView({
 
                         {!isSystem ? (
                           <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-[#ccc3d8] font-mono text-[10px] uppercase font-bold tracking-widest">
-                            {item.signalId ? (
+                            {item.signalId || item.postId ? (
                               <>
                                 <FeedAction active={item.likedByUser} busy={pendingActionId === 'like-' + item.id} count={item.likes} icon="heart" label="Like" onClick={() => void toggleLike(item)} />
                                 <FeedAction active={item.repostedByUser} busy={pendingActionId === 'repost-' + item.id} count={item.repeats} icon="repeat" label="Repost" onClick={() => void toggleRepost(item)} />
@@ -1004,6 +1059,8 @@ export default function ActivityView({
 }
 
 
+const QUICK_PULSE_STICKERS = ['🔥', '📈', '🧠', '⚡', '🏆', '👀', '💎', '🛰️'];
+
 function CommunityIdentityNotice({
   connected,
   handle,
@@ -1074,9 +1131,9 @@ function PreferenceMediaPanel({
     <section className="rounded-lg border border-[#262626] bg-surface-card p-4 sm:p-5">
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">AI market media</p>
-          <h2 className="mt-1 text-xl font-bold text-white">Personalized market pulse</h2>
-          <p className="mt-1 max-w-2xl text-sm text-[#ccc3d8]">Set topics once, then get fresh market news cards and animated views in Activity every 20 minutes.</p>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Highlights</p>
+          <h2 className="mt-1 text-xl font-bold text-white">Market highlight cards</h2>
+          <p className="mt-1 max-w-2xl text-sm text-[#ccc3d8]">Set topics once, then open this tab for generated market cards and motion views.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -1092,7 +1149,7 @@ function PreferenceMediaPanel({
             type="button"
           >
             <Sparkles size={13} />
-            Generate updates
+            Generate highlights
           </button>
         </div>
       </div>
@@ -1369,17 +1426,63 @@ function ActorStack({ actors }: { actors: SocialActor[] }) {
 }
 
 function Avatar({ item }: { item: ActivityItem }) {
-  if (item.type === 'system') {
-    return (
-      <div className="w-10 h-10 rounded-full bg-deep-orange/10 border border-deep-orange/30 flex items-center justify-center text-deep-orange flex-shrink-0">
-        <AlertTriangle size={18} />
-      </div>
-    );
+  const inner = item.type === 'system'
+    ? <AlertTriangle size={18} />
+    : item.avatarUrl
+      ? <img alt="" className="h-full w-full object-cover" src={item.avatarUrl} />
+      : item.username.slice(0, 2).toUpperCase();
+
+  const classes = item.type === 'system'
+    ? 'w-10 h-10 rounded-full bg-deep-orange/10 border border-deep-orange/30 flex items-center justify-center text-deep-orange flex-shrink-0'
+    : 'w-10 h-10 rounded-full overflow-hidden border border-[#282828] flex-shrink-0 bg-[#2a2a2a] flex items-center justify-center font-mono font-extrabold text-[#d2bbff] text-xs transition-colors hover:border-deep-orange';
+
+  if (item.traderProfileId && item.type !== 'system') {
+    return <Link className={classes} href={'/traders/' + item.traderProfileId}>{inner}</Link>;
   }
 
+  return <div className={classes}>{inner}</div>;
+}
+
+function ProfileHover({ children, compact, item }: { children: React.ReactNode; compact?: boolean; item: ActivityItem }) {
+  if (item.type === 'system') return <>{children}</>;
+
   return (
-    <div className="w-10 h-10 rounded-full overflow-hidden border border-[#282828] flex-shrink-0 bg-[#2a2a2a] flex items-center justify-center font-mono font-extrabold text-[#d2bbff] text-xs">
-      {item.username.slice(0, 2).toUpperCase()}
+    <span className="group/profile relative inline-flex min-w-0">
+      {children}
+      <span className={(compact ? 'left-0 top-7' : 'left-0 top-12') + ' pointer-events-none absolute z-30 hidden w-64 rounded-lg border border-[#262626] bg-[#101010] p-3 text-left shadow-2xl group-hover/profile:block'}>
+        <span className="flex items-start gap-3">
+          <span className="grid h-10 w-10 flex-shrink-0 place-items-center overflow-hidden rounded-full border border-[#282828] bg-[#252525] font-mono text-xs font-bold uppercase text-white">
+            {item.avatarUrl ? <img alt="" className="h-full w-full object-cover" src={item.avatarUrl} /> : item.username.slice(0, 2).toUpperCase()}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-bold text-white">@{item.username}</span>
+            <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-[#ccc3d8]/75">{item.name}</span>
+          </span>
+        </span>
+        <span className="mt-3 flex items-center justify-between gap-2 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">
+          <span>{item.topic ?? getKindLabel(item.kind)}</span>
+          <span>{item.traderProfileId ? 'View profile' : 'Profile pending'}</span>
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function SignalMeta({ item }: { item: ActivityItem }) {
+  if (!item.signalSide && !item.convictionLevel) return null;
+
+  return (
+    <div className="mb-4 flex flex-wrap gap-2 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/65">
+      {item.signalSide ? (
+        <span className={"rounded border px-2 py-1 " + (item.signalSide === 'YES' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-red-500/30 bg-red-500/10 text-red-300')}>
+          {item.signalSide} signal
+        </span>
+      ) : null}
+      {item.convictionLevel ? (
+        <span className="rounded border border-[#262626] bg-[#0A0A0A] px-2 py-1 text-[#ccc3d8]">
+          Conviction {item.convictionLevel}%
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -1559,7 +1662,7 @@ function filterFeed(feed: ActivityItem[], tab: FeedTab, query: string) {
   const normalizedQuery = query.trim().toLowerCase();
 
   return feed.filter((item) => {
-    if (tab === 'news' && item.kind !== 'news') return false;
+    if (tab === 'highlights') return false;
     if (tab === 'markets' && !item.marketId) return false;
     if (tab === 'trades' && item.kind !== 'trade' && item.kind !== 'signal') return false;
 
@@ -1575,7 +1678,7 @@ function filterFeed(feed: ActivityItem[], tab: FeedTab, query: string) {
 
 function getTabLabel(tab: FeedTab) {
   if (tab === 'people') return 'People';
-  if (tab === 'news') return 'News';
+  if (tab === 'highlights') return 'Highlights';
   if (tab === 'markets') return 'Markets';
   if (tab === 'trades') return 'Trades';
   return 'For you';
@@ -1610,20 +1713,13 @@ function truncateHash(value: string) {
   return value.length > 14 ? value.slice(0, 6) + '...' + value.slice(-4) : value;
 }
 
-function compactHash(value: string) {
-  return value.length > 12 ? value.slice(0, 6) + '...' + value.slice(-4) : value;
-}
-
-function getWalletUsername(portfolio: UserPortfolio) {
-  return portfolio.address ? 'wallet' + portfolio.address.slice(-6).toLowerCase() : 'guest';
-}
 
 function getSessionUsername(session: UserSession | null, portfolio: UserPortfolio) {
-  return session?.traderProfile?.handle ?? session?.socialAccount?.username ?? getWalletUsername(portfolio);
+  return normalizeVictionLabel(session?.traderProfile?.handle ?? session?.socialAccount?.username, portfolio.connected ? 'trader' : 'guest');
 }
 
 function getSessionDisplayName(session: UserSession | null, portfolio: UserPortfolio) {
-  return session?.traderProfile?.handle ?? session?.socialAccount?.username ?? (portfolio.address ? 'Wallet ' + compactHash(portfolio.address) : 'Conviction trader');
+  return normalizeVictionLabel(session?.traderProfile?.handle ?? session?.socialAccount?.username ?? session?.user.displayName, portfolio.connected ? 'trader' : 'Conviction trader');
 }
 
 function parseFollowingIds(body: unknown) {
@@ -1676,16 +1772,18 @@ async function postPositionReply({ positionId, userId, body }: { positionId: str
 async function postSocialAction({
   action,
   method,
-  signalId,
+  targetId,
+  targetType,
   userId,
 }: {
   action: 'reactions' | 'bookmarks';
   method: 'POST' | 'DELETE';
-  signalId: string;
+  targetId: string;
+  targetType: 'signals' | 'posts';
   userId: string;
 }) {
   try {
-    const response = await fetch('/api/social/signals/' + encodeURIComponent(signalId) + '/' + action, {
+    const response = await fetch('/api/social/' + targetType + '/' + encodeURIComponent(targetId) + '/' + action, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId }),
@@ -1701,6 +1799,30 @@ async function postSocialAction({
 async function postSignalReply({ signalId, userId, body }: { signalId: string; userId: string; body: string }) {
   try {
     const response = await fetch('/api/social/signals/' + encodeURIComponent(signalId) + '/replies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authorUserId: userId, body }),
+    });
+    const parsed = (await response.json()) as ReplyActionResponse;
+
+    if (!response.ok || !parsed.ok || !parsed.data.reply) return null;
+
+    const reply = parsed.data.reply;
+
+    return {
+      id: reply.id,
+      author: reply.author?.username ?? reply.author?.handle ?? reply.author?.displayName ?? 'trader',
+      text: reply.body,
+      time: formatReplyTime(reply.createdAt),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function postPulseReply({ postId, userId, body }: { postId: string; userId: string; body: string }) {
+  try {
+    const response = await fetch('/api/social/posts/' + encodeURIComponent(postId) + '/replies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ authorUserId: userId, body }),
@@ -1803,7 +1925,7 @@ function formatActorList(actors: SocialActor[]) {
 }
 
 function getActorName(actor: SocialActor) {
-  return actor.handle ?? actor.username ?? actor.displayName ?? compactHash(actor.platformUserId ?? actor.userId);
+  return normalizeVictionLabel(actor.handle ?? actor.username ?? actor.displayName, 'trader' + actor.userId.slice(-5));
 }
 
 function getActorInitials(actor: SocialActor) {
@@ -1812,7 +1934,13 @@ function getActorInitials(actor: SocialActor) {
 }
 
 function getDiscoveredUserLabel(user: DiscoveredUser) {
-  return user.traderProfile?.handle ?? user.socialAccount?.username ?? user.user.displayName ?? compactHash(user.user.id);
+  return normalizeVictionLabel(user.traderProfile?.handle ?? user.socialAccount?.username ?? user.user.displayName, 'trader' + user.user.id.slice(-5));
+}
+
+function normalizeVictionLabel(value: string | null | undefined, fallback: string) {
+  const clean = (value ?? '').trim().replace(/^@/, '');
+  if (!clean || /^0x[a-f0-9]{8,}/i.test(clean) || clean.includes('...')) return fallback.endsWith('.viction') ? fallback : fallback + '.viction';
+  return clean.endsWith('.viction') ? clean : clean + '.viction';
 }
 
 async function copyInstagramInvite(value: string) {

@@ -402,6 +402,8 @@ export type SocialActor = {
   userId: string;
   displayName: string | null;
   handle: string | null;
+  traderProfileId?: string | null;
+  avatarUrl?: string | null;
   platform: "TELEGRAM" | "FARCASTER" | "WEB" | null;
   platformUserId: string | null;
   username: string | null;
@@ -429,6 +431,21 @@ export type SocialFeedCounts = {
 export type SocialViewerState = {
   reacted: boolean;
   bookmarked: boolean;
+};
+
+export type PulsePost = {
+  id: string;
+  authorUserId: string;
+  body: string;
+  mediaUrl: string | null;
+  mediaType: string | null;
+  status: string;
+  author: SocialActor;
+  counts: SocialFeedCounts;
+  viewer: SocialViewerState | null;
+  recentReplies?: SignalReply[];
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type SocialFeedItem = {
@@ -503,10 +520,11 @@ export type PublicPosition = {
 
 export type SocialTimelineEvent = {
   id: string;
-  type: "SIGNAL" | "REPOST" | "PUBLIC_TRADE" | "FOLLOW";
+  type: "SIGNAL" | "REPOST" | "PUBLIC_TRADE" | "FOLLOW" | "POST";
   createdAt: string;
   actor: SocialActor;
   signal?: SocialFeedItem;
+  post?: PulsePost;
   position?: PublicPosition;
   follow?: UserFollow;
 };
@@ -854,6 +872,65 @@ export async function getSocialTimeline(options: { limit?: number; userId?: stri
 
     throw error;
   }
+}
+
+
+export async function createPulsePost(input: { authorUserId: string; body: string; mediaUrl?: string | null; mediaType?: string | null }) {
+  const response = await coreRequest<{ post?: PulsePost } | PulsePost>("/social/posts", {
+    method: "POST",
+    body: input,
+  });
+
+  return "post" in response && response.post ? response.post : (response as PulsePost);
+}
+
+export async function createPulsePostReply(input: { postId: string; authorUserId: string; body: string }) {
+  const response = await coreRequest<{ reply?: SignalReply } | SignalReply>(
+    "/social/posts/" + encodeURIComponent(input.postId) + "/replies",
+    {
+      method: "POST",
+      body: {
+        authorUserId: input.authorUserId,
+        body: input.body,
+      },
+    },
+  );
+
+  return "reply" in response && response.reply ? response.reply : (response as SignalReply);
+}
+
+export async function addPulsePostReaction(input: { postId: string; userId: string }) {
+  return coreRequest<{ counts: SocialFeedCounts }>(
+    "/social/posts/" + encodeURIComponent(input.postId) + "/reactions",
+    {
+      method: "POST",
+      body: { userId: input.userId },
+    },
+  );
+}
+
+export async function removePulsePostReaction(input: { postId: string; userId: string }) {
+  return coreRequest<{ counts: SocialFeedCounts }>(
+    "/social/posts/" + encodeURIComponent(input.postId) + "/reactions/" + encodeURIComponent(input.userId),
+    { method: "DELETE" },
+  );
+}
+
+export async function addPulsePostBookmark(input: { postId: string; userId: string }) {
+  return coreRequest<{ counts: SocialFeedCounts }>(
+    "/social/posts/" + encodeURIComponent(input.postId) + "/bookmarks",
+    {
+      method: "POST",
+      body: { userId: input.userId },
+    },
+  );
+}
+
+export async function removePulsePostBookmark(input: { postId: string; userId: string }) {
+  return coreRequest<{ counts: SocialFeedCounts }>(
+    "/social/posts/" + encodeURIComponent(input.postId) + "/bookmarks/" + encodeURIComponent(input.userId),
+    { method: "DELETE" },
+  );
 }
 
 export async function followUser(input: { followerId: string; followingId: string }) {

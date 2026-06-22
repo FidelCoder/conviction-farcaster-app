@@ -70,13 +70,13 @@ export default function SettingsPage() {
             <span>Keep your Conviction identity, contact path, and beta surfaces aligned.</span>
           </div>
           <div className="settings-status-pill">
-            {session?.traderProfile?.handle ?? "wallet.viction"}
+            {session?.traderProfile?.handle ?? "trader.viction"}
           </div>
         </section>
 
         <section className="terminal-connect-panel">
-          <span>{session ? "Wallet profile active" : "Wallet profile required"}</span>
-          <p>Connect from the top-right wallet action. No Farcaster account is required.</p>
+          <span>{session ? "Profile active" : "Profile required"}</span>
+          <p>Sign in from the top-right action. No Farcaster account is required.</p>
         </section>
 
         <section className="settings-grid" aria-label="Settings sections">

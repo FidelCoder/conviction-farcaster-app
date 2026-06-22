@@ -82,12 +82,6 @@ export function PositionCard({
             <dd>{formatChainId(position.chainId)}</dd>
           </div>
         ) : null}
-        {position.walletAddress ? (
-          <div>
-            <dt>Wallet</dt>
-            <dd>{truncateHash(position.walletAddress)}</dd>
-          </div>
-        ) : null}
         {position.chainTransactionHash ? (
           <div>
             <dt>Transaction</dt>

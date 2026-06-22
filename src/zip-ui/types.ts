@@ -75,6 +75,7 @@ export interface ActivityReplyItem {
 export interface ActivityItem {
   id: string;
   signalId?: string;
+  postId?: string;
   username: string;
   name: string;
   avatarUrl?: string;
@@ -89,11 +90,14 @@ export interface ActivityItem {
   marketId?: string;
   marketTitle?: string;
   marketPrice?: string;
+  signalSide?: 'YES' | 'NO';
+  convictionLevel?: number | null;
   replies?: ActivityReplyItem[];
   repostedByUser?: boolean;
   topic?: string;
   actorUserId?: string;
-  eventType?: 'SIGNAL' | 'REPOST' | 'PUBLIC_TRADE' | 'FOLLOW';
+  traderProfileId?: string;
+  eventType?: 'SIGNAL' | 'REPOST' | 'PUBLIC_TRADE' | 'FOLLOW' | 'POST';
   followTarget?: {
     userId: string;
     username: string;

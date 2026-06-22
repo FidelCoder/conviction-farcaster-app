@@ -71,6 +71,7 @@ export default function ProfilePage() {
   const walletAddress = getConnectedWalletAddress(session);
   const isWalletConnected = Boolean(walletAddress);
   const traderProfile = isWalletConnected ? (session?.traderProfile ?? null) : null;
+  const orderedAvatarOptions = useMemo(() => rotateAvatarOptions(walletAddress ?? session?.user.id ?? "guest"), [session?.user.id, walletAddress]);
   const fullHandle = useMemo(() => buildFullHandle(handle), [handle]);
   const generatedAvatarUrl = useMemo(
     () => buildAvatarUrl(selectedAvatar, fullHandle),
@@ -112,6 +113,10 @@ export default function ProfilePage() {
       return;
     }
 
+    if (!traderProfile) {
+      setSelectedAvatar(orderedAvatarOptions[0]?.id ?? "bottts");
+    }
+
     if (traderProfile) {
       const profileHandle = stripVictionSuffix(traderProfile.handle);
       setHandle(profileHandle);
@@ -135,7 +140,7 @@ export default function ProfilePage() {
     } else if (session) {
       setShowEmailPrompt(true);
     }
-  }, [isWalletConnected, traderProfile, session]);
+  }, [isWalletConnected, orderedAvatarOptions, traderProfile, session]);
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -298,10 +303,10 @@ export default function ProfilePage() {
         </section>
 
         <section className="terminal-connect-panel">
-          <span>{isWalletConnected ? "Wallet profile active" : "Wallet profile required"}</span>
+          <span>{isWalletConnected ? "Profile active" : "Profile required"}</span>
           <p>
-            Connect a browser wallet from the top-right action before editing. Profile and email
-            records are keyed to that wallet address.
+            Sign in from the top-right action before editing. Profile and email
+            records stay tied to your active Conviction account.
           </p>
         </section>
 
@@ -315,8 +320,8 @@ export default function ProfilePage() {
                 <p>{bio || "Signals first. Culture follows conviction."}</p>
                 <dl>
                   <div>
-                    <dt>Wallet</dt>
-                    <dd>{walletAddress ? formatWalletAddress(walletAddress) : "Not connected"}</dd>
+                    <dt>Identity</dt>
+                    <dd>Wallet-linked</dd>
                   </div>
                   <div>
                     <dt>Email</dt>
@@ -563,9 +568,6 @@ export default function ProfilePage() {
   );
 }
 
-function formatWalletAddress(walletAddress: string) {
-  return walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
-}
 
 const getConnectedWalletAddress = getSessionWalletAddress;
 
@@ -586,6 +588,15 @@ function stripVictionSuffix(value: string) {
   const trimmed = value.trim().toLowerCase();
 
   return trimmed.endsWith(victionSuffix) ? trimmed.slice(0, -victionSuffix.length) : trimmed;
+}
+
+function rotateAvatarOptions(seed: string) {
+  const offset = hashAvatarSeed(seed) % avatarOptions.length;
+  return [...avatarOptions.slice(offset), ...avatarOptions.slice(0, offset)];
+}
+
+function hashAvatarSeed(seed: string) {
+  return Array.from(seed).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 17);
 }
 
 function buildAvatarUrl(variant: AvatarVariant, handle: string) {

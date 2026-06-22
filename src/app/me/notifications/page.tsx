@@ -183,8 +183,8 @@ export default function NotificationsPage() {
         </section>
 
         <section className="terminal-connect-panel">
-          <span>{isWalletConnected ? "Wallet profile active" : "Wallet profile required"}</span>
-          <p>Connect from the top-right wallet action before editing notification email.</p>
+          <span>{isWalletConnected ? "Profile active" : "Profile required"}</span>
+          <p>Sign in from the top-right action before editing notification email.</p>
         </section>
 
         <form className="notification-panel" onSubmit={handleSave}>

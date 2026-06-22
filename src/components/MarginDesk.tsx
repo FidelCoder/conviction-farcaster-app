@@ -546,7 +546,7 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
             <dd>{markets.length}</dd>
           </div>
           <div>
-            <dt>Wallet</dt>
+            <dt>Account</dt>
             <dd>{walletState.status === "ready" ? "Ready" : "--"}</dd>
           </div>
         </dl>
@@ -809,10 +809,10 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
             className={walletState.status === "ready" ? "wallet-panel ready" : "wallet-panel"}
           >
             <div>
-              <span>Wallet</span>
+              <span>Account</span>
               <strong>
                 {walletState.status === "ready"
-                  ? truncateAddress(walletState.address)
+                  ? "Signed in"
                   : walletState.status === "loading"
                     ? "Detecting..."
                     : "Not connected"}

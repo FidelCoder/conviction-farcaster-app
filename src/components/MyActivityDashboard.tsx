@@ -4,10 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
-import {
-  getSessionWalletAddress,
-  getStoredBrowserWalletSession,
-} from "../lib/browser-wallet-session";
+import { getStoredBrowserWalletSession } from "../lib/browser-wallet-session";
 import type { CopyIntent, Market, Position, TradeSignal, UserSession } from "../lib/core-api";
 import { executionStatusLabel, formatDate } from "../lib/display";
 import { EmptyState } from "./EmptyState";
@@ -109,7 +106,6 @@ export function MyActivityDashboard() {
   }, [session]);
 
   const activity = activityState.status === "ready" ? activityState.activity : null;
-  const walletAddress = getSessionWalletAddress(session);
   const activePositions = activity?.positions.filter((position) =>
     ["PENDING_EXECUTION", "EXECUTED"].includes(position.status),
   ) ?? [];
@@ -123,16 +119,16 @@ export function MyActivityDashboard() {
 
   const publicSignalCount = activity?.signals.length ?? 0;
   const copyIntentCount = activity?.copyIntents.length ?? 0;
-  const displayHandle = session?.traderProfile?.handle ?? (walletAddress ? "wallet.viction" : "Sign in");
+  const displayHandle = session?.traderProfile?.handle ?? (session ? "trader.viction" : "Sign in");
   const emailLabel = session?.user.email ?? "No email set";
 
   return (
     <section className="wallet-portfolio-shell" aria-label="My portfolio">
       <section className="wallet-overview-card">
         <div className="wallet-identity-block">
-          <span className="wallet-eyebrow">Wallet</span>
+          <span className="wallet-eyebrow">Portfolio</span>
           <h2>{displayHandle}</h2>
-          <p>{walletAddress ? truncateHash(walletAddress) : "Sign in from the account button to load your wallet."}</p>
+          <p>{session ? "Wallet-linked identity active." : "Sign in from the account button to load your portfolio."}</p>
         </div>
         <dl className="wallet-overview-metrics">
           <div>
@@ -222,7 +218,7 @@ export function MyActivityDashboard() {
               </ActivitySection>
 
               <ActivitySection
-                emptyBody="Publish a market take from Activity to see your signals here."
+                emptyBody="Publish a market take from Pulse to see your signals here."
                 emptyTitle="No market signals"
                 id="signals"
                 title="Signals"
@@ -319,9 +315,6 @@ function ActivitySection({
   );
 }
 
-function truncateHash(value: string) {
-  return value.slice(0, 6) + "..." + value.slice(-4);
-}
 
 function formatUsd(value: number) {
   return "$" + value.toLocaleString(undefined, { maximumFractionDigits: 2 });

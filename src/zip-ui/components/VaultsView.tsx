@@ -340,7 +340,7 @@ export default function VaultsView({
                 {portfolio.connected && fundingAddress ? (
                   <>
                     <div className="mx-auto flex aspect-square w-full items-center justify-center rounded border border-[#262626] bg-white p-2">
-                      <QRCodeSVG value={fundingQrValue} size={112} bgColor="#ffffff" fgColor="#0A0A0A" level="M" className="h-full w-full" title="Funding wallet QR code" />
+                      <QRCodeSVG value={fundingQrValue} size={112} bgColor="#ffffff" fgColor="#0A0A0A" level="M" className="h-full w-full" title="Funding QR code" />
                     </div>
                     <button
                       type="button"
@@ -358,7 +358,7 @@ export default function VaultsView({
 
               <section className="grid gap-3">
                 <div className="grid grid-cols-2 gap-3 font-mono">
-                  <DepositMetric label="Wallet" value={fundingAddress ? formatWalletAddress(fundingAddress) : 'Not Connected'} />
+                  <DepositMetric label="Funding" value={fundingAddress ? 'Ready' : 'Not Connected'} />
                   <DepositMetric label="Chain" value={activeVault.chainName ?? 'Vault Chain'} />
                 </div>
                 <label>

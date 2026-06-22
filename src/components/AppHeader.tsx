@@ -8,10 +8,10 @@ import { useEffect, useState } from "react";
 const navItems = [
   { href: "/markets", label: "Markets" },
   { href: "/margin-desk", label: "Margin" },
-  { href: "/activity", label: "Activity" },
+  { href: "/activity", label: "Pulse" },
   { href: "/me/notifications", label: "Notifications" },
   { href: "/me/settings", label: "Settings" },
-  { href: "/social", label: "Social" },
+  { href: "/social", label: "Pulse" },
   { href: "/leaderboard", label: "Leaders" },
   { href: "/docs", label: "Docs" },
   { href: "/me/profile", label: "Profile" },

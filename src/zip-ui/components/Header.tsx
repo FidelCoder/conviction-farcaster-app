@@ -39,7 +39,7 @@ export default function Header({
     { id: "markets", label: "Markets" },
     { id: "margin-desk", label: "Margin Desk" },
     { id: "vaults", label: "Vaults" },
-    { id: "activity", label: "Activity" },
+    { id: "activity", label: "Pulse" },
   ];
 
   useEffect(() => {
@@ -217,7 +217,7 @@ export default function Header({
                     </div>
                     <div className="mt-2 flex min-w-0 items-center gap-2 rounded border border-[#262626] bg-[#0a0a0a] px-3 py-2 text-[#ccc3d8]">
                       <Wallet size={13} className="flex-shrink-0 text-deep-orange" />
-                      <span className="truncate font-mono text-[11px] font-bold text-white">{portfolio.address}</span>
+                      <span className="truncate font-mono text-[11px] font-bold text-white">Address hidden in app</span>
                     </div>
                   </div>
                   <button

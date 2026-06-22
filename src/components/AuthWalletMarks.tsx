@@ -31,8 +31,7 @@ export function BrowserWalletMarks({ className = "" }: WalletMarkProps) {
 
 export function ThirdwebMark({ className = "" }: WalletMarkProps) {
   return (
-    <span className={"wallet-brand-thirdweb " + className} aria-label="Powered by thirdweb" role="img">
-      <span className="wallet-brand-thirdweb-cube">◇</span>
+    <span className={"wallet-brand-thirdweb " + className} aria-label="Powered by thirdweb">
       <span>Powered by thirdweb</span>
     </span>
   );

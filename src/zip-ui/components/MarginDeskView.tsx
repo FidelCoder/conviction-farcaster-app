@@ -182,7 +182,7 @@ export default function MarginDeskView({
     e.preventDefault();
 
     if (!portfolio.connected) {
-      alert('Sign in before requesting margin. Your request is tied to the signed-in wallet address.');
+      alert('Sign in before requesting margin. Your request is tied to your active Conviction account.');
       return;
     }
 

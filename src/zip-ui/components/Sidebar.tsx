@@ -42,7 +42,7 @@ export default function Sidebar({
     { id: "markets", label: "Markets", icon: TrendingUp },
     { id: "margin-desk", label: "Margin Desk", icon: Wallet },
     { id: "vaults", label: "Vaults", icon: Lock },
-    { id: "activity", label: "Activity", icon: History },
+    { id: "activity", label: "Pulse", icon: History },
     ...(portfolio.connected ? [{ id: "portfolio", label: "Portfolio", icon: Briefcase }] : []),
   ];
 

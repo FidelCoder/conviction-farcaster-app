@@ -108,6 +108,10 @@ type ActivitySignalResponse =
   | { ok: true; data: { signal: { id: string; createdAt: string } } }
   | { ok: false; error: { code: string; message: string } };
 
+type ActivityPostResponse =
+  | { ok: true; data: { post: { id: string; createdAt: string } } }
+  | { ok: false; error: { code: string; message: string } };
+
 const TERMINAL_TABS: TerminalTab[] = ["landing", "markets", "margin-desk", "vaults", "activity"];
 const TERMINAL_TAB_PATHS: Record<TerminalTab, string> = {
   activity: "/activity",
@@ -463,10 +467,6 @@ export function BrowserTerminal({
     applySession(nextSession);
     setStoredBrowserWalletSession(nextSession);
     triggerAlert("success", "Your .viction identity is active.");
-  }
-
-  function handleOpenProfileSettings() {
-    window.location.href = "/me/profile";
   }
 
   function handleOpenMargin(market: PredictionMarket) {
@@ -863,6 +863,44 @@ export function BrowserTerminal({
     triggerAlert("info", "Risk voting is display-only until governance contracts are connected.");
   }
 
+
+  async function handleCreateActivityPost(input: { body: string; mediaUrl?: string | null; mediaType?: string | null }) {
+    if (!portfolio.connected) {
+      void handleConnectWallet();
+      return null;
+    }
+
+    if (!session) {
+      triggerAlert("info", "Wallet session is still loading. Try again in a moment.");
+      return null;
+    }
+
+    try {
+      const response = await fetch("/api/social/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authorUserId: session.user.id,
+          body: input.body,
+          mediaUrl: input.mediaUrl ?? null,
+          mediaType: input.mediaType ?? null,
+        }),
+      });
+      const body = (await response.json()) as ActivityPostResponse;
+
+      if (!response.ok || !body.ok) {
+        triggerAlert("info", body.ok ? "Pulse post failed." : body.error.message);
+        return null;
+      }
+
+      triggerAlert("success", "Pulse post published.");
+      return body.data.post;
+    } catch {
+      triggerAlert("info", "Pulse post could not reach core.");
+      return null;
+    }
+  }
+
   function requireActivityWallet() {
     if (portfolio.connected) {
       triggerAlert("info", "Wallet session is active. Wait a moment for the profile session to finish loading.");
@@ -930,7 +968,6 @@ export function BrowserTerminal({
         />
         <RequiredVictionOnboarding
           onClaimed={handleProfileClaimed}
-          onOpenProfile={handleOpenProfileSettings}
           session={session}
         />
         <SignInChoiceDialog
@@ -1019,6 +1056,7 @@ export function BrowserTerminal({
             leaderboard={leaderboardItems}
             markets={displayMarkets}
             onCreateSignal={handleCreateActivitySignal}
+            onCreatePost={handleCreateActivityPost}
             onOpenMarket={handleOpenMargin}
             onRequireWallet={requireActivityWallet}
             portfolio={portfolio}
@@ -1104,16 +1142,14 @@ function SignInChoiceDialog({
 
 function RequiredVictionOnboarding({
   onClaimed,
-  onOpenProfile,
   session,
 }: {
   onClaimed: (session: UserSession) => void;
-  onOpenProfile: () => void;
   session: UserSession | null;
 }) {
   const walletAddress = getSessionWalletAddress(session);
   const existingHandle = session?.traderProfile?.handle ?? "";
-  const requiresClaim = Boolean(walletAddress && !isCompleteVictionProfile(existingHandle));
+  const requiresClaim = Boolean(session && !isCompleteVictionProfile(existingHandle));
   const [handle, setHandle] = useState("");
   const [bio, setBio] = useState("");
   const [email, setEmail] = useState(session?.user.email ?? "");
@@ -1123,6 +1159,7 @@ function RequiredVictionOnboarding({
     message: "",
   });
 
+  const orderedAvatars = useMemo(() => rotateOnboardingAvatars(walletAddress ?? session?.user.id ?? "guest"), [session?.user.id, walletAddress]);
   const fullHandle = buildOnboardingHandle(handle);
   const avatarUrl = buildOnboardingAvatarUrl(avatarId, fullHandle);
 
@@ -1134,12 +1171,18 @@ function RequiredVictionOnboarding({
 
     setEmail(session?.user.email ?? "");
     setHandle(suggestHandleFromSession(session));
-  }, [requiresClaim, session]);
+    setAvatarId(orderedAvatars[0]?.id ?? "bottts");
+  }, [orderedAvatars, requiresClaim, session]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!walletAddress) return;
+    if (!session) return;
+
+    if (!walletAddress) {
+      setStatus({ type: "error", message: "Finish wallet sign-in before claiming your .viction identity." });
+      return;
+    }
 
     const cleanHandle = normalizeVictionHandle(handle);
 
@@ -1217,7 +1260,7 @@ function RequiredVictionOnboarding({
           <div>
             <span>Profile tag</span>
             <strong>{fullHandle}</strong>
-            <small>{walletAddress ? formatWalletForOnboarding(walletAddress) : "Signed-in wallet"}</small>
+            <small>Wallet-linked identity active</small>
           </div>
         </div>
 
@@ -1256,7 +1299,7 @@ function RequiredVictionOnboarding({
         </label>
 
         <div className="viction-onboarding-avatars" aria-label="Choose profile avatar">
-          {ONBOARDING_AVATARS.map((avatar) => (
+          {orderedAvatars.map((avatar) => (
             <button
               aria-pressed={avatar.id === avatarId}
               className={avatar.id === avatarId ? "selected" : ""}
@@ -1279,9 +1322,6 @@ function RequiredVictionOnboarding({
         <div className="viction-onboarding-actions">
           <button disabled={status.type === "saving"} type="submit">
             {status.type === "saving" ? "Claiming..." : "Claim identity"}
-          </button>
-          <button onClick={onOpenProfile} type="button">
-            Full profile setup
           </button>
         </div>
       </form>
@@ -1307,6 +1347,15 @@ function normalizeVictionHandle(value: string) {
 function buildOnboardingHandle(value: string) {
   const clean = normalizeVictionHandle(value) || "yourname";
   return clean + VICTION_SUFFIX;
+}
+
+function rotateOnboardingAvatars(seed: string) {
+  const offset = hashSeed(seed) % ONBOARDING_AVATARS.length;
+  return [...ONBOARDING_AVATARS.slice(offset), ...ONBOARDING_AVATARS.slice(0, offset)];
+}
+
+function hashSeed(seed: string) {
+  return Array.from(seed).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 17);
 }
 
 function buildOnboardingAvatarUrl(avatarId: OnboardingAvatarId, handle: string) {
@@ -1335,9 +1384,6 @@ function suggestHandleFromSession(session: UserSession | null) {
   return clean.length >= 2 ? clean : "";
 }
 
-function formatWalletForOnboarding(walletAddress: string) {
-  return walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
-}
 
 const emptyPredictionMarket: PredictionMarket = {
   id: "empty-market-state",
@@ -1504,7 +1550,7 @@ function mapTimelineEventsToActivity(events: SocialTimelineEvent[], fallbackFeed
     return mapSocialFeedToActivity(fallbackFeed);
   }
 
-  return events.map((event) => {
+  return events.filter((event) => event.type !== "FOLLOW").map((event) => {
     if (event.type === "REPOST" && event.signal) {
       const signalItem = mapSocialFeedItemToActivity(event.signal);
       return {
@@ -1513,11 +1559,14 @@ function mapTimelineEventsToActivity(events: SocialTimelineEvent[], fallbackFeed
         eventType: "REPOST",
         kind: "repost",
         actorUserId: event.actor.userId,
+        traderProfileId: event.signal.trader?.id,
         username: getActorUsername(event.actor),
         name: getActorDisplayName(event.actor),
         time: formatRelativeTime(event.createdAt),
-        text: getActorDisplayName(event.actor) + " reposted: " + buildSignalFeedText(event.signal),
+        text: getActorDisplayName(event.actor) + " reposted this market take.",
         topic: "Repost",
+        signalSide: event.signal.signal.side,
+        convictionLevel: event.signal.signal.convictionLevel,
       };
     }
 
@@ -1525,8 +1574,10 @@ function mapTimelineEventsToActivity(events: SocialTimelineEvent[], fallbackFeed
       return {
         id: event.id,
         actorUserId: event.actor.userId,
+        traderProfileId: event.position.trader.traderProfileId ?? event.actor.traderProfileId ?? undefined,
         username: getActorUsername(event.actor),
         name: getActorDisplayName(event.actor),
+        avatarUrl: event.position.trader.avatarUrl ?? event.actor.avatarUrl ?? undefined,
         time: formatRelativeTime(event.createdAt),
         text: buildPublicTradeText(event),
         type: "request",
@@ -1557,34 +1608,39 @@ function mapTimelineEventsToActivity(events: SocialTimelineEvent[], fallbackFeed
       };
     }
 
-    if (event.type === "FOLLOW" && event.follow) {
-      return {
-        id: event.id,
-        actorUserId: event.actor.userId,
-        username: getActorUsername(event.actor),
-        name: getActorDisplayName(event.actor),
-        time: formatRelativeTime(event.createdAt),
-        text: getActorDisplayName(event.follow.follower) + " followed " + getActorDisplayName(event.follow.following) + ".",
-        type: "request",
-        kind: "follow",
-        eventType: "FOLLOW",
-        likes: 0,
-        commentsCount: 0,
-        repeats: 0,
-        replies: [],
-        topic: "Follow",
-        followTarget: {
-          userId: event.follow.following.userId,
-          username: getActorUsername(event.follow.following),
-          displayName: getActorDisplayName(event.follow.following),
-        },
-      };
-    }
-
     if (event.signal) {
       return {
         ...mapSocialFeedItemToActivity(event.signal),
         eventType: "SIGNAL",
+      };
+    }
+
+    if (event.type === "POST" && event.post) {
+      return {
+        id: event.post.id,
+        postId: event.post.id,
+        actorUserId: event.actor.userId,
+        traderProfileId: event.post.author.traderProfileId ?? event.actor.traderProfileId ?? undefined,
+        username: getActorUsername(event.actor),
+        name: getActorDisplayName(event.actor),
+        avatarUrl: event.post.author.avatarUrl ?? event.actor.avatarUrl ?? event.post.author.profileUrl ?? event.actor.profileUrl ?? undefined,
+        time: formatRelativeTime(event.createdAt),
+        text: event.post.body,
+        type: "request",
+        kind: "post",
+        eventType: "POST",
+        likes: event.post.counts.reactions,
+        commentsCount: event.post.counts.replies,
+        repeats: event.post.counts.bookmarks,
+        likedByUser: event.post.viewer?.reacted ?? false,
+        repostedByUser: event.post.viewer?.bookmarked ?? false,
+        replies: (event.post.recentReplies ?? []).map((reply) => ({
+          id: reply.id,
+          author: getActorUsername(reply.author),
+          text: reply.body,
+          time: formatRelativeTime(reply.createdAt),
+        })),
+        topic: "Pulse",
       };
     }
 
@@ -1601,7 +1657,7 @@ function mapTimelineEventsToActivity(events: SocialTimelineEvent[], fallbackFeed
       commentsCount: 0,
       repeats: 0,
       replies: [],
-      topic: "Activity",
+      topic: "Pulse",
     };
   });
 }
@@ -1615,10 +1671,12 @@ function mapSocialFeedItemToActivity(item: SocialFeedItem): ActivityItem {
     id: item.signal.id,
     signalId: item.signal.id,
     actorUserId: item.author.userId,
+    traderProfileId: item.trader?.id ?? item.author.traderProfileId ?? undefined,
     username: getSocialUsername(item),
-    name: item.author.displayName ?? item.author.username ?? item.trader?.handle ?? "Conviction trader",
+    name: getSocialDisplayName(item),
+    avatarUrl: item.trader?.avatarUrl ?? item.author.avatarUrl ?? item.author.profileUrl ?? undefined,
     time: formatRelativeTime(item.signal.createdAt),
-    text: buildSignalFeedText(item),
+    text: item.signal.thesis,
     type: "request",
     kind: "signal",
     likes: item.counts.reactions,
@@ -1636,6 +1694,8 @@ function mapSocialFeedItemToActivity(item: SocialFeedItem): ActivityItem {
     })),
     repostedByUser: item.viewer?.bookmarked ?? false,
     topic: item.market?.providerMetadata?.primaryTag ?? item.market?.category ?? "Signal",
+    signalSide: item.signal.side,
+    convictionLevel: item.signal.convictionLevel,
   };
 }
 
@@ -1670,28 +1730,34 @@ function buildPublicTradeText(event: SocialTimelineEvent) {
 }
 
 function getActorUsername(actor: { handle?: string | null; username?: string | null; displayName?: string | null; userId: string }) {
-  return actor.handle ?? actor.username ?? actor.displayName ?? "user" + actor.userId.slice(-5);
+  return normalizeVictionIdentity(actor.handle ?? actor.username ?? actor.displayName, actor.userId);
 }
 
 function getActorDisplayName(actor: { handle?: string | null; username?: string | null; displayName?: string | null; userId: string }) {
-  return actor.handle ?? actor.displayName ?? actor.username ?? "Trader " + actor.userId.slice(-5);
+  return normalizeVictionIdentity(actor.handle ?? actor.displayName ?? actor.username, actor.userId);
 }
 
 function getSocialUsername(item: SocialFeedItem) {
-  return (
-    item.author.username ??
-    item.author.handle ??
-    item.trader?.handle ??
-    item.author.displayName ??
-    "trader"
+  return normalizeVictionIdentity(
+    item.trader?.handle ?? item.author.handle ?? item.author.username ?? item.author.displayName,
+    item.author.userId,
   );
 }
 
-function buildSignalFeedText(item: SocialFeedItem) {
-  const side = item.signal.side === "NO" ? "NO" : "YES";
-  const conviction = item.signal.convictionLevel ? " / conviction " + item.signal.convictionLevel + "%" : "";
+function getSocialDisplayName(item: SocialFeedItem) {
+  return normalizeVictionIdentity(
+    item.trader?.handle ?? item.author.handle ?? item.author.displayName ?? item.author.username,
+    item.author.userId,
+  );
+}
 
-  return side + " call" + conviction + ": " + item.signal.thesis;
+function normalizeVictionIdentity(value: string | null | undefined, fallbackSeed: string) {
+  const clean = (value ?? "").trim().replace(/^@/, "");
+  if (clean && !/^0x[a-f0-9]{8,}/i.test(clean) && !clean.includes("...")) {
+    return clean.endsWith(".viction") ? clean : clean + ".viction";
+  }
+
+  return "trader" + fallbackSeed.slice(-5).toLowerCase() + ".viction";
 }
 
 function formatSocialMarketPrice(market: Market | null) {
