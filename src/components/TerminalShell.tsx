@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { MobileWalletLauncher } from "./MobileWalletLauncher";
+import { ThirdwebWalletBridge, ThirdwebWalletProvider } from "./ThirdwebWalletBridge";
 import {
   clearStoredBrowserWalletSession,
   getSessionWalletAddress,
+  getStoredBrowserSessionWalletKind,
   getStoredBrowserWalletSession,
+  setStoredBrowserSessionWalletKind,
   setStoredBrowserWalletSession,
 } from "../lib/browser-wallet-session";
 import type { ExecutionCapabilities, UserSession } from "../lib/core-api";
@@ -15,6 +18,7 @@ import {
   isMobileWalletEnvironment,
   resolveEvmWalletProvider,
 } from "../lib/evm-wallet-provider";
+import { isThirdwebConfigured } from "../lib/thirdweb-client";
 import Header from "../zip-ui/components/Header";
 import Sidebar from "../zip-ui/components/Sidebar";
 import StatusBar from "../zip-ui/components/StatusBar";
@@ -47,6 +51,8 @@ const emptyPortfolio: UserPortfolio = {
 };
 
 type AlertMessage = { type: "success" | "info"; text: string } | null;
+type SignInMode = "smart" | "eoa";
+type SessionWalletKind = "smart" | "eoa";
 
 export function TerminalShell({
   activeTab,
@@ -60,6 +66,7 @@ export function TerminalShell({
   const [session, setSession] = useState<UserSession | null>(null);
   const [alertMessage, setAlertMessage] = useState<AlertMessage>(null);
   const [mobileWalletMessage, setMobileWalletMessage] = useState<string | null>(null);
+  const [sessionWalletKind, setSessionWalletKind] = useState<SessionWalletKind | null>(null);
 
   const applySession = useCallback((nextSession: UserSession | null) => {
     setSession(nextSession);
@@ -79,6 +86,7 @@ export function TerminalShell({
 
     if (storedSession) {
       applySession(storedSession);
+      setSessionWalletKind(getStoredBrowserSessionWalletKind() ?? "eoa");
       onSessionChange?.(storedSession);
     }
   }, [applySession, onSessionChange]);
@@ -103,12 +111,23 @@ export function TerminalShell({
     triggerAlert("info", message);
   }
 
-  async function handleConnectWallet() {
+  async function handleConnectWallet(mode?: SignInMode) {
     if (portfolio.connected) {
       triggerAlert("info", "Wallet already connected. Open the wallet menu to copy or disconnect.");
       return;
     }
 
+    if (mode === "smart") {
+      if (isThirdwebConfigured()) {
+        window.dispatchEvent(new Event("conviction-thirdweb-smart-connect"));
+        return;
+      }
+
+      triggerAlert("info", "Smart wallet auth is not configured yet. Use Other wallets for now.");
+      return;
+    }
+
+    window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
     const provider = await resolveEvmWalletProvider();
 
     if (!provider) {
@@ -138,7 +157,9 @@ export function TerminalShell({
       }
 
       applySession(body.data.session);
+      setSessionWalletKind("eoa");
       setStoredBrowserWalletSession(body.data.session);
+      setStoredBrowserSessionWalletKind("eoa");
       onSessionChange?.(body.data.session);
       triggerAlert("success", "Wallet connected and registered with core.");
     } catch {
@@ -147,19 +168,63 @@ export function TerminalShell({
   }
 
   function handleDisconnectWallet() {
+    window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
     applySession(null);
+    setSessionWalletKind(null);
     clearStoredBrowserWalletSession();
     onSessionChange?.(null);
     triggerAlert("info", "Wallet session closed.");
   }
 
+  const handleSmartWalletActive = useCallback((address: string) => {
+    setSessionWalletKind((current) => {
+      const activeAddress = portfolio.address?.toLowerCase();
+
+      if (activeAddress && activeAddress === address.toLowerCase()) {
+        setStoredBrowserSessionWalletKind("smart");
+        return "smart";
+      }
+
+      return current;
+    });
+  }, [portfolio.address]);
+
+  function handleThirdwebSessionReady(nextSession: UserSession) {
+    applySession(nextSession);
+    setSessionWalletKind("smart");
+    setStoredBrowserWalletSession(nextSession);
+    setStoredBrowserSessionWalletKind("smart");
+    onSessionChange?.(nextSession);
+  }
+
+  function handleThirdwebDisconnectSession() {
+    if (sessionWalletKind !== "smart") return;
+
+    applySession(null);
+    setSessionWalletKind(null);
+    clearStoredBrowserWalletSession();
+    onSessionChange?.(null);
+  }
+
   return (
-    <div className="min-h-screen bg-background-base text-on-surface font-sans selection:bg-deep-orange selection:text-black">
+    <ThirdwebWalletProvider>
+      <div className="min-h-screen bg-background-base text-on-surface font-sans selection:bg-deep-orange selection:text-black">
+        <ThirdwebWalletBridge
+          activeAddress={portfolio.address}
+          onDisconnectSession={handleThirdwebDisconnectSession}
+          onSessionReady={handleThirdwebSessionReady}
+          onSmartWalletActive={handleSmartWalletActive}
+          onStatus={triggerAlert}
+        />
       <Header
         activeTab={activeTab}
         onConnectWallet={handleConnectWallet}
         onDisconnectWallet={handleDisconnectWallet}
+        onOpenPortfolio={() => {
+          window.location.href = "/me";
+        }}
         portfolio={portfolio}
+        session={session}
         setActiveTab={navigateFromTab}
       />
       <Sidebar
@@ -202,7 +267,8 @@ export function TerminalShell({
           </div>
         </div>
       ) : null}
-    </div>
+      </div>
+    </ThirdwebWalletProvider>
   );
 }
 
@@ -211,6 +277,7 @@ function navigateFromTab(tab: string) {
     activity: "/activity",
     landing: "/",
     markets: "/markets",
+    portfolio: "/me",
     "margin-desk": "/margin-desk",
     vaults: "/vaults",
   };

@@ -121,114 +121,158 @@ export function MyActivityDashboard() {
     return Number.isFinite(amount) ? sum + amount : sum;
   }, 0) ?? 0;
 
+  const publicSignalCount = activity?.signals.length ?? 0;
+  const copyIntentCount = activity?.copyIntents.length ?? 0;
+  const displayHandle = session?.traderProfile?.handle ?? (walletAddress ? "wallet.viction" : "Sign in");
+  const emailLabel = session?.user.email ?? "No email set";
+
   return (
-    <section className="my-activity-shell" aria-label="My portfolio">
-      <section className="profile-session-card">
-        <div>
-          <p className="eyebrow">Wallet portfolio</p>
-          <h2>{session?.traderProfile?.handle ?? "Sign in"}</h2>
-          <span>{walletAddress ? truncateHash(walletAddress) : "Wallet required for portfolio records."}</span>
+    <section className="wallet-portfolio-shell" aria-label="My portfolio">
+      <section className="wallet-overview-card">
+        <div className="wallet-identity-block">
+          <span className="wallet-eyebrow">Wallet</span>
+          <h2>{displayHandle}</h2>
+          <p>{walletAddress ? truncateHash(walletAddress) : "Sign in from the account button to load your wallet."}</p>
         </div>
-        <Link className="text-link" href="/me/profile">
-          Edit profile
-        </Link>
+        <dl className="wallet-overview-metrics">
+          <div>
+            <dt>Account email</dt>
+            <dd>{emailLabel}</dd>
+          </div>
+          <div>
+            <dt>Vault collateral</dt>
+            <dd>{formatUsd(vaultCollateral)}</dd>
+          </div>
+          <div>
+            <dt>Active trades</dt>
+            <dd>{activePositions.length}</dd>
+          </div>
+        </dl>
       </section>
 
-      <div className="activity-summary-grid" aria-label="Portfolio summary">
-        <SummaryTile label="Active positions" value={activePositions.length} />
-        <SummaryTile label="Past positions" value={pastPositions.length} />
-        <SummaryTile label="Copy intents" value={activity?.copyIntents.length ?? 0} />
-        <SummaryTile label="Vault collateral" value={formatUsd(vaultCollateral)} />
-      </div>
+      <div className="wallet-layout-grid">
+        <aside className="wallet-menu-panel" aria-label="Wallet sections">
+          <a href="#overview">Overview</a>
+          <a href="#active-trades">Active trades</a>
+          <a href="#history">History</a>
+          <a href="#signals">Signals</a>
+          <a href="#copy-intents">Copy intents</a>
+          <Link href="/vaults">Vaults</Link>
+          <Link href="/markets">Find markets</Link>
+        </aside>
 
-      <p className={activityState.status === "error" ? "ticket-message error" : "ticket-message"}>
-        {activityState.message}
-      </p>
-
-      {activity ? (
-        <div className="activity-section-stack">
-          <ActivitySection
-            emptyBody="Open a margin request from a market to see active positions here."
-            emptyTitle="No active positions"
-            title="Active positions"
-          >
-            {activePositions.length > 0 ? (
-              <div className="card-grid compact-grid">
-                {activePositions.map((position) => (
-                  <PositionCard
-                    key={position.id}
-                    market={activity.markets[position.marketId] ?? null}
-                    position={position}
-                  />
-                ))}
+        <div className="wallet-main-stack">
+          <section className="wallet-panel" id="overview">
+            <div className="wallet-panel-heading">
+              <div>
+                <span>Overview</span>
+                <h2>Wallet records</h2>
               </div>
-            ) : null}
-          </ActivitySection>
+              <Link className="text-link" href="/me/profile">Manage identity</Link>
+            </div>
+            <div className="wallet-summary-grid" aria-label="Portfolio summary">
+              <SummaryTile label="Active positions" value={activePositions.length} />
+              <SummaryTile label="Past positions" value={pastPositions.length} />
+              <SummaryTile label="Signals" value={publicSignalCount} />
+              <SummaryTile label="Copy intents" value={copyIntentCount} />
+            </div>
+            <p className={activityState.status === "error" ? "wallet-state-message error" : "wallet-state-message"}>
+              {activityState.message}
+            </p>
+          </section>
 
-          <ActivitySection
-            emptyBody="Closed, failed, or cancelled position records will appear here."
-            emptyTitle="No past positions"
-            title="Past positions"
-          >
-            {pastPositions.length > 0 ? (
-              <div className="card-grid compact-grid">
-                {pastPositions.map((position) => (
-                  <PositionCard
-                    key={position.id}
-                    market={activity.markets[position.marketId] ?? null}
-                    position={position}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </ActivitySection>
+          {activity ? (
+            <>
+              <ActivitySection
+                emptyBody="Open a margin request from a market to see active positions here."
+                emptyTitle="No active positions"
+                id="active-trades"
+                title="Active trades"
+              >
+                {activePositions.length > 0 ? (
+                  <div className="card-grid compact-grid">
+                    {activePositions.map((position) => (
+                      <PositionCard
+                        key={position.id}
+                        market={activity.markets[position.marketId] ?? null}
+                        position={position}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </ActivitySection>
 
-          <ActivitySection
-            emptyBody="Publish a market take from Activity to see your signals here."
-            emptyTitle="No market signals"
-            title="Signals"
-          >
-            {activity.signals.length > 0 ? (
-              <div className="card-grid compact-grid">
-                {activity.signals.map((signal) => (
-                  <SignalCard
-                    key={signal.id}
-                    market={activity.markets[signal.marketId] ?? null}
-                    signal={signal}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </ActivitySection>
+              <ActivitySection
+                emptyBody="Closed, failed, or cancelled position records will appear here."
+                emptyTitle="No past positions"
+                id="history"
+                title="History"
+              >
+                {pastPositions.length > 0 ? (
+                  <div className="card-grid compact-grid">
+                    {pastPositions.map((position) => (
+                      <PositionCard
+                        key={position.id}
+                        market={activity.markets[position.marketId] ?? null}
+                        position={position}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </ActivitySection>
 
-          <ActivitySection
-            emptyBody="Copy intents against trader positions will appear here."
-            emptyTitle="No copy intents"
-            title="Copy intents"
-          >
-            {activity.copyIntents.length > 0 ? (
-              <div className="activity-table" role="table" aria-label="Submitted copy intents">
-                {activity.copyIntents.map((copyIntent) => (
-                  <Link
-                    className="activity-row"
-                    href={"/positions/" + copyIntent.sourcePositionId}
-                    key={copyIntent.id}
-                  >
-                    <span>{copyIntent.requestedQuantity}</span>
-                    <span>{executionStatusLabel(copyIntent.status)}</span>
-                    <span>{formatDate(copyIntent.createdAt)}</span>
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-          </ActivitySection>
+              <ActivitySection
+                emptyBody="Publish a market take from Activity to see your signals here."
+                emptyTitle="No market signals"
+                id="signals"
+                title="Signals"
+              >
+                {activity.signals.length > 0 ? (
+                  <div className="card-grid compact-grid">
+                    {activity.signals.map((signal) => (
+                      <SignalCard
+                        key={signal.id}
+                        market={activity.markets[signal.marketId] ?? null}
+                        signal={signal}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </ActivitySection>
+
+              <ActivitySection
+                emptyBody="Copy intents against trader positions will appear here."
+                emptyTitle="No copy intents"
+                id="copy-intents"
+                title="Copy intents"
+              >
+                {activity.copyIntents.length > 0 ? (
+                  <div className="wallet-activity-table" role="table" aria-label="Submitted copy intents">
+                    {activity.copyIntents.map((copyIntent) => (
+                      <Link
+                        className="wallet-activity-row"
+                        href={"/positions/" + copyIntent.sourcePositionId}
+                        key={copyIntent.id}
+                      >
+                        <span>{copyIntent.requestedQuantity}</span>
+                        <span>{executionStatusLabel(copyIntent.status)}</span>
+                        <span>{formatDate(copyIntent.createdAt)}</span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+              </ActivitySection>
+            </>
+          ) : session ? null : (
+            <section className="wallet-panel">
+              <EmptyState
+                title="Wallet not connected"
+                body="Sign in from the top-right action, then return here to see your portfolio."
+              />
+            </section>
+          )}
         </div>
-      ) : session ? null : (
-        <EmptyState
-          title="Wallet not connected"
-          body="Sign in from the top-right action, then return here to see your portfolio."
-        />
-      )}
+      </div>
     </section>
   );
 }
@@ -246,20 +290,22 @@ function ActivitySection({
   children,
   emptyBody,
   emptyTitle,
+  id,
   title,
 }: {
   children: ReactNode;
   emptyBody: string;
   emptyTitle: string;
+  id: string;
   title: string;
 }) {
   const hasContent = Boolean(children);
 
   return (
-    <section className="activity-section" aria-label={title}>
-      <div className="section-heading compact-heading">
+    <section className="wallet-panel" id={id} aria-label={title}>
+      <div className="wallet-panel-heading">
         <div>
-          <p className="eyebrow">Portfolio</p>
+          <span>Portfolio</span>
           <h2>{title}</h2>
         </div>
         {title === "Active positions" ? (

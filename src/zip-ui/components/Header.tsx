@@ -2,7 +2,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import type { UserSession } from "../../lib/core-api";
-import { BrowserWalletMarks, GoogleWalletMark } from "../../components/AuthWalletMarks";
+import { BrowserWalletMarks, GoogleWalletMark, ThirdwebMark } from "../../components/AuthWalletMarks";
 import type { PortfolioWalletBalance, UserPortfolio } from "../types";
 import { Bell, Briefcase, Check, Copy, LogOut, Menu, Settings, Wallet } from "lucide-react";
 
@@ -278,6 +278,7 @@ export default function Header({
                     <span>
                       <strong className="block font-mono text-[10px] uppercase tracking-widest text-white">Google</strong>
                       <small className="mt-1 block text-xs leading-relaxed text-[#ccc3d8]/75">Smart wallet</small>
+                      <ThirdwebMark className="mt-2" />
                     </span>
                   </button>
                   <button

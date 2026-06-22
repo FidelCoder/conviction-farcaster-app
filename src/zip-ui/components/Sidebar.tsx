@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   User,
   Home,
+  Briefcase,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -42,6 +43,7 @@ export default function Sidebar({
     { id: "margin-desk", label: "Margin Desk", icon: Wallet },
     { id: "vaults", label: "Vaults", icon: Lock },
     { id: "activity", label: "Activity", icon: History },
+    ...(portfolio.connected ? [{ id: "portfolio", label: "Portfolio", icon: Briefcase }] : []),
   ];
 
   return (

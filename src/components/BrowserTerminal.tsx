@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { encodeFunctionData, erc20Abi, parseAbi, parseUnits } from "viem";
 
-import { BrowserWalletMarks, GoogleWalletMark } from "./AuthWalletMarks";
+import { BrowserWalletMarks, GoogleWalletMark, ThirdwebMark } from "./AuthWalletMarks";
 import { MobileWalletLauncher } from "./MobileWalletLauncher";
 import { ThirdwebWalletBridge, ThirdwebWalletProvider } from "./ThirdwebWalletBridge";
 import {
@@ -1085,7 +1085,7 @@ function SignInChoiceDialog({
             <GoogleWalletMark className="sign-in-choice-mark" />
             <span>Google</span>
             <strong>Smart wallet</strong>
-            <small>Google sign-in creates or opens your thirdweb smart account for Conviction.</small>
+            <ThirdwebMark />
           </button>
           <button className="sign-in-choice-option" onClick={() => onSelect("eoa")} type="button">
             <BrowserWalletMarks className="sign-in-choice-marks" />

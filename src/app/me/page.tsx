@@ -1,40 +1,74 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
 import { MyActivityDashboard } from "../../components/MyActivityDashboard";
-import { createMiniAppPageMetadata, getMiniAppImagePath } from "../../lib/miniapp";
+import { TerminalShell } from "../../components/TerminalShell";
+import {
+  getExecutionCapabilities,
+  listMarkets,
+  type ExecutionCapabilities,
+  type UserSession,
+} from "../../lib/core-api";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = createMiniAppPageMetadata({
-  title: "Conviction Portfolio",
-  description: "Your wallet portfolio, margin positions, signals, copy intents, and vault collateral on Conviction Markets.",
-  imagePath: getMiniAppImagePath("home"),
-  targetPath: "/me",
-  buttonTitle: "Open portfolio",
-});
-
 export default function MyActivityPage() {
+  const [terminalData, setTerminalData] = useState<{
+    execution: ExecutionCapabilities;
+    marketCount: number;
+  } | null>(null);
+  const [session, setSession] = useState<UserSession | null>(null);
+
+  useEffect(() => {
+    void Promise.all([getExecutionCapabilities(), listMarkets()]).then(([execution, markets]) => {
+      setTerminalData({ execution, marketCount: markets.length });
+    });
+  }, []);
+
   return (
-    <main className="page-shell wide">
-      <section className="page-heading compact split-heading">
-        <div>
-          <p className="eyebrow">Portfolio</p>
-          <h1>My portfolio</h1>
-          <p>
-            Review wallet-linked positions, vault collateral, signals, and copy intents returned by core.
-          </p>
-        </div>
-        <div className="my-activity-actions">
-          <a className="text-link" href="/me/notifications">
-            Notifications
-          </a>
-          <a className="text-link" href="/me/settings">
-            Settings
-          </a>
-          <a className="text-link" href="/me/profile">
-            Edit profile
-          </a>
-        </div>
-      </section>
-      <MyActivityDashboard />
-    </main>
+    <TerminalShell
+      activeTab="portfolio"
+      execution={terminalData?.execution ?? fallbackExecution}
+      marketCount={terminalData?.marketCount ?? 0}
+      onSessionChange={setSession}
+      sessionOverride={session ?? undefined}
+    >
+      <main className="terminal-page terminal-account-page terminal-wallet-page">
+        <section className="terminal-page-heading">
+          <div>
+            <p>Portfolio</p>
+            <h1>Wallet command center</h1>
+            <span>Track wallet identity, active margin, vault collateral, signals, copy intents, and transaction records in one place.</span>
+          </div>
+          <div className="my-activity-actions">
+            <Link className="text-link" href="/me/profile">
+              Profile
+            </Link>
+            <Link className="text-link" href="/me/notifications">
+              Notifications
+            </Link>
+            <Link className="text-link" href="/me/settings">
+              Settings
+            </Link>
+          </div>
+        </section>
+
+        <MyActivityDashboard />
+      </main>
+    </TerminalShell>
   );
 }
+
+const fallbackExecution: ExecutionCapabilities = {
+  evmOnly: true,
+  architecture: "INTENT_FIRST_MULTICHAIN_MARGIN_LAYER",
+  spotExecutionEnabled: false,
+  marginExecutionEnabled: false,
+  leverageEnabled: false,
+  leverageRequiresContracts: true,
+  activeAdapters: [],
+  recommendation: "Connect core API for live execution capabilities.",
+  chains: [],
+};
