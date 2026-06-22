@@ -33,23 +33,12 @@ export function TraderCard({
               alt={handle}
               className="trader-avatar-img"
               src={avatarUrl}
-              onError={(e) => {
-                (e.target as HTMLElement).style.display = "none";
-                const parent = (e.target as HTMLElement).closest(".trader-avatar");
-                const fallback =
-                  parent?.querySelector<HTMLElement>(".trader-avatar-fallback");
-                if (fallback) {
-                  fallback.style.display = "grid";
-                }
-              }}
             />
-          ) : null}
-          <div
-            className="trader-avatar-fallback"
-            style={{ display: avatarUrl ? "none" : "grid" }}
-          >
-            {initial}
-          </div>
+          ) : (
+            <div className="trader-avatar-fallback">
+              {initial}
+            </div>
+          )}
         </div>
         <div className="trader-card-name">
           <h3>{handle}</h3>
