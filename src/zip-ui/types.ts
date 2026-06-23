@@ -15,6 +15,7 @@ export interface PredictionMarket {
   discoveryRegion?: string;
   discoveryTopic?: string;
   externalUrl?: string | null;
+  imageUrl?: string | null;
   lastTradePrice?: string | null;
   noTokenId?: string | null;
   orderMinSize?: string | null;

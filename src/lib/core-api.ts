@@ -16,8 +16,13 @@ export type Market = {
   liquidity?: string | null;
   orderMinSize?: string | null;
   providerMetadata?: {
+    discoveryRegion?: string | null;
+    discoveryTopics?: string[];
     eventSlug?: string | null;
     eventTitle?: string | null;
+    groupItemTitle?: string | null;
+    iconUrl?: string | null;
+    imageUrl?: string | null;
     liquidity?: string | null;
     oneDayPriceChange?: string | null;
     primaryTag?: string | null;

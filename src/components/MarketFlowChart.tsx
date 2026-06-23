@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 
+import { OddsFlowChart, type OddsFlowHitTarget } from "./OddsFlowChart";
 import type { Market } from "../lib/core-api";
 import { formatMarketPrice } from "../lib/market-display";
 
@@ -25,7 +26,8 @@ type MarketFlowChartProps = {
 };
 
 export function MarketFlowChart({ market }: MarketFlowChartProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chartTargetsRef = useRef<OddsFlowHitTarget[]>([]);
+  const [hoveredPoint, setHoveredPoint] = useState<OddsFlowHitTarget | null>(null);
   const [historyState, setHistoryState] = useState<MarketHistoryState>({
     status: "loading",
     candles: [],
@@ -37,6 +39,7 @@ export function MarketFlowChart({ market }: MarketFlowChartProps) {
     let isCurrent = true;
 
     setHistoryState({ status: "loading", candles: [], source: "CONVICTION_LOADING" });
+    setHoveredPoint(null);
 
     fetch("/api/markets/" + encodeURIComponent(market.id) + "/history")
       .then((response) => response.json())
@@ -59,27 +62,70 @@ export function MarketFlowChart({ market }: MarketFlowChartProps) {
     };
   }, [market]);
 
-  useEffect(() => {
-    drawCandlestickChart(canvasRef.current, historyState.candles);
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    const targets = chartTargetsRef.current;
+    const firstTarget = targets[0];
 
-    const handleResize = () => drawCandlestickChart(canvasRef.current, historyState.candles);
-    window.addEventListener("resize", handleResize);
+    if (!firstTarget) {
+      if (hoveredPoint) setHoveredPoint(null);
+      return;
+    }
 
-    return () => window.removeEventListener("resize", handleResize);
-  }, [historyState]);
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    if (x < firstTarget.plotLeft || x > firstTarget.plotRight || y < firstTarget.plotTop || y > firstTarget.plotBottom) {
+      if (hoveredPoint) setHoveredPoint(null);
+      return;
+    }
+
+    const nearest = targets.reduce((closest, target) => (
+      Math.abs(target.x - x) < Math.abs(closest.x - x) ? target : closest
+    ));
+
+    if (hoveredPoint?.index !== nearest.index) {
+      setHoveredPoint(nearest);
+    }
+  }
 
   return (
     <section className="card market-flow-card" aria-label="Market price flow">
       <div className="market-flow-heading">
         <div>
           <p className="eyebrow">Market flow</p>
-          <h2>YES price candles</h2>
+          <h2>YES odds flow</h2>
         </div>
         <span>{getHistoryStatusLabel(historyState)}</span>
       </div>
 
-      <div className="market-flow-canvas">
-        <canvas ref={canvasRef} />
+      <div
+        className="market-flow-canvas"
+        onPointerLeave={() => setHoveredPoint(null)}
+        onPointerMove={handlePointerMove}
+      >
+        <OddsFlowChart
+          emptyMessage="Awaiting synced market price"
+          hoveredIndex={hoveredPoint?.index ?? null}
+          onTargetsChange={(targets) => {
+            chartTargetsRef.current = targets;
+          }}
+          points={historyState.candles}
+          tone="light"
+        />
+        {hoveredPoint ? (
+          <div
+            className="market-flow-tooltip"
+            style={{
+              left: `min(calc(100% - 12rem), ${Math.max(10, hoveredPoint.x + 12)}px)`,
+              top: `max(10px, ${Math.min(hoveredPoint.y - 42, hoveredPoint.plotBottom - 92)}px)`,
+            }}
+          >
+            <span>{formatChartTime(hoveredPoint.point.timestamp)}</span>
+            <strong>{formatPercent(hoveredPoint.point.close)} YES</strong>
+            <small>{formatPercent(100 - hoveredPoint.point.close)} NO</small>
+          </div>
+        ) : null}
         {historyState.status === "loading" ? (
           <div className="market-flow-overlay">Loading market flow...</div>
         ) : null}
@@ -123,144 +169,6 @@ function parseHistoryResponse(body: unknown): MarketHistoryState {
   }
 
   return { status: "ready", candles, source };
-}
-
-function drawCandlestickChart(canvas: HTMLCanvasElement | null, candles: MarketCandle[]) {
-  if (!canvas) return;
-
-  const parent = canvas.parentElement;
-  const width = Math.max(320, parent?.clientWidth ?? 720);
-  const height = Math.max(240, parent?.clientHeight ?? 320);
-  const pixelRatio = window.devicePixelRatio || 1;
-  const context = canvas.getContext("2d");
-
-  if (!context) return;
-
-  canvas.width = Math.floor(width * pixelRatio);
-  canvas.height = Math.floor(height * pixelRatio);
-  canvas.style.width = width + "px";
-  canvas.style.height = height + "px";
-  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  context.clearRect(0, 0, width, height);
-
-  drawChartBackground(context, width, height);
-
-  if (candles.length === 0) {
-    drawChartEmptyState(context, width, height, "Awaiting synced market price");
-    return;
-  }
-
-  const plot = { left: 44, right: 20, top: 20, bottom: 34 };
-  const plotWidth = width - plot.left - plot.right;
-  const plotHeight = height - plot.top - plot.bottom;
-  const values = candles.flatMap((candle) => [candle.high, candle.low, candle.open, candle.close]);
-  const min = Math.max(0, Math.min(...values) - 2);
-  const max = Math.min(100, Math.max(...values) + 2);
-  const range = Math.max(1, max - min);
-  const yFor = (value: number) => plot.top + ((max - value) / range) * plotHeight;
-
-  drawChartAxis(context, width, height, plot, min, max);
-
-  const candleGap = candles.length > 1 ? plotWidth / candles.length : plotWidth;
-  const candleWidth = Math.max(5, Math.min(18, candleGap * 0.54));
-
-  candles.forEach((candle, index) => {
-    const x = plot.left + candleGap * index + candleGap / 2;
-    const openY = yFor(candle.open);
-    const closeY = yFor(candle.close);
-    const highY = yFor(candle.high);
-    const lowY = yFor(candle.low);
-    const isUp = candle.close >= candle.open;
-    const color = isUp ? "#087452" : "#a93646";
-    const fill = isUp ? "rgba(8, 116, 82, 0.22)" : "rgba(169, 54, 70, 0.2)";
-    const bodyTop = Math.min(openY, closeY);
-    const bodyHeight = Math.max(2, Math.abs(closeY - openY));
-
-    context.strokeStyle = color;
-    context.lineWidth = 1.4;
-    context.beginPath();
-    context.moveTo(x, highY);
-    context.lineTo(x, lowY);
-    context.stroke();
-
-    context.fillStyle = fill;
-    context.strokeStyle = color;
-    context.fillRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
-    context.strokeRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
-  });
-
-  const lastCandle = candles[candles.length - 1];
-  const lastY = yFor(lastCandle.close);
-
-  context.strokeStyle = "#9a6716";
-  context.setLineDash([4, 4]);
-  context.beginPath();
-  context.moveTo(plot.left, lastY);
-  context.lineTo(width - plot.right, lastY);
-  context.stroke();
-  context.setLineDash([]);
-
-  context.fillStyle = "#9a6716";
-  context.font = "800 11px ui-monospace, SFMono-Regular, Menlo, monospace";
-  context.fillText(formatPercent(lastCandle.close), width - plot.right - 58, Math.max(18, lastY - 6));
-
-  context.fillStyle = "rgba(17, 22, 20, 0.54)";
-  context.font = "800 10px ui-monospace, SFMono-Regular, Menlo, monospace";
-  context.fillText("CONVICTION YES FLOW", plot.left, height - 12);
-}
-
-function drawChartBackground(context: CanvasRenderingContext2D, width: number, height: number) {
-  context.fillStyle = "#fffefa";
-  context.fillRect(0, 0, width, height);
-  context.strokeStyle = "rgba(17, 22, 20, 0.065)";
-  context.lineWidth = 1;
-
-  for (let x = 0; x < width; x += 36) {
-    context.beginPath();
-    context.moveTo(x, 0);
-    context.lineTo(x, height);
-    context.stroke();
-  }
-
-  for (let y = 0; y < height; y += 36) {
-    context.beginPath();
-    context.moveTo(0, y);
-    context.lineTo(width, y);
-    context.stroke();
-  }
-}
-
-function drawChartAxis(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  plot: { left: number; right: number; top: number; bottom: number },
-  min: number,
-  max: number,
-) {
-  context.strokeStyle = "rgba(17, 22, 20, 0.16)";
-  context.lineWidth = 1;
-  context.strokeRect(plot.left, plot.top, width - plot.left - plot.right, height - plot.top - plot.bottom);
-  context.fillStyle = "rgba(17, 22, 20, 0.58)";
-  context.font = "800 9px ui-monospace, SFMono-Regular, Menlo, monospace";
-
-  [max, (max + min) / 2, min].forEach((value, index) => {
-    const y = index === 0 ? plot.top + 10 : index === 1 ? height / 2 : height - plot.bottom - 4;
-    context.fillText(formatPercent(value), 6, y);
-  });
-}
-
-function drawChartEmptyState(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  message: string,
-) {
-  context.fillStyle = "rgba(17, 22, 20, 0.62)";
-  context.font = "800 11px ui-monospace, SFMono-Regular, Menlo, monospace";
-  context.textAlign = "center";
-  context.fillText(message, width / 2, height / 2);
-  context.textAlign = "start";
 }
 
 function buildSnapshotCandles(market: Market): MarketCandle[] {
@@ -337,6 +245,19 @@ function formatProbabilityValue(value: string | null | undefined) {
 function formatPercent(value: number) {
   if (!Number.isFinite(value)) return "--";
   return value.toFixed(1) + "%";
+}
+
+function formatChartTime(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "Latest";
+
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function clampProbability(value: number) {

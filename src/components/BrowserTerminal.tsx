@@ -1138,6 +1138,7 @@ const emptyPredictionMarket: PredictionMarket = {
   description: "Sync real markets from core before opening margin.",
   discoveryRegion: "Global",
   discoveryTopic: "World",
+  imageUrl: null,
   source: "Conviction Core",
 };
 
@@ -1172,6 +1173,7 @@ function mapMarketToPredictionMarket(market: Market): PredictionMarket {
   const discovery = getMarketDiscoveryProfile(market);
   const region = discovery.regions[0] ?? "GLOBAL";
   const primaryTag = market.providerMetadata?.primaryTag?.trim();
+  const metadataTopic = market.providerMetadata?.discoveryTopics?.find((topic) => topic.trim().length > 0);
 
   return {
     id: market.id,
@@ -1187,9 +1189,10 @@ function mapMarketToPredictionMarket(market: Market): PredictionMarket {
     description: market.description ?? "Market description unavailable.",
     bestAsk: market.bestAsk,
     bestBid: market.bestBid,
-    discoveryRegion: getRegionLabel(region),
-    discoveryTopic: primaryTag || getTopicLabel(discovery.topic),
+    discoveryRegion: market.providerMetadata?.discoveryRegion || getRegionLabel(region),
+    discoveryTopic: primaryTag || metadataTopic || getTopicLabel(discovery.topic),
     externalUrl: market.externalUrl,
+    imageUrl: market.providerMetadata?.imageUrl ?? market.providerMetadata?.iconUrl ?? null,
     lastTradePrice: market.lastTradePrice,
     noTokenId: market.noTokenId,
     orderMinSize: market.orderMinSize,

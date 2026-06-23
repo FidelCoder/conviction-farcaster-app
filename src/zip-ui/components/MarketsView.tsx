@@ -11,7 +11,7 @@ interface MarketsViewProps {
 
 type SortOrder = 'trending' | 'relevance' | 'conviction' | 'odds' | 'volume';
 
-const FEATURED_TOPICS = ['All', 'Trending', 'World Cup', 'Breaking', 'Politics', 'Sports', 'Crypto', 'Esports', 'Iran', 'Finance', 'Geopolitics', 'Tech', 'Culture', 'Economy', 'Weather', 'Mentions', 'Elections'];
+const FEATURED_TOPICS = ['All', 'Trending', 'African Football', 'World Cup', 'Football', 'Sports', 'Cricket', 'Rugby', 'Breaking', 'Politics', 'Crypto', 'Esports', 'Iran', 'Finance', 'Geopolitics', 'Tech', 'Culture', 'Economy', 'Weather', 'Mentions', 'Elections'];
 const FEATURED_REGIONS = ['All', 'Global', 'Africa', 'Asia', 'Europe', 'Latin America', 'Middle East', 'United States', 'Crypto-native'];
 const GUEST_MARKET_LIMIT = 12;
 
@@ -38,6 +38,10 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
   const curatedTopics = useMemo(
     () => FEATURED_TOPICS.filter((topic) => topic !== 'All' && (topicCounts.get(topic) ?? 0) > 0),
     [topicCounts],
+  );
+  const curatedRegions = useMemo(
+    () => FEATURED_REGIONS.filter((region) => region !== 'All' && (regionCounts.get(region) ?? 0) > 0),
+    [regionCounts],
   );
 
   useEffect(() => {
@@ -114,7 +118,7 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
                 <input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search World Cup, Iran, crypto, elections..."
+                  placeholder="Search AFCON, World Cup, Nigeria, crypto..."
                   className="min-w-0 flex-1 border-none bg-transparent font-mono text-xs font-bold text-white placeholder:text-[#ccc3d8]/50 focus:outline-none"
                 />
               </label>
@@ -160,6 +164,26 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
             ))}
           </div>
 
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+            {curatedRegions.map((region) => (
+              <button
+                key={region}
+                type="button"
+                onClick={() => setSelectedRegion(region)}
+                aria-pressed={selectedRegion === region}
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                  selectedRegion === region
+                    ? 'border-electric-purple bg-electric-purple text-white'
+                    : 'border-[#262626] bg-[#111111] text-[#ccc3d8] hover:border-white/40 hover:text-white'
+                }`}
+              >
+                <Globe2 size={12} />
+                <span>{region}</span>
+                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px]">{regionCounts.get(region)}</span>
+              </button>
+            ))}
+          </div>
+
         {filteredMarkets.length === 0 ? (
           <section className="rounded-lg border border-[#262626] bg-[#161616] p-8 text-center">
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">No matching markets</p>
@@ -174,6 +198,7 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
               const isHalted = market.status === 'HALTED';
               const topic = getPrimaryMarketTopic(market);
               const region = market.discoveryRegion ?? inferMarketRegion(market);
+              const imageUrl = getMarketImageUrl(market);
 
               return (
                 <article
@@ -185,6 +210,22 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
                   <div className="absolute inset-0 bg-[#161616]/60 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" />
 
                   <div className="relative z-10">
+                    <div className="mb-4 h-28 overflow-hidden rounded border border-[#262626] bg-[#0e0e0e]">
+                      {imageUrl ? (
+                        <img
+                          alt=""
+                          className="h-full w-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-[1.03]"
+                          loading="lazy"
+                          src={imageUrl}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-between bg-[radial-gradient(circle_at_15%_20%,rgba(124,58,237,0.22),transparent_32%),linear-gradient(135deg,rgba(255,107,26,0.16),rgba(17,17,17,0.92))] px-4">
+                          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]">{topic}</span>
+                          <span className="font-mono text-3xl font-black text-deep-orange/70">%</span>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="mb-3 flex flex-wrap gap-2">
                       <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-[#ccc3d8]">
                         {topic}
@@ -410,9 +451,11 @@ function getSortLabel(sortOrder: SortOrder) {
 function getTrendingScore(market: PredictionMarket) {
   const liveBonus = market.status === 'LIVE' ? 35 : 0;
   const urgencyBonus = isBreakingMarket(market) ? 20 : 0;
-  const sportBonus = getMarketTopics(market).includes('Sports') || getMarketTopics(market).includes('World Cup') ? 12 : 0;
+  const topics = getMarketTopics(market);
+  const sportBonus = topics.includes('Sports') || topics.includes('World Cup') ? 12 : 0;
+  const globalBonus = market.discoveryRegion === 'Africa' || topics.includes('African Football') ? 14 : 0;
 
-  return market.convictionValue + liveBonus + urgencyBonus + sportBonus + Math.min(parseVolume(market.vol24h) / 75000, 30);
+  return market.convictionValue + liveBonus + urgencyBonus + sportBonus + globalBonus + Math.min(parseVolume(market.vol24h) / 75000, 30);
 }
 
 function getMarketRelevanceScore(market: PredictionMarket, query: string) {
@@ -437,9 +480,27 @@ function getMarketTopics(market: PredictionMarket) {
   const topics = new Set<string>();
 
   topics.add(market.discoveryTopic ?? inferMarketTopic(market));
+  if (matches(text, ['afcon', 'caf ', 'caf-', 'africa cup of nations', 'cup of nations'])) {
+    topics.add('African Football');
+    topics.add('Football');
+    topics.add('Sports');
+  }
   if (isBreakingMarket(market)) topics.add('Breaking');
   if (matches(text, ['world cup', 'fifa'])) {
     topics.add('World Cup');
+    topics.add('Football');
+    topics.add('Sports');
+  }
+  if (matches(text, ['football', 'soccer', 'champions league', 'premier league', 'la liga', 'serie a', 'bundesliga', 'uefa'])) {
+    topics.add('Football');
+    topics.add('Sports');
+  }
+  if (matches(text, ['cricket'])) {
+    topics.add('Cricket');
+    topics.add('Sports');
+  }
+  if (matches(text, ['rugby'])) {
+    topics.add('Rugby');
     topics.add('Sports');
   }
   if (matches(text, ['esports', 'league of legends', 'valorant', 'cs2', 'counter-strike', 'dota'])) topics.add('Esports');
@@ -456,7 +517,9 @@ function getMarketTopics(market: PredictionMarket) {
 function getPrimaryMarketTopic(market: PredictionMarket) {
   const topics = getMarketTopics(market);
 
+  if (topics.includes('African Football')) return 'African Football';
   if (topics.includes('World Cup')) return 'World Cup';
+  if (topics.includes('Football')) return 'Football';
   if (topics.includes('Esports')) return 'Esports';
   if (topics.includes('Iran')) return 'Iran';
   if (market.discoveryTopic) return market.discoveryTopic;
@@ -467,7 +530,9 @@ function getPrimaryMarketTopic(market: PredictionMarket) {
 function inferMarketTopic(market: PredictionMarket) {
   const text = `${market.title} ${market.description} ${market.category}`.toLowerCase();
 
+  if (matches(text, ['afcon', 'caf ', 'caf-', 'africa cup of nations', 'cup of nations'])) return 'African Football';
   if (matches(text, ['world cup', 'fifa'])) return 'World Cup';
+  if (matches(text, ['football', 'soccer', 'champions league', 'premier league', 'la liga', 'serie a', 'bundesliga', 'uefa'])) return 'Football';
   if (matches(text, ['esports', 'league of legends', 'valorant', 'cs2', 'counter-strike', 'dota'])) return 'Esports';
   if (matches(text, ['war', 'ceasefire', 'nato', 'taiwan', 'gaza', 'israel', 'iran', 'russia', 'ukraine', 'sanction', 'hormuz'])) return 'Geopolitics';
   if (matches(text, ['nba', 'nfl', 'nhl', 'mlb', 'champion', 'finals', 'stanley cup', 'league', 'ufc', 'soccer', 'football', 'cricket', 'formula 1'])) return 'Sports';
@@ -487,14 +552,20 @@ function inferMarketRegion(market: PredictionMarket) {
   const text = `${market.title} ${market.description} ${market.category}`.toLowerCase();
 
   if (matches(text, ['crypto', 'bitcoin', 'ethereum', 'airdrop', 'token', 'defi', 'solana', 'onchain', 'on-chain'])) return 'Crypto-native';
-  if (matches(text, ['nigeria', 'kenya', 'ghana', 'south africa', 'ethiopia', 'egypt', 'morocco', 'africa'])) return 'Africa';
+  if (matches(text, ['israel', 'hamas', 'iran', 'saudi', 'uae', 'qatar', 'gaza', 'middle east', 'palestine', 'abraham accords'])) return 'Middle East';
+  if (matches(text, ['nigeria', 'kenya', 'ghana', 'south africa', 'ethiopia', 'egypt', 'morocco', 'algeria', 'tunisia', 'senegal', 'ivory coast', 'cote d\'ivoire', 'cameroon', 'uganda', 'tanzania', 'rwanda', 'zambia', 'angola', 'mali', 'dr congo', 'lagos', 'nairobi', 'johannesburg', 'cairo', 'casablanca', 'afcon', 'caf ', 'caf-', 'africa'])) return 'Africa';
   if (matches(text, ['china', 'india', 'japan', 'korea', 'singapore', 'taiwan', 'asia', 'indonesia'])) return 'Asia';
   if (matches(text, ['uk', 'britain', 'london', 'europe', 'eu ', 'france', 'germany', 'spain', 'italy', 'russia', 'ukraine'])) return 'Europe';
   if (matches(text, ['brazil', 'argentina', 'mexico', 'colombia', 'chile', 'latin america', 'latam'])) return 'Latin America';
-  if (matches(text, ['israel', 'iran', 'saudi', 'uae', 'qatar', 'gaza', 'middle east', 'palestine'])) return 'Middle East';
   if (matches(text, ['nba', 'nfl', 'mlb', 'new york', 'san antonio', 'oklahoma', 'vegas', 'u.s.', 'usa', 'america', 'united states', 'new york court'])) return 'United States';
 
   return 'Global';
+}
+
+function getMarketImageUrl(market: PredictionMarket) {
+  const imageUrl = market.imageUrl?.trim();
+
+  return imageUrl && /^https?:\/\//i.test(imageUrl) ? imageUrl : null;
 }
 
 function isBreakingMarket(market: PredictionMarket) {
@@ -503,5 +574,19 @@ function isBreakingMarket(market: PredictionMarket) {
 }
 
 function matches(text: string, terms: string[]) {
-  return terms.some((term) => text.includes(term));
+  return terms.some((term) => {
+    const normalizedTerm = term.trim().toLowerCase();
+
+    if (!normalizedTerm) return false;
+
+    if (/^[a-z0-9]+$/i.test(normalizedTerm)) {
+      return new RegExp(`\\b${escapeRegExp(normalizedTerm)}\\b`, 'i').test(text);
+    }
+
+    return text.includes(normalizedTerm);
+  });
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
