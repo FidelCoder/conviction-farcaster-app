@@ -251,7 +251,7 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
                       <div className="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-500 shadow-md ${
-                            market.convictionIndex === 'High' ? 'meter-gradient shadow-[0_0_10px_rgba(249,115,22,0.4)]' :
+                            market.convictionIndex === 'High' ? 'meter-gradient shadow-[0_0_8px_rgba(249,115,22,0.18)]' :
                             market.convictionIndex === 'Moderate' ? 'bg-electric-purple shadow-[0_0_10px_rgba(124,58,237,0.4)]' :
                             market.convictionIndex === 'Low' ? 'bg-primary shadow-[0_0_10px_rgba(210,187,255,0.4)]' : 'bg-outline-variant'
                           }`}

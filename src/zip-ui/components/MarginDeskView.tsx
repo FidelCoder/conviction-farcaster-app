@@ -738,9 +738,9 @@ function drawCandlestickChart(
     const bodyHeight = Math.max(3, Math.abs(closeY - openY));
 
     if (isHovered) {
-      context.fillStyle = 'rgba(249, 115, 22, 0.09)';
+      context.fillStyle = 'rgba(249, 115, 22, 0.055)';
       context.fillRect(x - candleGap / 2, plot.top, candleGap, plotHeight);
-      context.strokeStyle = 'rgba(249, 115, 22, 0.72)';
+      context.strokeStyle = 'rgba(249, 115, 22, 0.48)';
       context.setLineDash([4, 5]);
       context.beginPath();
       context.moveTo(x, plot.top);

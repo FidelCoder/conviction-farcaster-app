@@ -12,7 +12,7 @@
 
 /* Subtle Glows */
 .glow-orange {
-  box-shadow: 0 0 20px rgba(249, 115, 22, 0.15);
+  box-shadow: 0 0 14px rgba(249, 115, 22, 0.08);
 }
 
 .glow-purple {
@@ -20,7 +20,7 @@
 }
 
 .meter-gradient {
-  background: linear-gradient(90deg, #7c3aed 0%, #f97316 100%);
+  background: linear-gradient(90deg, rgba(124, 58, 237, 0.95) 0%, rgba(249, 115, 22, 0.86) 100%);
 }
 
 .z-35 {
@@ -9354,4 +9354,75 @@ main,
   .terminal-leaderboard-summary div:last-child {
     border-bottom: 0;
   }
+}
+
+/* Keep the Conviction orange hue, but reduce the visual glare on solid accents. */
+.bg-deep-orange,
+.public-trader-actions a:first-child,
+.public-position-row > a,
+.terminal-page .profile-submit,
+.mobile-wallet-copy-row button,
+.viction-onboarding-actions button,
+.terminal-leaderboard-row > a {
+  background-color: rgb(249 115 22 / 0.9);
+}
+
+:root .hover\:bg-deep-orange:hover,
+.terminal-page .text-link:hover,
+.terminal-page .settings-card a:hover,
+.terminal-page .profile-share-actions a:hover,
+.terminal-page .profile-share-actions button:hover,
+.terminal-page .profile-action-button:hover,
+.terminal-wallet-page .secondary-link:hover {
+  background-color: rgb(249 115 22 / 0.86);
+}
+
+.border-deep-orange,
+.public-trader-actions a:first-child,
+.public-position-row > a,
+.terminal-page .profile-submit,
+.mobile-wallet-copy-row button,
+.viction-onboarding-actions button,
+.terminal-leaderboard-row > a {
+  border-color: rgb(249 115 22 / 0.76);
+}
+
+:root .hover\:border-deep-orange:hover {
+  border-color: rgb(249 115 22 / 0.78);
+}
+
+.border-t-deep-orange,
+.terminal-page .profile-confirmed-card,
+.terminal-page .profile-form,
+.terminal-wallet-page .wallet-overview-card,
+.terminal-wallet-page .card {
+  border-top-color: rgb(249 115 22 / 0.76);
+}
+
+.border-r-deep-orange {
+  border-right-color: rgb(249 115 22 / 0.76);
+}
+
+.border-b-deep-orange {
+  border-bottom-color: rgb(249 115 22 / 0.76);
+}
+
+.border-l-deep-orange {
+  border-left-color: rgb(249 115 22 / 0.76);
+}
+
+.text-deep-orange,
+.terminal-page .text-link,
+.terminal-page .settings-card a,
+.terminal-page .profile-share-actions a,
+.terminal-page .profile-share-actions button,
+.terminal-page .profile-action-button,
+.terminal-wallet-page .secondary-link,
+.terminal-leaderboard-rank {
+  color: rgb(249 115 22 / 0.9);
+}
+
+:root .hover\:text-deep-orange:hover,
+:root .group:hover .group-hover\:text-deep-orange {
+  color: rgb(249 115 22 / 0.9);
 }
