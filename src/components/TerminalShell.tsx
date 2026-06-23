@@ -68,6 +68,7 @@ export function TerminalShell({
   const [session, setSession] = useState<UserSession | null>(null);
   const [alertMessage, setAlertMessage] = useState<AlertMessage>(null);
   const [mobileWalletMessage, setMobileWalletMessage] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sessionWalletKind, setSessionWalletKind] = useState<SessionWalletKind | null>(null);
   const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
 
@@ -293,6 +294,7 @@ export function TerminalShell({
         activeTab={activeTab}
         onConnectWallet={handleConnectWallet}
         onDisconnectWallet={handleDisconnectWallet}
+        onOpenMenu={() => setIsMobileMenuOpen(true)}
         onOpenPortfolio={() => {
           window.location.href = "/me";
         }}
@@ -302,6 +304,8 @@ export function TerminalShell({
       />
       <Sidebar
         activeTab={activeTab}
+        mobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
         onOpenRequest={() => {
           window.location.href = "/margin-desk";
         }}

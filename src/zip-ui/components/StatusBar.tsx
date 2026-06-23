@@ -6,7 +6,7 @@ interface StatusBarProps {
 
 export default function StatusBar({ contractStatus, executionMode, marketCount }: StatusBarProps) {
   return (
-    <div className="fixed bottom-0 left-0 md:left-64 right-0 min-h-16 bg-[#161616] border-t border-[#262626] px-3 sm:px-6 py-3 sm:py-4 z-35 flex justify-between items-center gap-4 overflow-x-auto backdrop-blur-md bg-opacity-90">
+    <div className="fixed bottom-0 left-0 right-0 min-h-16 bg-[#161616] border-t border-[#262626] px-3 sm:px-6 py-3 sm:py-4 z-35 flex justify-between items-center gap-4 overflow-x-auto backdrop-blur-md bg-opacity-90">
       <div className="flex items-center gap-4 sm:gap-8 md:gap-12 flex-shrink-0">
         {/* Metric 1 */}
         <div className="flex flex-col">

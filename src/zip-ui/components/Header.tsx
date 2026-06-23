@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { UserSession } from "../../lib/core-api";
 import { BrowserWalletMarks, GoogleWalletMark, ThirdwebMark } from "../../components/AuthWalletMarks";
 import type { PortfolioWalletBalance, UserPortfolio } from "../types";
-import { Bell, Briefcase, Check, Copy, LogOut, Menu, Settings, Wallet } from "lucide-react";
+import { Bell, BookOpen, Briefcase, Check, Copy, HelpCircle, LogOut, Menu, Settings, Wallet } from "lucide-react";
 
 interface HeaderProps {
   activeTab: string;
@@ -36,10 +36,12 @@ export default function Header({
   const walletLabel = portfolio.connected ? getWalletButtonLabel(portfolio, walletBalances) : "SIGN IN";
   const accountLabel = session?.traderProfile?.handle ?? (portfolio.connected ? "Conviction wallet" : "Guest");
   const tabs = [
-    { id: "markets", label: "Markets" },
-    { id: "margin-desk", label: "Margin Desk" },
-    { id: "vaults", label: "Vaults" },
-    { id: "activity", label: "Pulse" },
+    { id: "markets", label: "Markets", href: "/markets" },
+    { id: "margin-desk", label: "Margin", href: "/margin-desk" },
+    { id: "vaults", label: "Vaults", href: "/vaults" },
+    { id: "activity", label: "Pulse", href: "/activity" },
+    ...(portfolio.connected ? [{ id: "portfolio", label: "Portfolio", href: "/me" }] : []),
+    { id: "leaderboard", label: "Leaderboard", href: "/leaderboard" },
   ];
 
   useEffect(() => {
@@ -87,6 +89,17 @@ export default function Header({
     setWalletMenuOpen((open) => !open);
   }
 
+  function handleNavTab(tab: { id: string; href: string }) {
+    const localTabs = new Set(["landing", "markets", "margin-desk", "vaults", "activity"]);
+
+    if (localTabs.has(tab.id)) {
+      setActiveTab(tab.id);
+      return;
+    }
+
+    window.location.href = tab.href;
+  }
+
   function handleSignInMode(mode: "smart" | "eoa") {
     setWalletMenuOpen(false);
     onConnectWallet(mode);
@@ -108,12 +121,12 @@ export default function Header({
   }
 
   return (
-    <header className="fixed top-0 w-full z-50 flex justify-between items-center gap-2 px-2 sm:px-5 md:px-10 h-16 bg-[#161616]/80 backdrop-blur-md border-b border-[#262626]">
-      <div className="flex items-center gap-2 sm:gap-3 md:gap-6 min-w-0 flex-1">
+    <header className="fixed top-0 w-full z-50 flex justify-between items-center gap-2 px-2 sm:px-5 md:px-8 h-16 bg-[#161616]/80 backdrop-blur-md border-b border-[#262626]">
+      <div className="flex items-center gap-2 sm:gap-3 lg:gap-5 min-w-0 flex-1">
         {onOpenMenu ? (
           <button
             aria-label="Open navigation menu"
-            className="md:hidden w-10 h-10 rounded border border-[#262626] bg-[#0e0e0e] text-[#ccc3d8] hover:border-deep-orange hover:text-white flex items-center justify-center transition-colors"
+            className="lg:hidden w-10 h-10 rounded border border-[#262626] bg-[#0e0e0e] text-[#ccc3d8] hover:border-deep-orange hover:text-white flex items-center justify-center transition-colors"
             onClick={onOpenMenu}
             type="button"
           >
@@ -124,12 +137,12 @@ export default function Header({
         {/* Logo */}
         <button
           onClick={() => setActiveTab("landing")}
-          className="flex min-w-0 flex-1 cursor-pointer items-center text-left group"
+          className="flex min-w-0 flex-1 cursor-pointer items-center text-left group lg:flex-none"
           type="button"
         >
           <Image
             alt="Conviction Markets"
-            className="h-7 w-auto max-w-[8.5rem] object-contain sm:h-9 sm:max-w-[15.5rem]"
+            className="h-7 w-auto max-w-[8.5rem] object-contain sm:h-9 sm:max-w-[13rem] xl:max-w-[15.5rem]"
             height={120}
             priority
             src="/logo/conviction-markets-header.png"
@@ -138,14 +151,14 @@ export default function Header({
         </button>
 
         {/* Desktop Tabs */}
-        <nav className="hidden md:flex gap-6 ml-8 h-full">
+        <nav className="hidden lg:flex min-w-0 flex-1 items-center justify-center gap-1 h-full">
           {tabs.map((tab) => {
             const isTabActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`relative px-1 hover:text-white transition-colors duration-200 h-16 flex items-center text-sm font-medium ${
+                onClick={() => handleNavTab(tab)}
+                className={`relative px-2 xl:px-3 hover:text-white transition-colors duration-200 h-16 flex items-center whitespace-nowrap text-xs xl:text-sm font-medium ${
                   isTabActive
                     ? "text-deep-orange font-semibold border-b-2 border-deep-orange opacity-100"
                     : "text-[#ccc3d8]/80 hover:text-white"
@@ -158,7 +171,23 @@ export default function Header({
         </nav>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-3 md:gap-4 flex-shrink-0">
+      <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 flex-shrink-0">
+        <div className="hidden lg:flex items-center gap-1 border-r border-[#262626] pr-2">
+          <a
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[#ccc3d8] transition-colors hover:bg-white/5 hover:text-white"
+            href="/docs"
+            title="Docs"
+          >
+            <BookOpen size={17} />
+          </a>
+          <a
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[#ccc3d8] transition-colors hover:bg-white/5 hover:text-white"
+            href="/support"
+            title="Support"
+          >
+            <HelpCircle size={17} />
+          </a>
+        </div>
         {portfolio.connected ? (
           <>
             <button

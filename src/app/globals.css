@@ -7673,7 +7673,6 @@ main,
 /* Terminal shell account and docs surfaces */
 .terminal-page {
   min-height: 100vh;
-  margin-left: 16rem;
   padding: 5.5rem clamp(1.25rem, 3vw, 2.5rem) 7rem;
   background-color: #0a0a0a;
   background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),

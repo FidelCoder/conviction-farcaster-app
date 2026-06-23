@@ -96,7 +96,7 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
   }
 
   return (
-    <main className="flex-1 md:ml-64 bg-grid-tech min-h-[calc(100vh-64px)] pb-32">
+    <main className="flex-1 bg-grid-tech min-h-[calc(100vh-64px)] pb-32">
       <div className="max-w-[1280px] mx-auto px-4 md:px-10 py-8">
         <header className="mb-6 border-b border-[#262626] pb-4">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">

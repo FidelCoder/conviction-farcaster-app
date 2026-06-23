@@ -56,7 +56,7 @@ export default function Sidebar({
           type="button"
         />
       ) : null}
-      <aside className={`fixed left-0 top-16 bottom-0 z-[60] w-72 flex-col bg-[#0e0e0e] border-r border-[#262626] transition-transform duration-200 md:z-40 md:flex md:w-64 md:translate-x-0 ${
+      <aside className={`fixed left-0 top-16 bottom-0 z-[60] w-72 flex-col bg-[#0e0e0e] border-r border-[#262626] transition-transform duration-200 lg:hidden ${
         isMobileOpen ? "flex translate-x-0" : "flex -translate-x-full"
       }`}>
       <div className="md:hidden flex items-center justify-between border-b border-[#262626] px-4 py-3">

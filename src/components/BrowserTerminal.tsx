@@ -183,7 +183,13 @@ export function BrowserTerminal({
   }, [displayMarkets, initialMarketId]);
 
   const setActiveTab = useCallback((tab: string) => {
-    if (!isTerminalTab(tab)) return;
+    if (!isTerminalTab(tab)) {
+      const route = getNonTerminalRoute(tab);
+      if (route && typeof window !== "undefined") {
+        window.location.href = route;
+      }
+      return;
+    }
 
     setActiveTabState(tab);
 
@@ -1142,6 +1148,20 @@ function isTerminalTab(value: string | null | undefined): value is TerminalTab {
 
 function getTerminalTabFromPath(pathname: string) {
   return TERMINAL_PATH_TABS[pathname.replace(/\/$/, "") || "/"];
+}
+
+function getNonTerminalRoute(tab: string) {
+  const routes: Record<string, string> = {
+    docs: "/docs",
+    leaderboard: "/leaderboard",
+    notifications: "/me/notifications",
+    portfolio: "/me",
+    profile: "/me/profile",
+    settings: "/me/settings",
+    support: "/support",
+  };
+
+  return routes[tab] ?? null;
 }
 
 function mapMarketToPredictionMarket(market: Market): PredictionMarket {

@@ -215,7 +215,7 @@ export default function MarginDeskView({
   };
 
   return (
-    <main className="flex-1 flex flex-col lg:flex-row mt-16 md:ml-64 p-4 md:p-6 gap-6 min-h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] overflow-y-auto lg:overflow-hidden pb-28 lg:pb-6">
+    <main className="flex-1 flex flex-col lg:flex-row mt-16 p-4 md:p-6 gap-6 min-h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] overflow-y-auto lg:overflow-hidden pb-28 lg:pb-6">
       <section className="w-full lg:w-64 bg-[#161616] border border-[#262626] rounded flex flex-col overflow-hidden max-h-72 lg:max-h-full">
         <div className="px-4 py-3 border-b border-[#262626] bg-[#0e0e0e] flex justify-between items-center">
           <h3 className="font-mono text-[10px] text-[#ccc3d8] font-bold uppercase tracking-widest flex items-center gap-1.5">
