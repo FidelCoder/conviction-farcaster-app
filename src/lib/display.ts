@@ -35,10 +35,36 @@ export function executionStatusLabel(status: string) {
   }
 }
 
-export function executionStatusNotice(status: string) {
+export function positionExecutionStatusLabel(position: {
+  averageEntryPrice?: string | null;
+  chainTransactionHash?: string | null;
+  executionAdapterId?: string | null;
+  executionMode?: string | null;
+  status: string;
+}) {
+  if (isConfirmedMarginIntentOnly(position)) {
+    return "Intent confirmed";
+  }
+
+  return executionStatusLabel(position.status);
+}
+
+export function executionStatusNotice(
+  status: string,
+  position?: {
+    averageEntryPrice?: string | null;
+    chainTransactionHash?: string | null;
+    executionAdapterId?: string | null;
+    executionMode?: string | null;
+  },
+) {
+  if (position && isConfirmedMarginIntentOnly({ ...position, status })) {
+    return "Vault intent is confirmed onchain. Market execution is still pending an execution adapter.";
+  }
+
   switch (status) {
     case "PENDING_EXECUTION":
-      return "Execution not yet enabled.";
+      return "Market execution not yet enabled.";
     case "FAILED":
       return "Execution failed.";
     case "CANCELLED":
@@ -46,6 +72,22 @@ export function executionStatusNotice(status: string) {
     default:
       return null;
   }
+}
+
+function isConfirmedMarginIntentOnly(position: {
+  averageEntryPrice?: string | null;
+  chainTransactionHash?: string | null;
+  executionAdapterId?: string | null;
+  executionMode?: string | null;
+  status: string;
+}) {
+  return Boolean(
+    position.executionMode === "MARGIN" &&
+      position.chainTransactionHash &&
+      !position.averageEntryPrice &&
+      !position.executionAdapterId &&
+      (position.status === "EXECUTED" || position.status === "PENDING_EXECUTION"),
+  );
 }
 
 function titleCase(value: string) {

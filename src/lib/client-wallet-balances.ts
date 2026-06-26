@@ -6,6 +6,8 @@ type WalletBalancesResponse =
       ok: true;
       data: {
         depositedBalances: Record<string, PortfolioWalletBalance>;
+        lockedBalances: Record<string, PortfolioWalletBalance>;
+        totalVaultBalances: Record<string, PortfolioWalletBalance>;
         walletBalances: Record<string, PortfolioWalletBalance>;
       };
     }
@@ -28,6 +30,8 @@ export function applyWalletBalanceSnapshot(
   portfolio: UserPortfolio,
   snapshot: {
     depositedBalances: Record<string, PortfolioWalletBalance>;
+    lockedBalances?: Record<string, PortfolioWalletBalance>;
+    totalVaultBalances?: Record<string, PortfolioWalletBalance>;
     walletBalances: Record<string, PortfolioWalletBalance>;
   },
 ): UserPortfolio {
@@ -40,6 +44,8 @@ export function applyWalletBalanceSnapshot(
     usdcBalance: usdcBalance ?? portfolio.usdcBalance,
     wethBalance: wethBalance ?? portfolio.wethBalance,
     vaultBalances: mergeReadyVaultBalances(portfolio.vaultBalances, snapshot.depositedBalances),
+    vaultLockedBalances: mergeReadyVaultBalances(portfolio.vaultLockedBalances, snapshot.lockedBalances ?? {}),
+    vaultTotalBalances: mergeReadyVaultBalances(portfolio.vaultTotalBalances, snapshot.totalVaultBalances ?? {}),
     walletBalances: snapshot.walletBalances,
     walletBalancesMessage: "Wallet token balances updated.",
     walletBalancesStatus: "ready",

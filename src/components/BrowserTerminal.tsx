@@ -80,6 +80,21 @@ type MarginIntentResponse =
     }
   | { ok: false; error: { code: string; message: string } };
 
+type ExecutionSettlementResponse =
+  | {
+      ok: true;
+      data: {
+        executionAttempt: ExecutionSettlementAttempt;
+      };
+    }
+  | { ok: false; error: { code: string; message: string } };
+
+type ExecutionSettlementAttempt = {
+  status: string;
+  failureMessage?: string | null;
+  chainTransactionHash?: string | null;
+};
+
 type AlertMessage = { type: "success" | "info"; text: string } | null;
 type DepositResult = VaultDepositTransaction | false;
 type SignInMode = "smart" | "eoa";
@@ -133,6 +148,8 @@ const emptyPortfolio: UserPortfolio = {
   usdcBalance: 0,
   wethBalance: 0,
   vaultBalances: {},
+  vaultLockedBalances: {},
+  vaultTotalBalances: {},
   walletBalances: {},
   vaultTransactions: [],
   walletBalancesStatus: "idle",
@@ -218,6 +235,8 @@ export function BrowserTerminal({
         connected: true,
         address: nextAddress,
         vaultBalances: isSameWallet ? current.vaultBalances : {},
+        vaultLockedBalances: isSameWallet ? current.vaultLockedBalances : {},
+        vaultTotalBalances: isSameWallet ? current.vaultTotalBalances : {},
         walletBalances: isSameWallet ? current.walletBalances : {},
         vaultTransactions: isSameWallet ? current.vaultTransactions : [],
         walletBalancesMessage: nextAddress ? "Reading wallet token balances..." : undefined,
@@ -560,6 +579,12 @@ export function BrowserTerminal({
         return;
       }
 
+      let settlementAttempt: ExecutionSettlementAttempt | null = null;
+
+      if (confirmedStatus === "CONFIRMED") {
+        settlementAttempt = await settleTerminalExecution(body.data.position.id);
+      }
+
       setPortfolio((current) => ({
         ...current,
         activeRequestsCount: current.activeRequestsCount + 1,
@@ -580,10 +605,8 @@ export function BrowserTerminal({
         ],
       }));
       triggerAlert(
-        "success",
-        confirmedStatus === "CONFIRMED"
-          ? "Margin request confirmed onchain. Execution can now settle through the vault rail."
-          : "Margin transaction submitted. Keep this page open or check activity for confirmation.",
+        settlementAttempt?.status === "CONFIRMED" ? "success" : "info",
+        getMarginSettlementMessage(confirmedStatus, settlementAttempt),
       );
     } catch (error) {
       triggerAlert("info", getWalletErrorMessage(error));
@@ -823,6 +846,10 @@ export function BrowserTerminal({
       vaultBalances: {
         ...current.vaultBalances,
         [vaultId]: (current.vaultBalances[vaultId] ?? 0) + amount,
+      },
+      vaultTotalBalances: {
+        ...current.vaultTotalBalances,
+        [vaultId]: (current.vaultTotalBalances[vaultId] ?? current.vaultBalances[vaultId] ?? 0) + amount,
       },
       vaultTransactions: [transaction, ...current.vaultTransactions].slice(0, 20),
     }));
@@ -1599,6 +1626,48 @@ async function recordTerminalContractTransaction(
   }
 
   return body.data.transaction;
+}
+
+async function settleTerminalExecution(positionId: string) {
+  const response = await fetch("/api/execution/positions/" + positionId + "/settle", {
+    method: "POST",
+  });
+  const body = (await response.json()) as ExecutionSettlementResponse;
+
+  if (!response.ok || !body.ok) {
+    throw new Error(body.ok ? "Execution settlement failed." : body.error.message);
+  }
+
+  return body.data.executionAttempt;
+}
+
+function getMarginSettlementMessage(
+  confirmedStatus: ContractTransaction["status"],
+  attempt: ExecutionSettlementAttempt | null,
+) {
+  if (attempt?.status === "CONFIRMED") {
+    const hash = attempt.chainTransactionHash
+      ? " Adapter tx: " + formatCompactHash(attempt.chainTransactionHash) + "."
+      : "";
+
+    return "Margin fill confirmed through the vault adapter." + hash;
+  }
+
+  if (attempt?.failureMessage) {
+    return attempt.failureMessage;
+  }
+
+  if (attempt?.status) {
+    return "Margin request confirmed. Adapter settlement status: " + attempt.status + ".";
+  }
+
+  return confirmedStatus === "CONFIRMED"
+    ? "Margin request confirmed onchain. Adapter settlement is pending."
+    : "Margin transaction submitted. Keep this page open or check portfolio for confirmation.";
+}
+
+function formatCompactHash(value: string) {
+  return value.length > 14 ? value.slice(0, 6) + "..." + value.slice(-4) : value;
 }
 
 function encodePreparedContractCall(prepared: PreparedContractTransaction) {

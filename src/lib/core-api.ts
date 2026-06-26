@@ -1245,6 +1245,17 @@ export async function startPositionExecution(positionId: string) {
     : (response as ExecutionAttempt);
 }
 
+export async function settlePositionExecution(positionId: string) {
+  const response = await coreRequest<{ executionAttempt?: ExecutionAttempt } | ExecutionAttempt>(
+    "/execution/positions/" + encodeURIComponent(positionId) + "/settle",
+    { method: "POST" },
+  );
+
+  return "executionAttempt" in response && response.executionAttempt
+    ? response.executionAttempt
+    : (response as ExecutionAttempt);
+}
+
 
 export async function getUserPreference(userId: string) {
   const response = await coreRequest<{ preference: UserPreference }>(

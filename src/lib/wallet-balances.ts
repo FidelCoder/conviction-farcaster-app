@@ -8,6 +8,8 @@ import type { PortfolioWalletBalance, Vault } from "../zip-ui/types";
 type TokenBalanceResult = {
   availableBalance: PortfolioWalletBalance;
   depositedBalance: PortfolioWalletBalance;
+  lockedBalance: PortfolioWalletBalance;
+  totalVaultBalance: PortfolioWalletBalance;
   vaultId: string;
 };
 
@@ -30,6 +32,16 @@ const VAULT_ACCOUNTING_ABI = [
     stateMutability: "view",
     type: "function",
   },
+  {
+    inputs: [
+      { name: "", type: "address" },
+      { name: "", type: "address" },
+    ],
+    name: "lockedBalance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
 ] as const;
 
 export async function readVaultWalletBalances(input: {
@@ -42,6 +54,8 @@ export async function readVaultWalletBalances(input: {
   if (!walletAddress) {
     return {
       depositedBalances: {} as Record<string, PortfolioWalletBalance>,
+      lockedBalances: {} as Record<string, PortfolioWalletBalance>,
+      totalVaultBalances: {} as Record<string, PortfolioWalletBalance>,
       walletBalances: {} as Record<string, PortfolioWalletBalance>,
     };
   }
@@ -60,14 +74,18 @@ export async function readVaultWalletBalances(input: {
 
   return results.reduce<{
     depositedBalances: Record<string, PortfolioWalletBalance>;
+    lockedBalances: Record<string, PortfolioWalletBalance>;
+    totalVaultBalances: Record<string, PortfolioWalletBalance>;
     walletBalances: Record<string, PortfolioWalletBalance>;
   }>(
     (balances, result) => {
       balances.walletBalances[result.vaultId] = result.availableBalance;
       balances.depositedBalances[result.vaultId] = result.depositedBalance;
+      balances.lockedBalances[result.vaultId] = result.lockedBalance;
+      balances.totalVaultBalances[result.vaultId] = result.totalVaultBalance;
       return balances;
     },
-    { depositedBalances: {}, walletBalances: {} },
+    { depositedBalances: {}, lockedBalances: {}, totalVaultBalances: {}, walletBalances: {} },
   );
 }
 
@@ -126,6 +144,22 @@ async function readVaultTokenBalance(
         symbol,
         tokenAddress: collateral.tokenAddress ?? "",
       }),
+      lockedBalance: createErrorBalance({
+        chainId,
+        chainName,
+        decimals,
+        message: "Vault token metadata is missing.",
+        symbol,
+        tokenAddress: collateral.tokenAddress ?? "",
+      }),
+      totalVaultBalance: createErrorBalance({
+        chainId,
+        chainName,
+        decimals,
+        message: "Vault token metadata is missing.",
+        symbol,
+        tokenAddress: collateral.tokenAddress ?? "",
+      }),
       depositedBalance: createErrorBalance({
         chainId,
         chainName,
@@ -150,6 +184,22 @@ async function readVaultTokenBalance(
         symbol,
         tokenAddress,
       }),
+      lockedBalance: createErrorBalance({
+        chainId,
+        chainName,
+        decimals,
+        message: "No public RPC route is configured for this vault chain.",
+        symbol,
+        tokenAddress,
+      }),
+      totalVaultBalance: createErrorBalance({
+        chainId,
+        chainName,
+        decimals,
+        message: "No public RPC route is configured for this vault chain.",
+        symbol,
+        tokenAddress,
+      }),
       depositedBalance: createErrorBalance({
         chainId,
         chainName,
@@ -163,7 +213,7 @@ async function readVaultTokenBalance(
 
   try {
     const client = createPublicClient({ chain: viemChain, transport: http(getRpcUrl(chainId)) });
-    const [rawWalletBalance, rawDepositedBalance] = await Promise.all([
+    const [rawWalletBalance, rawDepositedBalance, rawLockedBalance] = await Promise.all([
       client.readContract({
         address: tokenAddress,
         abi: erc20Abi,
@@ -178,12 +228,37 @@ async function readVaultTokenBalance(
             args: [walletAddress, tokenAddress],
           })
         : Promise.resolve(BigInt(0)),
+      vaultAddress
+        ? client.readContract({
+            address: vaultAddress,
+            abi: VAULT_ACCOUNTING_ABI,
+            functionName: "lockedBalance",
+            args: [walletAddress, tokenAddress],
+          })
+        : Promise.resolve(BigInt(0)),
     ]);
+    const rawTotalVaultBalance = rawDepositedBalance + rawLockedBalance;
 
     const result = {
       vaultId: vault.id,
       availableBalance: createReadyBalance({
         amount: rawWalletBalance,
+        chainId,
+        chainName,
+        decimals,
+        symbol,
+        tokenAddress,
+      }),
+      lockedBalance: createReadyBalance({
+        amount: rawLockedBalance,
+        chainId,
+        chainName,
+        decimals,
+        symbol,
+        tokenAddress,
+      }),
+      totalVaultBalance: createReadyBalance({
+        amount: rawTotalVaultBalance,
         chainId,
         chainName,
         decimals,
@@ -209,6 +284,22 @@ async function readVaultTokenBalance(
     return {
       vaultId: vault.id,
       availableBalance: createErrorBalance({
+        chainId,
+        chainName,
+        decimals,
+        message,
+        symbol,
+        tokenAddress,
+      }),
+      lockedBalance: createErrorBalance({
+        chainId,
+        chainName,
+        decimals,
+        message,
+        symbol,
+        tokenAddress,
+      }),
+      totalVaultBalance: createErrorBalance({
         chainId,
         chainName,
         decimals,

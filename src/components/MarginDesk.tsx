@@ -90,6 +90,10 @@ type VaultTransactionResponse =
   | { ok: true; data: { transaction: ContractTransaction } }
   | { ok: false; error: { code: string; message: string } };
 
+type ExecutionSettlementResponse =
+  | { ok: true; data: { executionAttempt: ExecutionAttempt } }
+  | { ok: false; error: { code: string; message: string } };
+
 type MarginIntentResponse =
   | {
       ok: true;
@@ -453,11 +457,19 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
               status: confirmedStatus,
               responsePayload: receipt,
             });
+      const settlementAttempt =
+        step === "marginIntent" && confirmedStatus === "CONFIRMED"
+          ? await settlePositionExecutionIntent(state.prepared.transaction.positionId)
+          : null;
 
       updateContractStep(step, {
         status: "submitted",
         message:
-          confirmedStatus === "CONFIRMED"
+          settlementAttempt?.status === "CONFIRMED"
+            ? "Margin fill confirmed through the vault adapter."
+            : settlementAttempt?.failureMessage
+              ? settlementAttempt.failureMessage
+              : confirmedStatus === "CONFIRMED"
             ? definition.submittedMessage
             : confirmedStatus === "FAILED"
               ? "Wallet transaction failed onchain. Prepare and send this step again."
@@ -1504,6 +1516,21 @@ async function recordContractTransactionStatus(
   }
 
   return body.data.transaction;
+}
+
+async function settlePositionExecutionIntent(positionId: string | null) {
+  if (!positionId) return null;
+
+  const response = await fetch("/api/execution/positions/" + positionId + "/settle", {
+    method: "POST",
+  });
+  const body = (await response.json()) as ExecutionSettlementResponse;
+
+  if (!response.ok || !body.ok) {
+    throw new Error(body.ok ? "Execution settlement failed." : body.error.message);
+  }
+
+  return body.data.executionAttempt;
 }
 
 async function waitForTransactionReceipt(provider: EthereumProvider, transactionHash: string) {
