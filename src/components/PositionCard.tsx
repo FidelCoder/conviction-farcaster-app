@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import type { Market, Position } from "../lib/core-api";
-import { executionStatusLabel, executionStatusNotice } from "../lib/display";
+import { executionStatusNotice, positionExecutionStatusLabel } from "../lib/display";
 import { getWarpcastShareUrl } from "../lib/miniapp";
 import { CopyIntentButton } from "./CopyIntentButton";
 
@@ -28,7 +28,7 @@ export function PositionCard({
   showCopyIntent?: boolean;
   sourceSignalId?: string | null;
 }) {
-  const notice = executionStatusNotice(position.status);
+  const notice = executionStatusNotice(position.status, position);
   const sharePath = "/positions/" + position.id;
   const explorerUrl = getExplorerTxUrl(position.chainId, position.chainTransactionHash);
 
@@ -36,7 +36,7 @@ export function PositionCard({
     <article className={"card position-card side-" + position.side.toLowerCase()}>
       <div className="card-kicker">
         <span>{position.side}</span>
-        <span className="status-pill">{executionStatusLabel(position.status)}</span>
+        <span className="status-pill">{positionExecutionStatusLabel(position)}</span>
       </div>
       <h3>
         <Link href={"/positions/" + position.id}>{position.quantity} shares</Link>

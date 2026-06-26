@@ -152,6 +152,8 @@ export interface UserPortfolio {
   usdcBalance: number;
   wethBalance: number;
   vaultBalances: { [vaultId: string]: number };
+  vaultLockedBalances: { [vaultId: string]: number };
+  vaultTotalBalances: { [vaultId: string]: number };
   walletBalances: { [vaultId: string]: PortfolioWalletBalance };
   vaultTransactions: VaultDepositTransaction[];
   walletBalancesMessage?: string;

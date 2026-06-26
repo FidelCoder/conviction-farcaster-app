@@ -38,6 +38,8 @@ export function MyActivityDashboard() {
     usdcBalance: 0,
     wethBalance: 0,
     vaultBalances: {},
+    vaultLockedBalances: {},
+    vaultTotalBalances: {},
     walletBalances: {},
     vaultTransactions: [],
     walletBalancesStatus: "idle",
@@ -163,10 +165,20 @@ export function MyActivityDashboard() {
   const pastPositions = activity?.positions.filter((position) =>
     !["PENDING_EXECUTION", "EXECUTED"].includes(position.status),
   ) ?? [];
-  const vaultCollateral = activity?.positions.reduce((sum, position) => {
+  const dbMarginCollateral = activity?.positions.reduce((sum, position) => {
     const amount = Number(position.marginCollateral ?? 0);
     return Number.isFinite(amount) ? sum + amount : sum;
   }, 0) ?? 0;
+  const onchainVaultCollateral = Object.values(portfolio.vaultTotalBalances).reduce(
+    (sum, balance) => sum + balance,
+    0,
+  );
+  const onchainLockedCollateral = Object.values(portfolio.vaultLockedBalances).reduce(
+    (sum, balance) => sum + balance,
+    0,
+  );
+  const vaultCollateral = onchainVaultCollateral > 0 ? onchainVaultCollateral : dbMarginCollateral;
+  const lockedCollateral = onchainLockedCollateral > 0 ? onchainLockedCollateral : dbMarginCollateral;
 
   const publicSignalCount = activity?.signals.length ?? 0;
   const copyIntentCount = activity?.copyIntents.length ?? 0;
@@ -199,6 +211,10 @@ export function MyActivityDashboard() {
           <div>
             <dt>Vault collateral</dt>
             <dd>{formatUsd(vaultCollateral)}</dd>
+          </div>
+          <div>
+            <dt>Locked in margin</dt>
+            <dd>{formatUsd(lockedCollateral)}</dd>
           </div>
           <div>
             <dt>Active trades</dt>
@@ -343,6 +359,8 @@ function applySessionToPortfolio(current: UserPortfolio, nextSession: UserSessio
       usdcBalance: 0,
       wethBalance: 0,
       vaultBalances: {},
+      vaultLockedBalances: {},
+      vaultTotalBalances: {},
       walletBalances: {},
       vaultTransactions: [],
       walletBalancesStatus: "idle",
@@ -359,6 +377,8 @@ function applySessionToPortfolio(current: UserPortfolio, nextSession: UserSessio
     connected: true,
     address: nextAddress,
     vaultBalances: isSameWallet ? current.vaultBalances : {},
+    vaultLockedBalances: isSameWallet ? current.vaultLockedBalances : {},
+    vaultTotalBalances: isSameWallet ? current.vaultTotalBalances : {},
     walletBalances: isSameWallet ? current.walletBalances : {},
     walletBalancesStatus: nextAddress ? "loading" : "idle",
   };
