@@ -116,6 +116,8 @@ export default function ActivityView({
   const [participants, setParticipants] = useState<ParticipantsStore>({});
   const [query, setQuery] = useState('');
   const [selectedMarketId, setSelectedMarketId] = useState('');
+  const [marketPickerQuery, setMarketPickerQuery] = useState('');
+  const [marketPickerTopic, setMarketPickerTopic] = useState('All');
   const [showFullLeaderboardModal, setShowFullLeaderboardModal] = useState<boolean>(false);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [networkUsers, setNetworkUsers] = useState<DiscoveredUser[]>([]);
@@ -128,6 +130,11 @@ export default function ActivityView({
 
   const realMarkets = markets.filter((market) => market.id !== 'empty-market-state');
   const selectedMarket = selectedMarketId ? realMarkets.find((market) => market.id === selectedMarketId) ?? null : null;
+  const composerMarketTopics = useMemo(() => getComposerMarketTopics(realMarkets), [realMarkets]);
+  const composerMarketSuggestions = useMemo(
+    () => getComposerMarketSuggestions(realMarkets, marketPickerQuery, marketPickerTopic, selectedMarket),
+    [marketPickerQuery, marketPickerTopic, realMarkets, selectedMarket],
+  );
   const communityHandle = isClaimedVictionProfile(session?.traderProfile) ? session?.traderProfile?.handle ?? '' : '';
   const hasCommunityIdentity = Boolean(portfolio.connected && session && communityHandle);
   const feed = useMemo(() => normalizeActivityFeed(activity), [activity]);
@@ -627,19 +634,18 @@ export default function ActivityView({
                         </button>
                       ))}
                     </div>
-                    <label className="grid min-w-0 gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]/70">
-                      Market optional
-                      <select
-                        className="min-h-11 w-full min-w-0 max-w-full truncate rounded border border-[#262626] bg-[#0A0A0A] p-2 text-xs text-white outline-none focus:border-deep-orange"
-                        onChange={(event) => setSelectedMarketId(event.target.value)}
-                        value={selectedMarket?.id ?? ''}
-                      >
-                        <option value="">General Pulse post</option>
-                        {realMarkets.slice(0, 40).map((market) => (
-                          <option key={market.id} value={market.id}>{market.title}</option>
-                        ))}
-                      </select>
-                    </label>
+                    <MarketSignalPicker
+                      disabled={!portfolio.connected || !hasCommunityIdentity}
+                      markets={composerMarketSuggestions}
+                      onQueryChange={setMarketPickerQuery}
+                      onSelectMarket={setSelectedMarketId}
+                      onTopicChange={setMarketPickerTopic}
+                      query={marketPickerQuery}
+                      selectedMarket={selectedMarket}
+                      selectedTopic={marketPickerTopic}
+                      topics={composerMarketTopics}
+                      totalMarkets={realMarkets.length}
+                    />
                     <button
                       className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded bg-deep-orange px-4 py-2 font-sans text-xs font-bold uppercase tracking-widest text-black transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                       disabled={!portfolio.connected || !hasCommunityIdentity || !newPostText.trim() || pendingActionId === 'compose'}
@@ -1103,6 +1109,151 @@ export default function ActivityView({
 
 
 const QUICK_PULSE_STICKERS = ['🔥', '📈', '🧠', '⚡', '🏆', '👀', '💎', '🛰️'];
+
+function MarketSignalPicker({
+  disabled,
+  markets,
+  onQueryChange,
+  onSelectMarket,
+  onTopicChange,
+  query,
+  selectedMarket,
+  selectedTopic,
+  topics,
+  totalMarkets,
+}: {
+  disabled: boolean;
+  markets: PredictionMarket[];
+  onQueryChange: (value: string) => void;
+  onSelectMarket: (marketId: string) => void;
+  onTopicChange: (value: string) => void;
+  query: string;
+  selectedMarket: PredictionMarket | null;
+  selectedTopic: string;
+  topics: Array<{ label: string; count: number }>;
+  totalMarkets: number;
+}) {
+  const visibleMarkets = markets.slice(0, 8);
+
+  return (
+    <div className="grid min-w-0 gap-2 rounded border border-[#262626] bg-[#0A0A0A] p-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]/70">Market signal</span>
+        <button
+          className="rounded border border-[#262626] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={disabled || !selectedMarket}
+          onClick={() => onSelectMarket('')}
+          type="button"
+        >
+          General
+        </button>
+      </div>
+
+      <label className="relative block">
+        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#ccc3d8]/45" size={14} />
+        <input
+          className="min-h-10 w-full rounded border border-[#262626] bg-[#050505] py-2 pl-9 pr-3 text-xs text-white outline-none placeholder:text-[#ccc3d8]/40 focus:border-deep-orange disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={disabled}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Search markets, teams, countries..."
+          type="search"
+          value={query}
+        />
+      </label>
+
+      <div className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Market topics">
+        <MarketTopicChip active={selectedTopic === 'All'} count={totalMarkets} disabled={disabled} label="All" onClick={() => onTopicChange('All')} />
+        {topics.slice(0, 11).map((topic) => (
+          <MarketTopicChip
+            active={selectedTopic === topic.label}
+            count={topic.count}
+            disabled={disabled}
+            key={topic.label}
+            label={topic.label}
+            onClick={() => onTopicChange(topic.label)}
+          />
+        ))}
+      </div>
+
+      {selectedMarket ? (
+        <div className="rounded border border-deep-orange/35 bg-deep-orange/10 p-2">
+          <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange">Attached market</p>
+          <p className="mt-1 line-clamp-2 text-xs font-bold text-white">{selectedMarket.title}</p>
+        </div>
+      ) : null}
+
+      <div className="max-h-72 overflow-y-auto pr-1">
+        {visibleMarkets.length > 0 ? (
+          <div className="grid gap-2">
+            {visibleMarkets.map((market) => (
+              <MarketPickerResult
+                disabled={disabled}
+                key={market.id}
+                market={market}
+                selected={selectedMarket?.id === market.id}
+                onSelect={() => onSelectMarket(market.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded border border-[#262626] bg-[#050505] p-3 text-xs leading-relaxed text-[#ccc3d8]">
+            No markets matched. Try crypto, sports, politics, Africa, Asia, finance, or a country/team name.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MarketTopicChip({ active, count, disabled, label, onClick }: { active: boolean; count: number; disabled: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      aria-pressed={active}
+      className={
+        'flex-shrink-0 rounded-full border px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-40 ' +
+        (active
+          ? 'border-deep-orange bg-deep-orange text-black'
+          : 'border-[#262626] bg-[#050505] text-[#ccc3d8] hover:border-deep-orange/70 hover:text-deep-orange')
+      }
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      {label} <span className="opacity-70">{count}</span>
+    </button>
+  );
+}
+
+function MarketPickerResult({ disabled, market, onSelect, selected }: { disabled: boolean; market: PredictionMarket; onSelect: () => void; selected: boolean }) {
+  const imageUrl = getMarketImageUrl(market);
+  const topic = market.discoveryTopic ?? market.category ?? 'Market';
+  const region = market.discoveryRegion ?? 'Global';
+
+  return (
+    <button
+      className={
+        'grid min-h-16 w-full grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-2 rounded border p-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ' +
+        (selected
+          ? 'border-deep-orange bg-deep-orange/10'
+          : 'border-[#262626] bg-[#050505] hover:border-deep-orange/60 hover:bg-deep-orange/5')
+      }
+      disabled={disabled}
+      onClick={onSelect}
+      type="button"
+    >
+      <span className="grid h-11 w-11 place-items-center overflow-hidden rounded border border-[#262626] bg-[#111] font-mono text-[9px] font-bold uppercase text-[#ccc3d8]">
+        {imageUrl ? <img alt="" className="h-full w-full object-cover" loading="lazy" src={imageUrl} /> : topic.slice(0, 2)}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange">{topic} · {region}</span>
+        <span className="mt-1 block line-clamp-2 text-xs font-bold leading-snug text-white">{market.title}</span>
+      </span>
+      <span className="rounded border border-[#262626] bg-[#0A0A0A] px-2 py-1 font-mono text-[10px] font-bold text-emerald-300">
+        {formatChance(market.currentOdds)}
+      </span>
+    </button>
+  );
+}
 
 function CommunityIdentityNotice({
   connected,
@@ -2030,6 +2181,209 @@ function filterFeed(feed: ActivityItem[], tab: FeedTab, query: string, following
       .toLowerCase()
       .includes(normalizedQuery);
   });
+}
+
+const COMPOSER_TOPIC_PRIORITY = [
+  'Breaking',
+  'Sports',
+  'World Cup',
+  'Football',
+  'Crypto',
+  'Politics',
+  'Geopolitics',
+  'Finance',
+  'Tech',
+  'Esports',
+  'Africa',
+  'Asia',
+  'Middle East',
+  'Latin America',
+  'Culture',
+];
+
+function getComposerMarketTopics(markets: PredictionMarket[]) {
+  const counts = new Map<string, number>();
+
+  markets.forEach((market) => {
+    getMarketTopicLabels(market).forEach((topic) => counts.set(topic, (counts.get(topic) ?? 0) + 1));
+  });
+
+  const priorityTopics = COMPOSER_TOPIC_PRIORITY
+    .filter((topic) => (counts.get(topic) ?? 0) > 0)
+    .map((topic) => ({ label: topic, count: counts.get(topic) ?? 0 }));
+  const dynamicTopics = Array.from(counts.entries())
+    .filter(([topic]) => !COMPOSER_TOPIC_PRIORITY.includes(topic))
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 6)
+    .map(([label, count]) => ({ label, count }));
+
+  return [...priorityTopics, ...dynamicTopics];
+}
+
+function getComposerMarketSuggestions(
+  markets: PredictionMarket[],
+  query: string,
+  topic: string,
+  selectedMarket: PredictionMarket | null,
+) {
+  const normalizedQuery = normalizeComposerSearch(query);
+  const hasQuery = normalizedQuery.length > 0;
+  const hasTopic = topic !== 'All';
+  const filtered = markets.filter((market) => {
+    if (hasTopic && !marketMatchesComposerTopic(market, topic)) return false;
+    if (!hasQuery) return true;
+
+    return getMarketSearchText(market).includes(normalizedQuery);
+  });
+  const ranked = hasQuery || hasTopic
+    ? filtered.sort((a, b) => getMarketPickerRank(b, normalizedQuery, topic) - getMarketPickerRank(a, normalizedQuery, topic))
+    : getBalancedMarketSuggestions(filtered);
+  const selectedFirst = selectedMarket && !ranked.some((market) => market.id === selectedMarket.id)
+    ? [selectedMarket, ...ranked]
+    : ranked;
+
+  return dedupeMarkets(selectedFirst).slice(0, 18);
+}
+
+function getBalancedMarketSuggestions(markets: PredictionMarket[]) {
+  const byTopic = new Map<string, PredictionMarket[]>();
+
+  markets.forEach((market) => {
+    const topic = getPrimaryComposerTopic(market);
+    const bucket = byTopic.get(topic) ?? [];
+    bucket.push(market);
+    byTopic.set(topic, bucket);
+  });
+
+  byTopic.forEach((bucket) => bucket.sort((a, b) => getMarketBaseRank(b) - getMarketBaseRank(a)));
+
+  const balanced: PredictionMarket[] = [];
+  COMPOSER_TOPIC_PRIORITY.forEach((topic) => {
+    const next = byTopic.get(topic)?.shift();
+    if (next) balanced.push(next);
+  });
+
+  Array.from(byTopic.keys())
+    .filter((topic) => !COMPOSER_TOPIC_PRIORITY.includes(topic))
+    .sort((a, b) => (byTopic.get(b)?.length ?? 0) - (byTopic.get(a)?.length ?? 0))
+    .forEach((topic) => {
+      const next = byTopic.get(topic)?.shift();
+      if (next) balanced.push(next);
+    });
+
+  const remainder = Array.from(byTopic.values()).flat().sort((a, b) => getMarketBaseRank(b) - getMarketBaseRank(a));
+
+  return dedupeMarkets([...balanced, ...remainder]);
+}
+
+function getMarketPickerRank(market: PredictionMarket, query: string, topic: string) {
+  let score = getMarketBaseRank(market);
+  const searchText = getMarketSearchText(market);
+  const title = market.title.toLowerCase();
+
+  if (topic !== 'All' && marketMatchesComposerTopic(market, topic)) score += 120;
+  if (query) {
+    if (title.includes(query)) score += 80;
+    if (title.startsWith(query)) score += 80;
+    if (searchText.includes(query)) score += 35;
+  }
+
+  return score;
+}
+
+function getMarketBaseRank(market: PredictionMarket) {
+  const odds = Number.isFinite(market.currentOdds) ? Math.abs(50 - market.currentOdds) : 50;
+  return market.convictionValue + Math.max(0, 50 - odds) + parseFormattedMarketNumber(market.vol24h) / 100000;
+}
+
+function getMarketTopicLabels(market: PredictionMarket) {
+  const labels = new Set<string>();
+  const text = getMarketSearchText(market);
+  const rawLabels = [market.discoveryTopic, market.category, market.discoveryRegion]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .map((value) => normalizeTopicLabel(value));
+
+  rawLabels.forEach((label) => labels.add(label));
+  if (matchesComposerTerm(text, ['world cup', 'fifa'])) labels.add('World Cup');
+  if (matchesComposerTerm(text, ['football', 'soccer', 'premier league', 'champions league', 'ballon'])) labels.add('Football');
+  if (matchesComposerTerm(text, ['nba', 'nfl', 'nhl', 'mlb', 'tennis', 'rugby', 'cricket', 'ufc', 'sports'])) labels.add('Sports');
+  if (matchesComposerTerm(text, ['crypto', 'bitcoin', 'ethereum', 'airdrop', 'token', 'defi', 'pump.fun'])) labels.add('Crypto');
+  if (matchesComposerTerm(text, ['election', 'president', 'senate', 'parliament', 'poll', 'vote'])) labels.add('Politics');
+  if (matchesComposerTerm(text, ['iran', 'ukraine', 'nato', 'war', 'ceasefire', 'israel', 'china', 'hormuz'])) labels.add('Geopolitics');
+  if (matchesComposerTerm(text, ['stock', 'fed', 'rate', 'gdp', 'inflation', 'finance', 'recession', 'acquire'])) labels.add('Finance');
+  if (matchesComposerTerm(text, ['ai', 'openai', 'nvidia', 'tesla', 'spacex', 'tech'])) labels.add('Tech');
+  if (matchesComposerTerm(text, ['esports', 'gaming', 'league of legends', 'valorant', 'cs2'])) labels.add('Esports');
+  if (matchesComposerTerm(text, ['africa', 'senegal', 'nigeria', 'kenya', 'ghana', 'morocco', 'egypt', 'south africa'])) labels.add('Africa');
+  if (matchesComposerTerm(text, ['asia', 'china', 'india', 'japan', 'korea', 'singapore', 'vietnam'])) labels.add('Asia');
+  if (matchesComposerTerm(text, ['middle east', 'iran', 'israel', 'saudi', 'qatar', 'uae', 'hormuz'])) labels.add('Middle East');
+  if (matchesComposerTerm(text, ['latin america', 'brazil', 'argentina', 'mexico', 'colombia', 'chile'])) labels.add('Latin America');
+  if (matchesComposerTerm(text, ['culture', 'movie', 'music', 'album', 'tiktok', 'oscars'])) labels.add('Culture');
+  if (matchesComposerTerm(text, ['today', 'tomorrow', 'breaking', 'this week', 'by end of'])) labels.add('Breaking');
+
+  return Array.from(labels).filter(Boolean);
+}
+
+function getPrimaryComposerTopic(market: PredictionMarket) {
+  const labels = getMarketTopicLabels(market);
+  return COMPOSER_TOPIC_PRIORITY.find((topic) => labels.includes(topic)) ?? labels[0] ?? 'Markets';
+}
+
+function marketMatchesComposerTopic(market: PredictionMarket, topic: string) {
+  return getMarketTopicLabels(market).includes(topic);
+}
+
+function getMarketSearchText(market: PredictionMarket) {
+  return normalizeComposerSearch([
+    market.title,
+    market.description,
+    market.category,
+    market.discoveryTopic,
+    market.discoveryRegion,
+    market.source,
+  ].filter(Boolean).join(' '));
+}
+
+function normalizeComposerSearch(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9.%\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeTopicLabel(value: string) {
+  const clean = value.trim();
+  const lower = clean.toLowerCase();
+
+  if (lower.includes('world cup') || lower.includes('fifa')) return 'World Cup';
+  if (lower.includes('crypto')) return 'Crypto';
+  if (lower.includes('politic') || lower.includes('election')) return lower.includes('election') ? 'Politics' : 'Politics';
+  if (lower.includes('geo') || lower.includes('iran') || lower.includes('middle east')) return lower.includes('middle east') ? 'Middle East' : 'Geopolitics';
+  if (lower.includes('finance') || lower.includes('economy')) return 'Finance';
+  if (lower.includes('tech')) return 'Tech';
+  if (lower.includes('esport')) return 'Esports';
+  if (lower.includes('sport')) return 'Sports';
+  if (lower.includes('latin')) return 'Latin America';
+
+  return clean.slice(0, 1).toUpperCase() + clean.slice(1);
+}
+
+function matchesComposerTerm(text: string, terms: string[]) {
+  return terms.some((term) => text.includes(term));
+}
+
+function dedupeMarkets(markets: PredictionMarket[]) {
+  const seen = new Set<string>();
+  return markets.filter((market) => {
+    if (seen.has(market.id)) return false;
+    seen.add(market.id);
+    return true;
+  });
+}
+
+function parseFormattedMarketNumber(value: string) {
+  const clean = value.replace(/[$,\s]/g, '').toLowerCase();
+  if (!clean || clean === '--' || clean === 'pending') return 0;
+  const multiplier = clean.endsWith('m') ? 1_000_000 : clean.endsWith('k') ? 1_000 : 1;
+  const parsed = Number(clean.replace(/[mk]$/, ''));
+
+  return Number.isFinite(parsed) ? parsed * multiplier : 0;
 }
 
 function getTabLabel(tab: FeedTab) {
