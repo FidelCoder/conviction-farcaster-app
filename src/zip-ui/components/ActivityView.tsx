@@ -1748,44 +1748,116 @@ function ShareCardPanel({
   const path = type === 'signal' && signalId ? '/signals/' + signalId : '/markets/' + market.id;
   const url = getShareUrl(path);
   const cardUrl = getShareUrl('/api/miniapp-image?type=' + type + '&id=' + encodeURIComponent(type === 'signal' && signalId ? signalId : market.id));
+  const imageUrl = getMarketImageUrl(market);
+  const category = market.discoveryTopic ?? market.category ?? 'Prediction market';
+  const noChance = Number.isFinite(market.currentOdds) ? Math.max(0, 100 - market.currentOdds) : null;
+  const shareText = text.trim() || market.title + ' on Conviction Markets';
 
   return (
-    <div className="mt-4 rounded-lg border border-deep-orange/30 bg-[#0A0A0A] p-3">
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div className="min-w-0">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Share card ready</p>
-              <p className="mt-1 text-sm text-[#ccc3d8]">This link renders a Conviction event card preview on social apps.</p>
+    <div className="rounded-xl border border-[#262626] bg-[#0A0A0A] p-3 sm:p-4">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <a
+          className="group relative block overflow-hidden rounded-lg border border-[#262626] bg-[#050505]"
+          href={cardUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <img
+            alt={market.title + ' Conviction Markets share card'}
+            className="aspect-[1200/630] w-full object-cover transition-transform duration-300 group-hover:scale-[1.015]"
+            src={cardUrl}
+          />
+          <span className="absolute bottom-3 right-3 rounded border border-black/20 bg-black/70 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-white backdrop-blur">
+            Open image
+          </span>
+        </a>
+
+        <div className="flex min-w-0 flex-col justify-between gap-4">
+          <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Portable market card</p>
+                <h3 className="mt-1 line-clamp-3 text-lg font-bold leading-tight text-white">{market.title}</h3>
+              </div>
+              {onClose ? (
+                <button
+                  className="grid h-8 w-8 flex-shrink-0 place-items-center rounded border border-[#262626] text-[#ccc3d8] hover:border-white/40 hover:text-white"
+                  onClick={onClose}
+                  type="button"
+                >
+                  <X size={14} />
+                </button>
+              ) : null}
             </div>
-            {onClose ? (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <SharePreviewMetric label="YES" value={formatChance(market.currentOdds)} tone="yes" />
+              <SharePreviewMetric label="NO" value={noChance === null ? '--' : formatChance(noChance)} tone="no" />
+              <SharePreviewMetric label="Topic" value={category} />
+              <SharePreviewMetric label="Volume" value={market.vol24h || '--'} />
+            </div>
+            {imageUrl ? (
+              <div className="mt-3 flex items-center gap-2 rounded border border-[#262626] bg-[#050505] p-2">
+                <img alt="" className="h-10 w-10 rounded object-cover" src={imageUrl} />
+                <p className="min-w-0 text-xs leading-relaxed text-[#ccc3d8]">
+                  Uses the market listing image and Conviction share layout.
+                </p>
+              </div>
+            ) : (
+              <p className="mt-3 rounded border border-[#262626] bg-[#050505] p-2 text-xs leading-relaxed text-[#ccc3d8]">
+                This market has no listing image yet, so the card uses the Conviction branded fallback.
+              </p>
+            )}
+          </div>
+
+          <div className="grid gap-2">
+            <button
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded bg-deep-orange px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-black transition-colors hover:bg-white"
+              onClick={() => void nativeShareCard({ title: market.title, text: shareText, url })}
+              type="button"
+            >
+              <Share2 size={13} />
+              Share link
+            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <ShareCardAction label="X" href={getXShareUrl(shareText, url)} />
+              <ShareCardAction label="Telegram" href={getTelegramShareUrl(shareText, url)} />
+              <ShareCardAction label="WhatsApp" href={'https://wa.me/?text=' + encodeURIComponent(shareText + ' ' + url)} />
+              <ShareCardAction label="Farcaster" href={'https://warpcast.com/~/compose?text=' + encodeURIComponent(shareText) + '&embeds[]=' + encodeURIComponent(url)} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <button
-                className="rounded border border-[#262626] px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white"
-                onClick={onClose}
+                className="inline-flex min-h-9 items-center justify-center gap-2 rounded border border-[#262626] bg-[#111] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white"
+                onClick={() => void copyShareText(shareText + ' ' + url)}
                 type="button"
               >
-                Close
+                <Instagram size={13} />
+                Copy caption
               </button>
-            ) : null}
+              <a
+                className="inline-flex min-h-9 items-center justify-center gap-2 rounded border border-[#262626] bg-[#111] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white"
+                download={'conviction-market-' + market.id + '.png'}
+                href={cardUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <ExternalLink size={12} />
+                Image file
+              </a>
+            </div>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-          <ShareCardAction label="X" href={getXShareUrl(text, url)} />
-          <ShareCardAction label="WhatsApp" href={'https://wa.me/?text=' + encodeURIComponent(text + ' ' + url)} />
-          <ShareCardAction label="Farcaster" href={'https://warpcast.com/~/compose?text=' + encodeURIComponent(text) + '&embeds[]=' + encodeURIComponent(url)} />
-          <button
-            className="inline-flex min-h-9 items-center justify-center gap-2 rounded border border-[#262626] bg-[#111] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white"
-            onClick={() => void copyShareText(text + ' ' + url)}
-            type="button"
-          >
-            <Instagram size={13} />
-            Instagram
-          </button>
-        </div>
       </div>
-      <a className="mt-3 block truncate rounded border border-[#262626] bg-[#050505] px-3 py-2 font-mono text-[10px] text-[#ccc3d8] hover:text-white" href={cardUrl} rel="noreferrer" target="_blank">
-        Preview card image
-      </a>
+    </div>
+  );
+}
+
+function SharePreviewMetric({ label, tone, value }: { label: string; tone?: 'yes' | 'no'; value: string }) {
+  const valueClass = tone === 'yes' ? 'text-emerald-300' : tone === 'no' ? 'text-red-300' : 'text-white';
+
+  return (
+    <div className="min-w-0 rounded border border-[#262626] bg-[#050505] p-2">
+      <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">{label}</span>
+      <strong className={'mt-1 block truncate text-sm font-bold ' + valueClass}>{value}</strong>
     </div>
   );
 }
@@ -1807,7 +1879,7 @@ function ShareCardAction({ href, label }: { href: string; label: string }) {
 function ShareCardModal({ market, onClose }: { market: PredictionMarket; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-xl border border-[#262626] bg-[#111111] p-4 shadow-2xl shadow-black/50">
+      <div className="w-full max-w-5xl rounded-xl border border-[#262626] bg-[#111111] p-3 shadow-2xl shadow-black/50 sm:p-4">
         <ShareCardPanel
           market={market}
           onClose={onClose}
@@ -1828,11 +1900,28 @@ function getXShareUrl(text: string, url: string) {
   return 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url);
 }
 
+function getTelegramShareUrl(text: string, url: string) {
+  return 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text);
+}
+
 async function copyShareText(value: string) {
   try {
     await navigator.clipboard.writeText(value);
   } catch {
     // Copy is best-effort for social share text.
+  }
+}
+
+async function nativeShareCard({ title, text, url }: { title: string; text: string; url: string }) {
+  if (typeof navigator === 'undefined' || !navigator.share) {
+    await copyShareText(text + ' ' + url);
+    return;
+  }
+
+  try {
+    await navigator.share({ title, text, url });
+  } catch {
+    // Native share can be cancelled by the user.
   }
 }
 
@@ -2078,6 +2167,12 @@ function getReplyPlaceholder(connected: boolean, hasCommunityIdentity: boolean) 
   if (!connected) return 'Sign in to reply';
   if (!hasCommunityIdentity) return 'Claim a .viction name before replying';
   return 'Reply with a source, angle, or counterpoint...';
+}
+
+function getMarketImageUrl(market: PredictionMarket) {
+  const imageUrl = market.imageUrl?.trim();
+
+  return imageUrl && /^https?:\/\//i.test(imageUrl) ? imageUrl : null;
 }
 
 async function refreshMediaFeed(
