@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityItem, LeaderboardItem, PredictionMarket, UserPortfolio } from '../types';
 import type { DiscoveredUser, SocialActor, UserSession } from '../../lib/core-api';
 import { isClaimedVictionHandle, isClaimedVictionProfile } from '../../lib/viction-profile';
@@ -127,6 +127,7 @@ export default function ActivityView({
   const [mediaStatus, setMediaStatus] = useState('');
   const [preference, setPreference] = useState<UserPreference | null>(null);
   const [preferenceDraft, setPreferenceDraft] = useState('Sports, World Cup, Crypto, Geopolitics');
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const realMarkets = markets.filter((market) => market.id !== 'empty-market-state');
   const selectedMarket = selectedMarketId ? realMarkets.find((market) => market.id === selectedMarketId) ?? null : null;
@@ -450,6 +451,35 @@ export default function ActivityView({
     return true;
   };
 
+  const focusComposer = () => {
+    setTimeout(() => {
+      composerRef.current?.focus();
+      composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 0);
+  };
+
+  const primeComposerForMarket = (market: PredictionMarket, side: ComposerSide, prompt: string) => {
+    if (!requireCommunityIdentity()) return;
+
+    setSelectedMarketId(market.id);
+    setMarketPickerTopic(getPrimaryComposerTopic(market));
+    setMarketPickerQuery('');
+    setComposerSide(side);
+    setPublishedSignalId(null);
+    setNewPostText((current) => {
+      const trimmed = current.trim();
+      return trimmed ? trimmed : prompt;
+    });
+    setComposerStatus('Market loaded. Add your evidence, then publish the call.');
+    focusComposer();
+  };
+
+  const challengeActivityItem = (item: ActivityItem, market: PredictionMarket) => {
+    const nextSide: ComposerSide = item.signalSide === 'YES' ? 'NO' : 'YES';
+    const prompt = 'Counterpoint to @' + item.username + ': ';
+    primeComposerForMarket(market, nextSide, prompt);
+  };
+
   const refreshSignalParticipants = async (signalId: string) => {
     const nextParticipants = await fetchSignalParticipants(signalId);
     setParticipants((current) => ({
@@ -592,6 +622,7 @@ export default function ActivityView({
                 <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
                   <div className="grid gap-2">
                     <textarea
+                      ref={composerRef}
                       className="min-h-28 min-w-0 resize-y rounded border border-[#262626] bg-[#0A0A0A] p-3 text-sm leading-relaxed text-white outline-none transition-colors placeholder:text-[#ccc3d8]/45 focus:border-deep-orange"
                       disabled={!portfolio.connected || !hasCommunityIdentity}
                       maxLength={500}
@@ -662,11 +693,11 @@ export default function ActivityView({
               </form>
 
               {publishedSignalId && selectedMarket ? (
-                <ShareCardPanel
+                <ProofSharePanel
                   market={selectedMarket}
+                  onOpenRoom={() => setRoomMarket(selectedMarket)}
                   signalId={publishedSignalId}
-                  text={composerSide + ' signal on ' + selectedMarket.title}
-                  type="signal"
+                  side={composerSide}
                 />
               ) : null}
             </section>
@@ -803,6 +834,14 @@ export default function ActivityView({
                                     <Share2 size={12} />
                                     Share
                                   </button>
+                                  <button
+                                    className="inline-flex items-center gap-1.5 rounded border border-[#262626] bg-[#111] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-deep-orange hover:text-deep-orange"
+                                    onClick={() => challengeActivityItem(item, market)}
+                                    type="button"
+                                  >
+                                    <MessageSquare size={12} />
+                                    Counter
+                                  </button>
                                 </div>
                               ) : null}
                             </div>
@@ -826,6 +865,16 @@ export default function ActivityView({
                               <MessageSquare size={14} />
                               <span>Reply ({item.commentsCount})</span>
                             </button>
+                            {market ? (
+                              <button
+                                className="flex items-center gap-1.5 transition-colors hover:text-deep-orange"
+                                onClick={() => challengeActivityItem(item, market)}
+                                type="button"
+                              >
+                                <Radio size={14} />
+                                <span>Counter</span>
+                              </button>
+                            ) : null}
                           </div>
                         ) : null}
 
@@ -921,6 +970,13 @@ export default function ActivityView({
                         type="button"
                       >
                         Room
+                      </button>
+                      <button
+                        className="inline-flex items-center gap-1.5 rounded border border-[#262626] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white"
+                        onClick={() => primeComposerForMarket(market, 'YES', 'My YES case: ')}
+                        type="button"
+                      >
+                        Call
                       </button>
                     </div>
                   </article>
@@ -1038,6 +1094,11 @@ export default function ActivityView({
           onOpenMarket={() => {
             setRoomMarket(null);
             onOpenMarket(roomMarket);
+          }}
+          onMakeCall={(side) => {
+            const activeMarket = roomMarket;
+            setRoomMarket(null);
+            primeComposerForMarket(activeMarket, side, 'My ' + side + ' case: ');
           }}
           onShare={() => setShareTargetMarket(roomMarket)}
         />
@@ -1554,9 +1615,9 @@ function PulseFlowCard({
   onRequireWallet: () => void;
 }) {
   const steps = [
-    { label: 'Pick a room', body: 'Open the event room from a post or watchlist market.' },
-    { label: 'Add a source', body: 'Reply with evidence, a counterpoint, or fresh news.' },
-    { label: 'Make the call', body: 'Publish YES/NO conviction or open the market.' },
+    { label: 'Make a call', body: 'Post a YES/NO take with a linked market so other traders can react.' },
+    { label: 'Invite the other side', body: 'Share the proof card or counter another trader directly from the feed.' },
+    { label: 'Return to the room', body: 'Market rooms keep the sources, replies, and open calls in one place.' },
   ];
 
   return (
@@ -1612,15 +1673,20 @@ function MarketRoomModal({
   feed,
   market,
   onClose,
+  onMakeCall,
   onOpenMarket,
   onShare,
 }: {
   feed: ActivityItem[];
   market: PredictionMarket;
   onClose: () => void;
+  onMakeCall: (side: ComposerSide) => void;
   onOpenMarket: () => void;
   onShare: () => void;
 }) {
+  const yesPosts = feed.filter((item) => item.signalSide === 'YES').length;
+  const noPosts = feed.filter((item) => item.signalSide === 'NO').length;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
       <section className="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-xl border border-[#262626] bg-[#111111] shadow-2xl shadow-black/60" aria-label="Market room">
@@ -1632,6 +1698,8 @@ function MarketRoomModal({
               <span className="rounded border border-[#262626] bg-[#111] px-2 py-1">YES {formatChance(market.currentOdds)}</span>
               <span className="rounded border border-[#262626] bg-[#111] px-2 py-1">{market.discoveryTopic ?? market.category ?? 'Market'}</span>
               <span className="rounded border border-[#262626] bg-[#111] px-2 py-1">{feed.length} posts</span>
+              <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-emerald-300">YES {yesPosts}</span>
+              <span className="rounded border border-red-500/30 bg-red-500/10 px-2 py-1 text-red-300">NO {noPosts}</span>
             </div>
           </div>
           <button
@@ -1689,6 +1757,18 @@ function MarketRoomModal({
                 <Share2 size={13} />
                 Share card
               </button>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {(['YES', 'NO'] as ComposerSide[]).map((side) => (
+                <button
+                  className={"inline-flex min-h-10 items-center justify-center rounded border px-3 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors " + (side === 'YES' ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500 hover:text-black' : 'border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500 hover:text-white')}
+                  key={side}
+                  onClick={() => onMakeCall(side)}
+                  type="button"
+                >
+                  Post {side} case
+                </button>
+              ))}
             </div>
             <div className="mt-4 grid gap-2 rounded border border-[#262626] bg-[#0A0A0A] p-3 text-xs leading-relaxed text-[#ccc3d8]">
               <strong className="font-mono text-[10px] uppercase tracking-widest text-white">Room prompts</strong>
@@ -1879,6 +1959,43 @@ function PulseMetric({ label, value }: { label: string; value: number | string }
     <div className="rounded border border-[#262626] bg-[#0A0A0A] px-3 py-2">
       <span className="block text-[#ccc3d8]/55">{label}</span>
       <strong className="mt-1 block text-white">{value}</strong>
+    </div>
+  );
+}
+
+function ProofSharePanel({
+  market,
+  onOpenRoom,
+  signalId,
+  side,
+}: {
+  market: PredictionMarket;
+  onOpenRoom: () => void;
+  signalId: string;
+  side: ComposerSide;
+}) {
+  return (
+    <div className="grid gap-3 rounded-xl border border-deep-orange/30 bg-[#0A0A0A] p-3 sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Prediction proof</p>
+          <h3 className="mt-1 text-lg font-bold text-white">Your {side} call is live</h3>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#ccc3d8]">Share the card, invite challengers, and keep the debate inside this market room.</p>
+        </div>
+        <button
+          className="inline-flex min-h-10 items-center justify-center rounded border border-[#262626] bg-[#111] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-deep-orange hover:text-deep-orange"
+          onClick={onOpenRoom}
+          type="button"
+        >
+          Open room
+        </button>
+      </div>
+      <ShareCardPanel
+        market={market}
+        signalId={signalId}
+        text={side + ' signal on ' + market.title + '. Take the other side on Conviction Markets.'}
+        type="signal"
+      />
     </div>
   );
 }
