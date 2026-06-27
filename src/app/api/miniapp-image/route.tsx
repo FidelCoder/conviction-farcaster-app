@@ -54,7 +54,8 @@ export async function GET(request: Request) {
         title: market.title,
         body: summarizeMarketBody(market.description),
         muted: tags,
-        accent: "#ff6b12",
+        accent: "#d95b13",
+        imageUrl: normalizeImageUrl(market.providerMetadata?.imageUrl ?? market.providerMetadata?.iconUrl),
         stats: [
           { label: "YES", value: yes ? formatPercent(yes) : "--" },
           { label: "NO", value: no },
@@ -99,6 +100,7 @@ export async function GET(request: Request) {
           "Created " + formatDate(signal.createdAt),
         ].filter(Boolean).join(" | "),
         accent: signal.side === "YES" ? "#10b981" : "#ef4444",
+        imageUrl: normalizeImageUrl(market?.providerMetadata?.imageUrl ?? market?.providerMetadata?.iconUrl),
         stats: [
           { label: "CALL", value: signal.side },
           { label: "MARKET YES", value: yes ? formatPercent(yes) : "--" },
@@ -172,35 +174,37 @@ function renderCard(options: {
   muted: string;
   accent?: string;
   cacheSeconds?: number;
+  imageUrl?: string | null;
   stats?: Array<{ label: string; value: string }>;
 }) {
-  const accent = options.accent ?? "#ff6b12";
+  const accent = options.accent ?? "#d95b13";
   const cacheSeconds = options.cacheSeconds ?? 300;
   const stats = options.stats ?? [
     { label: "MARKET", value: "LIVE" },
     { label: "MODE", value: "MARGIN" },
     { label: "NETWORK", value: "PULSE" },
   ];
+  const imageUrl = normalizeImageUrl(options.imageUrl);
 
   return new ImageResponse(
     (
       <div
         style={{
-          background: "#090909",
+          background: "#070707",
           color: "#ffffff",
           display: "flex",
-          flexDirection: "column",
           fontFamily: "Inter, Arial, sans-serif",
           height: "100%",
           overflow: "hidden",
-          padding: 54,
+          padding: 42,
           position: "relative",
           width: "100%",
         }}
       >
         <div
           style={{
-            background: "linear-gradient(135deg, rgba(255,107,18,0.28), rgba(124,58,237,0.18) 55%, rgba(16,185,129,0.12))",
+            background:
+              "radial-gradient(circle at 78% 12%, rgba(217,91,19,0.22), transparent 32%), radial-gradient(circle at 8% 96%, rgba(124,58,237,0.20), transparent 34%), linear-gradient(135deg, #090909 0%, #111111 54%, #080808 100%)",
             display: "flex",
             height: "100%",
             bottom: 0,
@@ -214,7 +218,7 @@ function renderCard(options: {
         <div
           style={{
             backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px)",
+              "linear-gradient(rgba(255,255,255,0.052) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.052) 1px, transparent 1px)",
             backgroundSize: "44px 44px",
             display: "flex",
             height: "100%",
@@ -227,102 +231,202 @@ function renderCard(options: {
             width: "100%",
           }}
         />
-        <div style={{ display: "flex", justifyContent: "space-between", position: "relative", width: "100%" }}>
-          <div style={{ alignItems: "center", display: "flex", gap: 18 }}>
-            <div
-              style={{
-                alignItems: "center",
-                background: "rgba(9,9,9,0.72)",
-                border: "1px solid rgba(255,255,255,0.14)",
-                borderRadius: 18,
-                display: "flex",
-                height: 68,
-                justifyContent: "center",
-                padding: "10px 14px",
-                width: 330,
-              }}
-            >
-              <img alt="Conviction Markets" height="48" src={LOGO_URL} style={{ objectFit: "contain", width: "100%" }} width="300" />
-            </div>
-          </div>
-          <div
-            style={{
-              border: "2px solid rgba(255,107,18,0.55)",
-              borderRadius: 999,
-              color: accent,
-              display: "flex",
-              fontSize: 20,
-              fontWeight: 900,
-              letterSpacing: 1.5,
-              padding: "14px 20px",
-              textTransform: "uppercase",
-            }}
-          >
-            {truncate(options.eyebrow, 34)}
-          </div>
-        </div>
-        <div style={{ display: "flex", flex: 1, flexDirection: "column", justifyContent: "center", position: "relative" }}>
-          <div
-            style={{
-              color: "#ffffff",
-              display: "flex",
-              fontSize: titleFontSize(options.title),
-              fontWeight: 900,
-              lineHeight: 1.02,
-              maxWidth: 1010,
-            }}
-          >
-            {truncate(options.title, 112)}
-          </div>
-          <div
-            style={{
-              color: "#d8d1e2",
-              display: "flex",
-              fontSize: 27,
-              lineHeight: 1.28,
-              marginTop: 24,
-              maxWidth: 980,
-            }}
-          >
-            {truncate(options.body, 132)}
-          </div>
-        </div>
-        <div style={{ alignItems: "stretch", display: "flex", gap: 16, position: "relative", width: "100%" }}>
-          {stats.slice(0, 3).map((stat) => (
-            <div
-              key={stat.label}
-              style={{
-                background: "rgba(9,9,9,0.82)",
-                border: "1px solid rgba(255,255,255,0.14)",
-                borderRadius: 16,
-                display: "flex",
-                flex: 1,
-                flexDirection: "column",
-                padding: "18px 20px",
-              }}
-            >
-              <span style={{ color: "#9a8fa9", fontSize: 17, fontWeight: 900, letterSpacing: 1.6 }}>{stat.label}</span>
-              <span style={{ color: stat.label === "NO" ? "#ff4d4d" : accent, fontSize: 32, fontWeight: 900, marginTop: 8 }}>{truncate(stat.value, 18)}</span>
-            </div>
-          ))}
-        </div>
         <div
           style={{
-            alignItems: "center",
-            borderTop: "1px solid rgba(255,255,255,0.14)",
-            color: "#b8aec7",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 28,
             display: "flex",
-            fontSize: 21,
-            fontWeight: 700,
-            justifyContent: "space-between",
-            marginTop: 26,
-            paddingTop: 20,
+            flexDirection: "column",
+            height: "100%",
+            overflow: "hidden",
             position: "relative",
             width: "100%",
           }}
         >
-          <span>convictionmarkets.xyz</span>
-          <span>{truncate(options.muted, 86)}</span>
+          <div
+            style={{
+              alignItems: "center",
+              background: "rgba(9,9,9,0.88)",
+              borderBottom: "1px solid rgba(255,255,255,0.12)",
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "22px 28px",
+              width: "100%",
+            }}
+          >
+            <div style={{ alignItems: "center", display: "flex", gap: 14 }}>
+              <img alt="Conviction Markets" height="36" src={LOGO_URL} style={{ objectFit: "contain" }} width="248" />
+            </div>
+            <div
+              style={{
+                border: "1px solid rgba(217,91,19,0.55)",
+                borderRadius: 999,
+                color: accent,
+                display: "flex",
+                fontSize: 18,
+                fontWeight: 900,
+                letterSpacing: 1.5,
+                padding: "11px 16px",
+                textTransform: "uppercase",
+              }}
+            >
+              {truncate(options.eyebrow, 34)}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flex: 1, minHeight: 0, width: "100%" }}>
+            <div
+              style={{
+                display: "flex",
+                flex: 1,
+                flexDirection: "column",
+                justifyContent: "space-between",
+                padding: "34px 34px 28px",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <div
+                  style={{
+                    color: "#ffffff",
+                    display: "flex",
+                    fontSize: titleFontSize(options.title, Boolean(imageUrl)),
+                    fontWeight: 900,
+                    lineHeight: 1.02,
+                    maxWidth: imageUrl ? 660 : 1030,
+                  }}
+                >
+                  {truncate(options.title, imageUrl ? 94 : 112)}
+                </div>
+                <div
+                  style={{
+                    color: "#d8d1e2",
+                    display: "flex",
+                    fontSize: imageUrl ? 23 : 27,
+                    lineHeight: 1.28,
+                    marginTop: 20,
+                    maxWidth: imageUrl ? 640 : 980,
+                  }}
+                >
+                  {truncate(options.body, imageUrl ? 118 : 132)}
+                </div>
+              </div>
+
+              <div style={{ alignItems: "stretch", display: "flex", gap: 14, width: "100%" }}>
+                {stats.slice(0, 3).map((stat) => (
+                  <div
+                    key={stat.label}
+                    style={{
+                      background: "rgba(5,5,5,0.88)",
+                      border: "1px solid rgba(255,255,255,0.13)",
+                      borderRadius: 15,
+                      display: "flex",
+                      flex: 1,
+                      flexDirection: "column",
+                      minWidth: 0,
+                      padding: "15px 17px",
+                    }}
+                  >
+                    <span style={{ color: "#9a8fa9", fontSize: 15, fontWeight: 900, letterSpacing: 1.4 }}>{stat.label}</span>
+                    <span style={{ color: stat.label === "NO" ? "#ff4d4d" : accent, fontSize: 30, fontWeight: 900, marginTop: 7 }}>{truncate(stat.value, 16)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              style={{
+                borderLeft: "1px solid rgba(255,255,255,0.12)",
+                display: "flex",
+                flexDirection: "column",
+                padding: 20,
+                width: imageUrl ? 384 : 280,
+              }}
+            >
+              <div
+                style={{
+                  background: "rgba(5,5,5,0.7)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 22,
+                  display: "flex",
+                  flex: 1,
+                  overflow: "hidden",
+                  position: "relative",
+                  width: "100%",
+                }}
+              >
+                {imageUrl ? (
+                  <img
+                    alt="Market listing"
+                    src={imageUrl}
+                    style={{
+                      height: "100%",
+                      objectFit: "cover",
+                      width: "100%",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      alignItems: "center",
+                      background: "linear-gradient(145deg, rgba(217,91,19,0.30), rgba(124,58,237,0.22))",
+                      display: "flex",
+                      flex: 1,
+                      fontSize: 92,
+                      fontWeight: 900,
+                      justifyContent: "center",
+                    }}
+                  >
+                    CM
+                  </div>
+                )}
+                <div
+                  style={{
+                    background: "linear-gradient(180deg, transparent 45%, rgba(0,0,0,0.76))",
+                    bottom: 0,
+                    display: "flex",
+                    height: "100%",
+                    left: 0,
+                    position: "absolute",
+                    right: 0,
+                    top: 0,
+                    width: "100%",
+                  }}
+                />
+                <div
+                  style={{
+                    bottom: 18,
+                    color: "#ffffff",
+                    display: "flex",
+                    flexDirection: "column",
+                    left: 18,
+                    position: "absolute",
+                    right: 18,
+                  }}
+                >
+                  <span style={{ color: accent, fontSize: 17, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase" }}>Market card</span>
+                  <span style={{ color: "#d8d1e2", fontSize: 18, fontWeight: 700, marginTop: 5 }}>Open the event, read rules, then trade conviction.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              alignItems: "center",
+              background: "rgba(9,9,9,0.88)",
+              borderTop: "1px solid rgba(255,255,255,0.12)",
+              color: "#b8aec7",
+              display: "flex",
+              fontSize: 20,
+              fontWeight: 800,
+              justifyContent: "space-between",
+              padding: "18px 28px",
+              width: "100%",
+            }}
+          >
+            <span>convictionmarkets.xyz</span>
+            <span>{truncate(options.muted, 78)}</span>
+          </div>
         </div>
       </div>
     ),
@@ -374,7 +478,20 @@ function formatCurrencyLike(value: string | null | undefined) {
   return "$" + parsed.toFixed(0);
 }
 
-function titleFontSize(value: string) {
+function normalizeImageUrl(value: string | null | undefined) {
+  const clean = value?.trim();
+
+  return clean && /^https?:\/\//i.test(clean) ? clean : null;
+}
+
+function titleFontSize(value: string, hasImage = false) {
+  if (hasImage) {
+    if (value.length > 92) return 43;
+    if (value.length > 74) return 48;
+    if (value.length > 58) return 54;
+    return 62;
+  }
+
   if (value.length > 100) return 50;
   if (value.length > 80) return 58;
   if (value.length > 62) return 66;
