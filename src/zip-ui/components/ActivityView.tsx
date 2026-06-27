@@ -1756,67 +1756,71 @@ function ShareCardPanel({
   return (
     <div className="rounded-xl border border-[#262626] bg-[#0A0A0A] p-3 sm:p-4">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <a
-          className="group relative block overflow-hidden rounded-lg border border-[#262626] bg-[#050505]"
-          href={cardUrl}
-          rel="noreferrer"
-          target="_blank"
-        >
-          <img
-            alt={market.title + ' Conviction Markets share card'}
-            className="aspect-[1200/630] w-full object-cover transition-transform duration-300 group-hover:scale-[1.015]"
-            src={cardUrl}
-          />
-          <span className="absolute bottom-3 right-3 rounded border border-black/20 bg-black/70 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-white backdrop-blur">
-            Open image
-          </span>
-        </a>
+        <div className="overflow-hidden rounded-lg border border-[#262626] bg-[#050505]">
+          <div className="relative aspect-[1200/630] overflow-hidden bg-[#070707]">
+            {imageUrl ? (
+              <img
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover opacity-45"
+                decoding="async"
+                loading="lazy"
+                src={imageUrl}
+              />
+            ) : null}
+            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(7,7,7,0.94),rgba(14,14,14,0.78)_52%,rgba(217,91,19,0.22))]" />
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] bg-[size:34px_34px] opacity-70" />
+            <div className="relative flex h-full flex-col justify-between p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange">Conviction Markets</p>
+                  <h3 className="mt-2 line-clamp-3 max-w-[34rem] text-xl font-black leading-tight text-white sm:text-3xl">{market.title}</h3>
+                </div>
+                <span className="rounded-full border border-deep-orange/40 bg-black/45 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange">
+                  {category}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <SharePreviewMetric label="YES" value={formatChance(market.currentOdds)} tone="yes" />
+                <SharePreviewMetric label="NO" value={noChance === null ? '--' : formatChance(noChance)} tone="no" />
+                <SharePreviewMetric label="24H" value={market.vol24h || '--'} />
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="flex min-w-0 flex-col justify-between gap-4">
           <div>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Portable market card</p>
-                <h3 className="mt-1 line-clamp-3 text-lg font-bold leading-tight text-white">{market.title}</h3>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Share as image</p>
+                <p className="mt-1 text-sm leading-relaxed text-[#ccc3d8]">Shares the generated card image where supported. The market link is copied into the caption.</p>
               </div>
               {onClose ? (
                 <button
-                  className="grid h-8 w-8 flex-shrink-0 place-items-center rounded border border-[#262626] text-[#ccc3d8] hover:border-white/40 hover:text-white"
+                  aria-label="Close share card"
+                  className="grid h-9 w-9 flex-shrink-0 place-items-center rounded border border-[#262626] text-[#ccc3d8] hover:border-white/40 hover:text-white"
                   onClick={onClose}
                   type="button"
                 >
-                  <X size={14} />
+                  <X size={15} />
                 </button>
               ) : null}
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <SharePreviewMetric label="YES" value={formatChance(market.currentOdds)} tone="yes" />
-              <SharePreviewMetric label="NO" value={noChance === null ? '--' : formatChance(noChance)} tone="no" />
-              <SharePreviewMetric label="Topic" value={category} />
-              <SharePreviewMetric label="Volume" value={market.vol24h || '--'} />
+
+            <div className="mt-3 rounded border border-[#262626] bg-[#050505] p-2 text-xs leading-relaxed text-[#ccc3d8]">
+              {imageUrl ? 'Preview uses the lightweight listing image. The full social card is generated only when you share or download.' : 'This market has no listing image yet, so the generated card uses the Conviction branded fallback.'}
             </div>
-            {imageUrl ? (
-              <div className="mt-3 flex items-center gap-2 rounded border border-[#262626] bg-[#050505] p-2">
-                <img alt="" className="h-10 w-10 rounded object-cover" src={imageUrl} />
-                <p className="min-w-0 text-xs leading-relaxed text-[#ccc3d8]">
-                  Uses the market listing image and Conviction share layout.
-                </p>
-              </div>
-            ) : (
-              <p className="mt-3 rounded border border-[#262626] bg-[#050505] p-2 text-xs leading-relaxed text-[#ccc3d8]">
-                This market has no listing image yet, so the card uses the Conviction branded fallback.
-              </p>
-            )}
           </div>
 
           <div className="grid gap-2">
             <button
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded bg-deep-orange px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-black transition-colors hover:bg-white"
-              onClick={() => void nativeShareCard({ title: market.title, text: shareText, url })}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded bg-deep-orange px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-black transition-colors hover:bg-white disabled:cursor-wait disabled:opacity-70"
+              onClick={() => void nativeShareCard({ cardUrl, filename: 'conviction-market-' + market.id + '.png', title: market.title, text: shareText, url })}
               type="button"
             >
               <Share2 size={13} />
-              Share link
+              Share image
             </button>
             <div className="grid grid-cols-2 gap-2">
               <ShareCardAction label="X" href={getXShareUrl(shareText, url)} />
@@ -1844,6 +1848,13 @@ function ShareCardPanel({
                 Image file
               </a>
             </div>
+            <button
+              className="inline-flex min-h-9 items-center justify-center rounded border border-[#262626] bg-transparent px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white lg:hidden"
+              onClick={onClose}
+              type="button"
+            >
+              Back to Pulse
+            </button>
           </div>
         </div>
       </div>
@@ -1877,9 +1888,19 @@ function ShareCardAction({ href, label }: { href: string; label: string }) {
 }
 
 function ShareCardModal({ market, onClose }: { market: PredictionMarket; onClose: () => void }) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-5xl rounded-xl border border-[#262626] bg-[#111111] p-3 shadow-2xl shadow-black/50 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Share market card">
+      <button className="absolute inset-0 cursor-default" onClick={onClose} type="button" aria-label="Back to Pulse" />
+      <div className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-xl border border-[#262626] bg-[#111111] p-3 shadow-2xl shadow-black/50 sm:max-w-5xl sm:rounded-xl sm:p-4">
         <ShareCardPanel
           market={market}
           onClose={onClose}
@@ -1912,16 +1933,54 @@ async function copyShareText(value: string) {
   }
 }
 
-async function nativeShareCard({ title, text, url }: { title: string; text: string; url: string }) {
+async function nativeShareCard({
+  cardUrl,
+  filename,
+  title,
+  text,
+  url,
+}: {
+  cardUrl: string;
+  filename: string;
+  title: string;
+  text: string;
+  url: string;
+}) {
+  const caption = text + ' ' + url;
+
   if (typeof navigator === 'undefined' || !navigator.share) {
-    await copyShareText(text + ' ' + url);
+    await copyShareText(caption);
+    window.open(cardUrl, '_blank', 'noopener,noreferrer');
     return;
   }
 
   try {
-    await navigator.share({ title, text, url });
+    const file = await getShareImageFile(cardUrl, filename);
+
+    if (file && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], text: caption, title });
+      return;
+    }
+
+    await navigator.share({ text: caption, title, url });
   } catch {
-    // Native share can be cancelled by the user.
+    // Native share can be cancelled by the user. Keep the caption available.
+    await copyShareText(caption);
+  }
+}
+
+async function getShareImageFile(cardUrl: string, filename: string) {
+  try {
+    const response = await fetch(cardUrl, { cache: 'force-cache' });
+
+    if (!response.ok) return null;
+
+    const blob = await response.blob();
+    const type = blob.type || 'image/png';
+
+    return new File([blob], filename, { type });
+  } catch {
+    return null;
   }
 }
 
