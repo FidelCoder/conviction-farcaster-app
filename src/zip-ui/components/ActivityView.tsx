@@ -1974,7 +1974,14 @@ function ShareCardPanel({
               Share image
             </button>
             <div className="grid grid-cols-2 gap-2">
-              <ShareCardAction label="X" href={getXShareUrl(shareText, url)} />
+              <button
+                className="inline-flex min-h-9 items-center justify-center gap-2 rounded border border-[#262626] bg-[#111] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-deep-orange hover:text-deep-orange"
+                onClick={() => void shareImageToX({ cardUrl, filename: 'conviction-market-' + market.id + '.png', text: shareText, title: market.title, url })}
+                type="button"
+              >
+                <Share2 size={12} />
+                X image
+              </button>
               <ShareCardAction label="Telegram" href={getTelegramShareUrl(shareText, url)} />
               <ShareCardAction label="WhatsApp" href={'https://wa.me/?text=' + encodeURIComponent(shareText + ' ' + url)} />
               <ShareCardAction label="Farcaster" href={'https://warpcast.com/~/compose?text=' + encodeURIComponent(shareText) + '&embeds[]=' + encodeURIComponent(url)} />
@@ -2081,6 +2088,42 @@ async function copyShareText(value: string) {
     await navigator.clipboard.writeText(value);
   } catch {
     // Copy is best-effort for social share text.
+  }
+}
+
+async function shareImageToX({
+  cardUrl,
+  filename,
+  text,
+  title,
+  url,
+}: {
+  cardUrl: string;
+  filename: string;
+  text: string;
+  title: string;
+  url: string;
+}) {
+  const caption = text + ' ' + url;
+
+  if (typeof navigator === 'undefined' || !navigator.share) {
+    await copyShareText(caption);
+    window.open(getXShareUrl(text, url), '_blank', 'noopener,noreferrer');
+    return;
+  }
+
+  try {
+    const file = await getShareImageFile(cardUrl, filename);
+
+    if (file && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], text: caption, title });
+      return;
+    }
+
+    await copyShareText(caption);
+    window.open(getXShareUrl(text, url), '_blank', 'noopener,noreferrer');
+  } catch {
+    await copyShareText(caption);
   }
 }
 
