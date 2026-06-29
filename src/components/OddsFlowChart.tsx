@@ -11,6 +11,13 @@ export type OddsFlowPoint = {
   volume?: number | null;
 };
 
+export type OddsFlowSeries = {
+  color?: string;
+  id: string;
+  label: string;
+  points: OddsFlowPoint[];
+};
+
 export type OddsFlowHitTarget = {
   index: number;
   plotBottom: number;
@@ -29,6 +36,7 @@ type OddsFlowChartProps = {
   label?: string;
   onTargetsChange?: (targets: OddsFlowHitTarget[]) => void;
   points: OddsFlowPoint[];
+  series?: OddsFlowSeries[];
   tone?: "dark" | "light";
 };
 
@@ -81,6 +89,7 @@ export function OddsFlowChart({
   label = "CONVICTION YES FLOW",
   onTargetsChange,
   points,
+  series,
   tone = "dark",
 }: OddsFlowChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -91,6 +100,7 @@ export function OddsFlowChart({
         emptyMessage,
         hoveredIndex,
         label,
+        series,
         theme: tone === "light" ? lightTheme : darkTheme,
       });
 
@@ -101,7 +111,7 @@ export function OddsFlowChart({
     window.addEventListener("resize", draw);
 
     return () => window.removeEventListener("resize", draw);
-  }, [emptyMessage, hoveredIndex, label, onTargetsChange, points, tone]);
+  }, [emptyMessage, hoveredIndex, label, onTargetsChange, points, series, tone]);
 
   return <canvas ref={canvasRef} className={className} />;
 }
@@ -113,6 +123,7 @@ function drawOddsFlowChart(
     emptyMessage: string;
     hoveredIndex: number | null;
     label: string;
+    series?: OddsFlowSeries[];
     theme: ChartTheme;
   },
 ): OddsFlowHitTarget[] {
@@ -135,9 +146,9 @@ function drawOddsFlowChart(
 
   drawChartBackground(context, width, height, options.theme);
 
-  const points = getReadablePoints(rawPoints, width);
+  const readableSeries = getReadableSeries(options.series, rawPoints, options.label, width);
 
-  if (points.length === 0) {
+  if (readableSeries.length === 0) {
     drawChartEmptyState(context, width, height, options.emptyMessage, options.theme);
     return [];
   }
@@ -150,12 +161,12 @@ function drawOddsFlowChart(
   };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
-  const values = points.flatMap((point) => [
+  const values = readableSeries.flatMap((seriesItem) => seriesItem.points.flatMap((point) => [
     point.close,
     point.open ?? point.close,
     point.high ?? point.close,
     point.low ?? point.close,
-  ]);
+  ]));
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
   const padding = Math.max(1.5, (rawMax - rawMin) * 0.2);
@@ -163,8 +174,47 @@ function drawOddsFlowChart(
   const max = Math.min(100, rawMax + padding);
   const range = Math.max(1, max - min);
   const yFor = (value: number) => plot.top + ((max - value) / range) * plotHeight;
+  const seriesTargets = readableSeries.map((seriesItem) => ({
+    series: seriesItem,
+    targets: buildTargets(seriesItem.points, plot, plotWidth, height, yFor),
+  }));
+  const primaryTargets = seriesTargets[0]?.targets ?? [];
+
+  drawChartAxis(context, width, height, plot, min, max, options.theme);
+  drawOddsArea(context, primaryTargets, height - plot.bottom, options.theme);
+  seriesTargets.slice(1).forEach(({ series: seriesItem, targets }) => {
+    drawOddsLine(context, targets, options.theme, seriesItem.color, 1.7, 0.72);
+    drawEndpointDots(context, targets, options.theme, seriesItem.color, 0.78);
+  });
+  drawOddsLine(context, primaryTargets, options.theme, readableSeries[0]?.color, 2.8, 1);
+  drawEndpointDots(context, primaryTargets, options.theme, readableSeries[0]?.color, 1);
+
+  const hoveredTarget = primaryTargets.find((target) => target.index === options.hoveredIndex);
+
+  if (hoveredTarget) {
+    drawCrosshair(context, hoveredTarget, height, plot, options.theme);
+  }
+
+  const lastTarget = primaryTargets[primaryTargets.length - 1];
+  if (lastTarget) drawLastPriceLine(context, lastTarget, width, plot, options.theme);
+
+  context.fillStyle = options.theme.muted;
+  context.font = "800 10px JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace";
+  context.fillText(options.label, plot.left, height - 16);
+
+  return primaryTargets;
+}
+
+function buildTargets(
+  points: OddsFlowPoint[],
+  plot: { left: number; right: number; top: number; bottom: number },
+  plotWidth: number,
+  height: number,
+  yFor: (value: number) => number,
+): OddsFlowHitTarget[] {
   const xStep = points.length > 1 ? plotWidth / (points.length - 1) : 0;
-  const targets: OddsFlowHitTarget[] = points.map((point, index) => {
+
+  return points.map((point, index) => {
     const x = points.length > 1 ? plot.left + xStep * index : plot.left + plotWidth / 2;
     const y = yFor(point.close);
 
@@ -172,33 +222,13 @@ function drawOddsFlowChart(
       index,
       plotBottom: height - plot.bottom,
       plotLeft: plot.left,
-      plotRight: width - plot.right,
+      plotRight: plot.left + plotWidth,
       plotTop: plot.top,
       point,
       x,
       y,
     };
   });
-
-  drawChartAxis(context, width, height, plot, min, max, options.theme);
-  drawOddsArea(context, targets, height - plot.bottom, options.theme);
-  drawOddsLine(context, targets, options.theme);
-  drawEndpointDots(context, targets, options.theme);
-
-  const hoveredTarget = targets.find((target) => target.index === options.hoveredIndex);
-
-  if (hoveredTarget) {
-    drawCrosshair(context, hoveredTarget, height, plot, options.theme);
-  }
-
-  const lastTarget = targets[targets.length - 1];
-  drawLastPriceLine(context, lastTarget, width, plot, options.theme);
-
-  context.fillStyle = options.theme.muted;
-  context.font = "800 10px JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace";
-  context.fillText(options.label, plot.left, height - 16);
-
-  return targets;
 }
 
 function drawChartBackground(context: CanvasRenderingContext2D, width: number, height: number, theme: ChartTheme) {
@@ -274,7 +304,14 @@ function drawOddsArea(
   context.fill();
 }
 
-function drawOddsLine(context: CanvasRenderingContext2D, targets: OddsFlowHitTarget[], theme: ChartTheme) {
+function drawOddsLine(
+  context: CanvasRenderingContext2D,
+  targets: OddsFlowHitTarget[],
+  theme: ChartTheme,
+  color = theme.line,
+  lineWidth = 2.4,
+  alpha = 1,
+) {
   if (targets.length === 0) return;
 
   context.beginPath();
@@ -287,14 +324,22 @@ function drawOddsLine(context: CanvasRenderingContext2D, targets: OddsFlowHitTar
       context.bezierCurveTo(midpoint, previous.y, midpoint, target.y, target.x, target.y);
     }
   });
-  context.strokeStyle = theme.line;
-  context.lineWidth = 2.4;
+  context.globalAlpha = alpha;
+  context.strokeStyle = color;
+  context.lineWidth = lineWidth;
   context.lineJoin = "round";
   context.lineCap = "round";
   context.stroke();
+  context.globalAlpha = 1;
 }
 
-function drawEndpointDots(context: CanvasRenderingContext2D, targets: OddsFlowHitTarget[], theme: ChartTheme) {
+function drawEndpointDots(
+  context: CanvasRenderingContext2D,
+  targets: OddsFlowHitTarget[],
+  theme: ChartTheme,
+  color = theme.line,
+  alpha = 1,
+) {
   if (targets.length === 0) return;
 
   const first = targets[0];
@@ -305,9 +350,11 @@ function drawEndpointDots(context: CanvasRenderingContext2D, targets: OddsFlowHi
     context.arc(target.x, target.y, 3.3, 0, Math.PI * 2);
     context.fillStyle = theme.background;
     context.fill();
-    context.strokeStyle = theme.line;
+    context.globalAlpha = alpha;
+    context.strokeStyle = color;
     context.lineWidth = 2;
     context.stroke();
+    context.globalAlpha = 1;
   });
 }
 
@@ -376,6 +423,28 @@ function drawChartEmptyState(
   context.textAlign = "center";
   context.fillText(message, width / 2, height / 2);
   context.textAlign = "start";
+}
+
+
+const fallbackSeriesColors = ["#f97316", "#8b5cf6", "#10b981", "#38bdf8", "#f43f5e", "#facc15"];
+
+function getReadableSeries(
+  series: OddsFlowSeries[] | undefined,
+  fallbackPoints: OddsFlowPoint[],
+  fallbackLabel: string,
+  width: number,
+) {
+  const source = series && series.length > 0
+    ? series
+    : [{ id: "primary", label: fallbackLabel, points: fallbackPoints }];
+
+  return source
+    .map((seriesItem, index) => ({
+      ...seriesItem,
+      color: seriesItem.color ?? fallbackSeriesColors[index % fallbackSeriesColors.length],
+      points: getReadablePoints(seriesItem.points, width),
+    }))
+    .filter((seriesItem) => seriesItem.points.length > 0);
 }
 
 function getReadablePoints(points: OddsFlowPoint[], width: number) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { OddsFlowChart, type OddsFlowHitTarget } from '../../components/OddsFlowChart';
+import { OddsFlowChart, type OddsFlowHitTarget, type OddsFlowSeries } from '../../components/OddsFlowChart';
 import { getVaultAvailableBalance } from '../../lib/wallet-balances';
 import { PredictionMarket, Vault, MarketTapeItem, UserPortfolio } from '../types';
 import { Info, Bolt, BookOpen, RefreshCw, TrendingUp, X } from 'lucide-react';
@@ -16,11 +16,16 @@ type MarketCandle = {
 
 type MarketHistoryRange = '1h' | '1w' | '1m' | '1y';
 
-type MarketHistoryState =
-  | { status: 'loading'; candles: MarketCandle[]; range: MarketHistoryRange; source: string }
-  | { status: 'ready'; candles: MarketCandle[]; range: MarketHistoryRange; source: string }
-  | { status: 'snapshot_only'; candles: MarketCandle[]; range: MarketHistoryRange; source: string }
-  | { status: 'empty'; candles: MarketCandle[]; range: MarketHistoryRange; source: string };
+type MarketHistoryStatus = 'loading' | 'ready' | 'snapshot_only' | 'empty';
+
+type MarketHistoryState = {
+  status: MarketHistoryStatus;
+  candles: MarketCandle[];
+  range: MarketHistoryRange;
+  source: string;
+};
+
+type CompareHistoryStore = Record<string, MarketHistoryState>;
 
 const HISTORY_RANGES: Array<{ label: string; value: MarketHistoryRange }> = [
   { label: '1H', value: '1h' },
@@ -28,6 +33,8 @@ const HISTORY_RANGES: Array<{ label: string; value: MarketHistoryRange }> = [
   { label: '1M', value: '1m' },
   { label: '1Y', value: '1y' },
 ];
+
+const COMPARE_COLORS = ['#8b5cf6', '#10b981', '#38bdf8', '#f43f5e'];
 
 interface MarginDeskViewProps {
   markets: PredictionMarket[];
@@ -56,6 +63,8 @@ export default function MarginDeskView({
   const [isRequesting, setIsRequesting] = useState<boolean>(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [historyRange, setHistoryRange] = useState<MarketHistoryRange>('1w');
+  const [compareMarketIds, setCompareMarketIds] = useState<string[]>([]);
+  const [compareHistory, setCompareHistory] = useState<CompareHistoryStore>({});
   const chartTargetsRef = useRef<OddsFlowHitTarget[]>([]);
   const [hoveredPoint, setHoveredPoint] = useState<OddsFlowHitTarget | null>(null);
   const [historyState, setHistoryState] = useState<MarketHistoryState>({
@@ -104,6 +113,51 @@ export default function MarginDeskView({
     };
   }, [activeMarket, historyRange]);
 
+
+  useEffect(() => {
+    setCompareMarketIds((current) => current.filter((marketId) => marketId !== activeMarket.id).slice(0, 3));
+  }, [activeMarket.id]);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    if (compareMarketIds.length === 0) {
+      setCompareHistory({});
+      return;
+    }
+
+    const loadingState: CompareHistoryStore = {};
+    compareMarketIds.forEach((marketId) => {
+      loadingState[marketId] = { status: 'loading', candles: [], range: historyRange, source: 'CONVICTION_LOADING' };
+    });
+    setCompareHistory(loadingState);
+
+    Promise.all(compareMarketIds.map(async (marketId) => {
+      const market = markets.find((entry) => entry.id === marketId);
+
+      try {
+        const response = await fetch('/api/markets/' + encodeURIComponent(marketId) + '/history?range=' + historyRange);
+        const body = (await response.json()) as unknown;
+        return [marketId, parseHistoryResponse(body)] as const;
+      } catch {
+        const fallback = market ? buildSnapshotCandles(market) : [];
+        return [marketId, {
+          status: fallback.length > 0 ? 'snapshot_only' : 'empty',
+          candles: fallback,
+          range: historyRange,
+          source: 'CONVICTION_SNAPSHOT',
+        } satisfies MarketHistoryState] as const;
+      }
+    })).then((entries) => {
+      if (!isCurrent) return;
+      setCompareHistory(Object.fromEntries(entries));
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [compareMarketIds, historyRange, markets]);
+
   const maxCollateral = selectedVault
     ? getVaultAvailableBalance({ portfolio, vault: selectedVault })
     : 0;
@@ -119,9 +173,43 @@ export default function MarginDeskView({
     ? 0
     : currentOutcomeOdds * (1 - 0.70 / Math.max(leverage, 1));
   const reviewRows = useMemo(() => buildMarketReviewRows(activeMarket), [activeMarket]);
+  const compareCandidates = useMemo(
+    () => getCompareCandidates(markets, activeMarket).slice(0, 12),
+    [activeMarket, markets],
+  );
+  const selectedCompareMarkets = useMemo(
+    () => compareMarketIds
+      .map((marketId) => markets.find((market) => market.id === marketId))
+      .filter((market): market is PredictionMarket => Boolean(market)),
+    [compareMarketIds, markets],
+  );
+  const chartSeries = useMemo<OddsFlowSeries[]>(() => {
+    const primary: OddsFlowSeries = {
+      color: '#f97316',
+      id: activeMarket.id,
+      label: activeMarket.title,
+      points: historyState.candles,
+    };
+    const peers = selectedCompareMarkets.map((market, index) => ({
+      color: COMPARE_COLORS[index % COMPARE_COLORS.length],
+      id: market.id,
+      label: market.title,
+      points: compareHistory[market.id]?.candles ?? [],
+    }));
+
+    return [primary, ...peers];
+  }, [activeMarket, compareHistory, historyState.candles, selectedCompareMarkets]);
+  const comparedReadyCount = selectedCompareMarkets.filter((market) => (compareHistory[market.id]?.candles.length ?? 0) > 0).length;
 
   const handleMaxCollateral = () => {
     setMarginAmount(maxCollateral.toFixed(2));
+  };
+
+  const toggleCompareMarket = (marketId: string) => {
+    setCompareMarketIds((current) => {
+      if (current.includes(marketId)) return current.filter((id) => id !== marketId);
+      return [...current, marketId].slice(-3);
+    });
   };
 
   const handleChartPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -273,7 +361,7 @@ export default function MarginDeskView({
               <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Market Flow</p>
-                  <h3 className="mt-1 text-lg font-bold text-white">YES odds flow</h3>
+                  <h3 className="mt-1 text-lg font-bold text-white">Multi-market YES odds flow</h3>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {HISTORY_RANGES.map((range) => (
@@ -292,8 +380,44 @@ export default function MarginDeskView({
                     </button>
                   ))}
                   <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]">
-                    {getHistoryStatusLabel(historyState)}
+                    {getMultiMarketStatusLabel(historyState, comparedReadyCount, selectedCompareMarkets.length)}
                   </span>
+                </div>
+              </div>
+
+              <div className="mb-4 grid gap-3">
+                <div className="flex flex-wrap gap-2" aria-label="Compare markets">
+                  {compareCandidates.map((market) => {
+                    const selected = compareMarketIds.includes(market.id);
+                    const color = selected ? COMPARE_COLORS[Math.max(0, compareMarketIds.indexOf(market.id)) % COMPARE_COLORS.length] : '#ccc3d8';
+
+                    return (
+                      <button
+                        key={market.id}
+                        type="button"
+                        onClick={() => toggleCompareMarket(market.id)}
+                        aria-pressed={selected}
+                        className={`inline-flex max-w-full items-center gap-2 rounded border px-2.5 py-1.5 font-mono text-[9px] font-bold uppercase tracking-widest transition-colors ${
+                          selected
+                            ? 'border-deep-orange bg-deep-orange/10 text-white'
+                            : 'border-[#262626] bg-[#0e0e0e] text-[#ccc3d8] hover:border-white/40 hover:text-white'
+                        }`}
+                      >
+                        <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                        <span className="truncate">{getShortMarketTitle(market.title)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-wrap gap-3 rounded border border-[#262626] bg-[#0e0e0e] p-3 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/70">
+                  <ChartLegendDot color="#f97316" label="Active market" />
+                  {selectedCompareMarkets.map((market, index) => (
+                    <ChartLegendDot
+                      color={COMPARE_COLORS[index % COMPARE_COLORS.length]}
+                      key={market.id}
+                      label={getShortMarketTitle(market.title)}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -310,6 +434,7 @@ export default function MarginDeskView({
                     chartTargetsRef.current = targets;
                   }}
                   points={historyState.candles}
+                  series={chartSeries}
                 />
                 {hoveredPoint ? (
                   <div
@@ -723,6 +848,53 @@ function TooltipRow({ label, value }: { label: string; value: string }) {
       <dd className="mt-0.5 font-bold text-white">{value}</dd>
     </div>
   );
+}
+
+
+function ChartLegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-2">
+      <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: color }} />
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
+function getCompareCandidates(markets: PredictionMarket[], activeMarket: PredictionMarket) {
+  const activeTopic = activeMarket.discoveryTopic ?? activeMarket.category;
+  const activeRegion = activeMarket.discoveryRegion;
+
+  return markets
+    .filter((market) => market.id !== activeMarket.id)
+    .map((market) => ({ market, score: getCompareMarketScore(market, activeTopic, activeRegion) }))
+    .sort((a, b) => b.score - a.score || b.market.convictionValue - a.market.convictionValue)
+    .map(({ market }) => market);
+}
+
+function getCompareMarketScore(market: PredictionMarket, activeTopic?: string | null, activeRegion?: string | null) {
+  let score = market.convictionValue;
+
+  if (activeTopic && (market.discoveryTopic === activeTopic || market.category === activeTopic)) score += 70;
+  if (activeRegion && market.discoveryRegion === activeRegion) score += 35;
+  if (market.status === 'LIVE') score += 20;
+
+  return score;
+}
+
+function getShortMarketTitle(title: string) {
+  return title
+    .replace(/^will\s+/i, '')
+    .replace(/\?$/, '')
+    .slice(0, 44);
+}
+
+function getMultiMarketStatusLabel(history: MarketHistoryState, readyPeers: number, selectedPeers: number) {
+  const base = getHistoryStatusLabel(history);
+
+  if (selectedPeers === 0) return base;
+  if (readyPeers === selectedPeers) return base + ' + ' + readyPeers + ' peers';
+  if (readyPeers > 0) return base + ' + ' + readyPeers + '/' + selectedPeers + ' peers';
+  return base + ' + loading peers';
 }
 
 function PriceTile({ label, value, tone }: { label: string; value: string; tone?: 'yes' | 'no' }) {
