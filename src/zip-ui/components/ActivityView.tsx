@@ -118,6 +118,8 @@ export default function ActivityView({
   const [selectedMarketId, setSelectedMarketId] = useState('');
   const [marketPickerQuery, setMarketPickerQuery] = useState('');
   const [marketPickerTopic, setMarketPickerTopic] = useState('All');
+  const [marketPickerLimit, setMarketPickerLimit] = useState(12);
+  const [expandedMarketCategories, setExpandedMarketCategories] = useState(false);
   const [showFullLeaderboardModal, setShowFullLeaderboardModal] = useState<boolean>(false);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [networkUsers, setNetworkUsers] = useState<DiscoveredUser[]>([]);
@@ -668,9 +670,19 @@ export default function ActivityView({
                     <MarketSignalPicker
                       disabled={!portfolio.connected || !hasCommunityIdentity}
                       markets={composerMarketSuggestions}
-                      onQueryChange={setMarketPickerQuery}
                       onSelectMarket={setSelectedMarketId}
-                      onTopicChange={setMarketPickerTopic}
+                      expandedCategories={expandedMarketCategories}
+                      marketLimit={marketPickerLimit}
+                      onExpandCategories={() => setExpandedMarketCategories((current) => !current)}
+                      onLoadMore={() => setMarketPickerLimit((current) => current + 12)}
+                      onQueryChange={(value) => {
+                        setMarketPickerLimit(12);
+                        setMarketPickerQuery(value);
+                      }}
+                      onTopicChange={(topic) => {
+                        setMarketPickerLimit(12);
+                        setMarketPickerTopic(topic);
+                      }}
                       query={marketPickerQuery}
                       selectedMarket={selectedMarket}
                       selectedTopic={marketPickerTopic}
@@ -1173,7 +1185,11 @@ const QUICK_PULSE_STICKERS = ['🔥', '📈', '🧠', '⚡', '🏆', '👀', '�
 
 function MarketSignalPicker({
   disabled,
+  expandedCategories,
+  marketLimit,
   markets,
+  onExpandCategories,
+  onLoadMore,
   onQueryChange,
   onSelectMarket,
   onTopicChange,
@@ -1184,7 +1200,11 @@ function MarketSignalPicker({
   totalMarkets,
 }: {
   disabled: boolean;
+  expandedCategories: boolean;
+  marketLimit: number;
   markets: PredictionMarket[];
+  onExpandCategories: () => void;
+  onLoadMore: () => void;
   onQueryChange: (value: string) => void;
   onSelectMarket: (marketId: string) => void;
   onTopicChange: (value: string) => void;
@@ -1194,12 +1214,18 @@ function MarketSignalPicker({
   topics: Array<{ label: string; count: number }>;
   totalMarkets: number;
 }) {
-  const visibleMarkets = markets.slice(0, 8);
+  const visibleMarkets = markets.slice(0, marketLimit);
+  const visibleTopics = expandedCategories ? topics : topics.slice(0, 10);
+  const hiddenTopicCount = Math.max(0, topics.length - visibleTopics.length);
+  const selectedTopicCount = selectedTopic === 'All' ? totalMarkets : topics.find((topic) => topic.label === selectedTopic)?.count ?? markets.length;
 
   return (
     <div className="grid min-w-0 gap-2 rounded border border-[#262626] bg-[#0A0A0A] p-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]/70">Market signal</span>
+      <div className="flex items-start justify-between gap-2">
+        <span>
+          <span className="block font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]/70">Market signal</span>
+          <span className="mt-1 block text-[11px] leading-relaxed text-[#ccc3d8]/55">Explore categories or search the full market set.</span>
+        </span>
         <button
           className="rounded border border-[#262626] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
           disabled={disabled || !selectedMarket}
@@ -1222,18 +1248,34 @@ function MarketSignalPicker({
         />
       </label>
 
-      <div className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Market topics">
-        <MarketTopicChip active={selectedTopic === 'All'} count={totalMarkets} disabled={disabled} label="All" onClick={() => onTopicChange('All')} />
-        {topics.slice(0, 11).map((topic) => (
-          <MarketTopicChip
-            active={selectedTopic === topic.label}
-            count={topic.count}
-            disabled={disabled}
-            key={topic.label}
-            label={topic.label}
-            onClick={() => onTopicChange(topic.label)}
-          />
-        ))}
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange">Explore categories</span>
+          <span className="font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/55">{selectedTopicCount} markets</span>
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Market topics">
+          <MarketTopicChip active={selectedTopic === 'All'} count={totalMarkets} disabled={disabled} label="All" onClick={() => onTopicChange('All')} />
+          {visibleTopics.map((topic) => (
+            <MarketTopicChip
+              active={selectedTopic === topic.label}
+              count={topic.count}
+              disabled={disabled}
+              key={topic.label}
+              label={topic.label}
+              onClick={() => onTopicChange(topic.label)}
+            />
+          ))}
+          {hiddenTopicCount > 0 || expandedCategories ? (
+            <button
+              className="flex-shrink-0 rounded-full border border-[#262626] bg-[#111] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={disabled}
+              onClick={onExpandCategories}
+              type="button"
+            >
+              {expandedCategories ? 'Less' : 'More +' + hiddenTopicCount}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {selectedMarket ? (
@@ -1243,9 +1285,13 @@ function MarketSignalPicker({
         </div>
       ) : null}
 
-      <div className="max-h-72 overflow-y-auto pr-1">
+      <div className="max-h-80 overflow-y-auto pr-1">
         {visibleMarkets.length > 0 ? (
           <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-2 rounded border border-[#262626] bg-[#050505] px-3 py-2 font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/60">
+              <span>{markets.length} matching markets</span>
+              <span>Showing {visibleMarkets.length}</span>
+            </div>
             {visibleMarkets.map((market) => (
               <MarketPickerResult
                 disabled={disabled}
@@ -1255,6 +1301,16 @@ function MarketSignalPicker({
                 onSelect={() => onSelectMarket(market.id)}
               />
             ))}
+            {visibleMarkets.length < markets.length ? (
+              <button
+                className="min-h-10 rounded border border-[#262626] bg-[#111] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-deep-orange hover:text-deep-orange disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={disabled}
+                onClick={onLoadMore}
+                type="button"
+              >
+                Load more markets
+              </button>
+            ) : null}
           </div>
         ) : (
           <div className="rounded border border-[#262626] bg-[#050505] p-3 text-xs leading-relaxed text-[#ccc3d8]">
@@ -2374,7 +2430,6 @@ function getComposerMarketTopics(markets: PredictionMarket[]) {
   const dynamicTopics = Array.from(counts.entries())
     .filter(([topic]) => !COMPOSER_TOPIC_PRIORITY.includes(topic))
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, 6)
     .map(([label, count]) => ({ label, count }));
 
   return [...priorityTopics, ...dynamicTopics];
@@ -2402,7 +2457,7 @@ function getComposerMarketSuggestions(
     ? [selectedMarket, ...ranked]
     : ranked;
 
-  return dedupeMarkets(selectedFirst).slice(0, 18);
+  return dedupeMarkets(selectedFirst);
 }
 
 function getBalancedMarketSuggestions(markets: PredictionMarket[]) {
