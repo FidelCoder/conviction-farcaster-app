@@ -192,8 +192,8 @@ export default function MarginDeskView({
   };
 
   return (
-    <main className="flex-1 flex flex-col lg:flex-row mt-16 p-4 md:p-6 gap-6 min-h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] overflow-y-auto lg:overflow-hidden pb-28 lg:pb-6">
-      <section className="w-full lg:w-64 bg-[#161616] border border-[#262626] rounded flex flex-col overflow-hidden max-h-72 lg:max-h-full">
+    <main className="flex-1 grid grid-cols-1 xl:grid-cols-[16rem_minmax(0,1fr)_22rem] mt-16 p-4 md:p-6 gap-5 min-h-[calc(100vh-64px)] xl:h-[calc(100vh-64px)] overflow-y-auto xl:overflow-hidden pb-28 xl:pb-6">
+      <section className="w-full bg-[#161616] border border-[#262626] rounded flex flex-col overflow-hidden max-h-72 xl:max-h-full">
         <div className="px-4 py-3 border-b border-[#262626] bg-[#0e0e0e] flex justify-between items-center">
           <h3 className="font-mono text-[10px] text-[#ccc3d8] font-bold uppercase tracking-widest flex items-center gap-1.5">
             <TrendingUp size={12} className="text-deep-orange" />
@@ -241,7 +241,7 @@ export default function MarginDeskView({
         </div>
       </section>
 
-      <section className="flex-1 bg-[#161616] border border-[#262626] rounded flex flex-col overflow-hidden relative min-h-[420px]">
+      <section className="min-w-0 bg-[#161616] border border-[#262626] rounded flex flex-col overflow-hidden relative min-h-[560px] xl:h-full">
         <div className="px-4 sm:px-6 py-4 border-b border-[#262626] flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 bg-[#0e0e0e] z-10 relative">
           <div>
             <div className="mb-2 flex flex-wrap gap-2 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]">
@@ -268,8 +268,8 @@ export default function MarginDeskView({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#0A0A0A]">
-          <div className="grid gap-4 min-[1500px]:grid-cols-[minmax(720px,1fr)_20rem]">
-            <article className="min-w-0 rounded border border-[#262626] bg-[#161616] p-4 sm:p-5">
+          <div className="grid gap-4">
+            <article className="min-w-0 rounded border border-[#262626] bg-[#161616] p-3 sm:p-5">
               <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Market Flow</p>
@@ -298,7 +298,7 @@ export default function MarginDeskView({
               </div>
 
               <div
-                className="relative h-[560px] min-h-[420px] overflow-hidden rounded border border-[#262626] bg-[#050505]"
+                className="relative h-[clamp(460px,calc(100vh-21rem),760px)] min-h-[460px] overflow-hidden rounded border border-[#262626] bg-[#050505]"
                 onPointerLeave={handleChartPointerLeave}
                 onPointerMove={handleChartPointerMove}
               >
@@ -338,7 +338,7 @@ export default function MarginDeskView({
                 ) : null}
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="mt-4 grid gap-3 sm:grid-cols-3 min-[1500px]:grid-cols-6">
                 <PriceTile label="YES chance" value={formatPercent(activeMarket.currentOdds)} tone="yes" />
                 <PriceTile label="NO chance" value={formatPercent(100 - activeMarket.currentOdds)} tone="no" />
                 <PriceTile label="Last trade" value={formatRawProbability(activeMarket.lastTradePrice)} />
@@ -365,7 +365,7 @@ export default function MarginDeskView({
 
               <p className="line-clamp-6 text-sm leading-relaxed text-[#ccc3d8]">{activeMarket.description}</p>
 
-              <dl className="mt-5 grid gap-3">
+              <dl className="mt-5 grid gap-3 sm:grid-cols-2 min-[1500px]:grid-cols-4">
                 {reviewRows.slice(1, 5).map((row) => (
                   <div key={row.label} className="rounded border border-[#262626] bg-[#0e0e0e] p-3">
                     <dt className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">{row.label}</dt>
@@ -420,7 +420,7 @@ export default function MarginDeskView({
         </div>
       ) : null}
 
-      <section className="w-full lg:w-[340px] flex flex-col gap-4 overflow-visible lg:overflow-y-auto lg:max-h-full">
+      <section className="w-full flex flex-col gap-4 overflow-visible xl:overflow-y-auto xl:max-h-full">
         <form
           onSubmit={handleOrderSubmit}
           className="bg-[#161616] border-t-2 border-t-deep-orange border-x border-b border-[#262626] rounded p-6 glow-orange transition-all duration-300"

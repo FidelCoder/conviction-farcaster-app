@@ -142,7 +142,12 @@ function drawOddsFlowChart(
     return [];
   }
 
-  const plot = { left: 58, right: 78, top: 30, bottom: 56 };
+  const plot = {
+    left: width >= 900 ? 48 : 42,
+    right: width >= 900 ? 56 : 46,
+    top: height >= 520 ? 26 : 24,
+    bottom: height >= 520 ? 48 : 42,
+  };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
   const values = points.flatMap((point) => [
