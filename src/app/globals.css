@@ -9455,3 +9455,431 @@ main,
 :root .group:hover .group-hover\:text-deep-orange {
   color: rgb(249 115 22 / 0.9);
 }
+
+/* Telegram Mini App */
+.telegram-mini-shell {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(10, 10, 10, 0.98), rgba(12, 9, 7, 0.98)),
+    #0a0a0a;
+  color: #f7f2ec;
+  padding: 14px 12px 30px;
+}
+
+.telegram-mini-shell .site-backdrop,
+.telegram-mini-shell + .site-backdrop {
+  display: none;
+}
+
+.telegram-mini-hero,
+.telegram-mini-panel {
+  width: min(100%, 520px);
+  margin: 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(20, 19, 18, 0.92);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+}
+
+.telegram-mini-hero {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.telegram-mini-brand,
+.telegram-mini-status,
+.telegram-mini-actions,
+.telegram-mini-tabs,
+.telegram-mini-chip-row,
+.telegram-mini-section-title,
+.telegram-mini-feature,
+.telegram-mini-wide-link,
+.telegram-mini-market-card,
+.telegram-mini-quote-result {
+  display: flex;
+  align-items: center;
+}
+
+.telegram-mini-brand {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.telegram-mini-brand img {
+  border-radius: 12px;
+}
+
+.telegram-mini-brand > div {
+  margin-right: auto;
+}
+
+.telegram-mini-brand span,
+.telegram-mini-section-title span,
+.telegram-mini-market-card span,
+.telegram-mini-stat span,
+.telegram-mini-status span {
+  display: block;
+  color: #a9a2ba;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.telegram-mini-brand strong,
+.telegram-mini-section-title strong,
+.telegram-mini-feature strong {
+  color: #fff;
+  font-size: 1rem;
+}
+
+.telegram-mini-status {
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(255, 107, 18, 0.24);
+  border-radius: 12px;
+  background: rgba(255, 107, 18, 0.08);
+  padding: 10px 12px;
+}
+
+.telegram-mini-status[data-ready="true"] {
+  border-color: rgba(16, 185, 129, 0.28);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.telegram-mini-status strong {
+  color: #ff8a3d;
+  font-size: 0.88rem;
+}
+
+.telegram-mini-copy h1 {
+  margin: 0;
+  max-width: 10ch;
+  color: #fff;
+  font-size: clamp(2rem, 12vw, 3.55rem);
+  line-height: 0.9;
+  letter-spacing: 0;
+}
+
+.telegram-mini-copy p,
+.telegram-mini-feature p,
+.telegram-mini-note {
+  color: #c9c0d8;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.telegram-mini-actions {
+  gap: 10px;
+}
+
+.telegram-mini-actions a,
+.telegram-mini-actions button,
+.telegram-mini-primary,
+.telegram-mini-wide-link,
+.telegram-mini-feature a {
+  border-radius: 12px;
+  font-weight: 900;
+}
+
+.telegram-mini-actions a,
+.telegram-mini-primary {
+  justify-content: center;
+  border: 1px solid rgba(255, 107, 18, 0.6);
+  background: #e95f12;
+  color: #080605;
+  padding: 12px 14px;
+}
+
+.telegram-mini-actions button,
+.telegram-mini-wide-link,
+.telegram-mini-feature a {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  padding: 12px 14px;
+}
+
+.telegram-mini-actions a,
+.telegram-mini-actions button {
+  flex: 1;
+  gap: 8px;
+}
+
+.telegram-mini-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  width: min(100%, 520px);
+  margin: 12px auto;
+  gap: 6px;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(9, 9, 9, 0.92);
+  padding: 6px;
+  backdrop-filter: blur(14px);
+}
+
+.telegram-mini-tabs button,
+.telegram-mini-chip-row button {
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #bdb4cf;
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 9px 11px;
+}
+
+.telegram-mini-tabs button[aria-pressed="true"],
+.telegram-mini-chip-row button[aria-pressed="true"] {
+  border-color: rgba(255, 107, 18, 0.38);
+  background: rgba(255, 107, 18, 0.16);
+  color: #ff8a3d;
+}
+
+.telegram-mini-panel {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+.telegram-mini-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.32);
+  color: #9c93af;
+  padding: 0 12px;
+}
+
+.telegram-mini-search input,
+.telegram-mini-amount input,
+.telegram-mini-quote-grid select {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  outline: none;
+}
+
+.telegram-mini-search input {
+  height: 44px;
+}
+
+.telegram-mini-chip-row {
+  gap: 7px;
+  overflow-x: auto;
+}
+
+.telegram-mini-chip-row button {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.telegram-mini-market-list,
+.telegram-mini-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.telegram-mini-market-card {
+  gap: 12px;
+  min-height: 92px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: #101010;
+  padding: 8px;
+}
+
+.telegram-mini-market-card img {
+  width: 76px;
+  height: 76px;
+  flex: 0 0 76px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #181818;
+}
+
+.telegram-mini-market-card div {
+  min-width: 0;
+}
+
+.telegram-mini-market-card strong {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 4px 0;
+  color: #fff;
+  font-size: 0.96rem;
+  line-height: 1.18;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.telegram-mini-market-card small {
+  color: #10b981;
+  font-weight: 900;
+}
+
+.telegram-mini-wide-link {
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.telegram-mini-section-title {
+  gap: 10px;
+  color: #ff8a3d;
+}
+
+.telegram-mini-quote-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.telegram-mini-quote-grid label,
+.telegram-mini-amount {
+  display: grid;
+  gap: 7px;
+  color: #a9a2ba;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.telegram-mini-quote-grid select,
+.telegram-mini-amount input {
+  height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #080808;
+  padding: 0 12px;
+}
+
+.telegram-mini-primary {
+  width: 100%;
+  min-height: 48px;
+}
+
+.telegram-mini-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.telegram-mini-note {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px;
+}
+
+.telegram-mini-note.error {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fecaca;
+}
+
+.telegram-mini-quote-result {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 14px;
+  background: rgba(16, 185, 129, 0.08);
+  padding: 13px;
+}
+
+.telegram-mini-quote-result span,
+.telegram-mini-quote-result small {
+  color: #b8ebd3;
+}
+
+.telegram-mini-quote-result strong {
+  color: #fff;
+  font-size: 1.35rem;
+}
+
+.telegram-mini-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.telegram-mini-stat {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px;
+}
+
+.telegram-mini-stat strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  color: #fff;
+  font-size: 0.95rem;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.telegram-mini-feature {
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 12px;
+}
+
+.telegram-mini-feature-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(255, 107, 18, 0.14);
+  color: #ff8a3d;
+}
+
+.telegram-mini-feature p {
+  margin: 6px 0 10px;
+}
+
+.telegram-mini-feature a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 11px;
+}
+
+@media (max-width: 460px) {
+  .telegram-mini-shell {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .telegram-mini-actions,
+  .telegram-mini-quote-grid,
+  .telegram-mini-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .telegram-mini-actions {
+    flex-direction: column;
+  }
+
+  .telegram-mini-actions a,
+  .telegram-mini-actions button {
+    width: 100%;
+  }
+}
