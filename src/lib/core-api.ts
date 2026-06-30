@@ -555,6 +555,65 @@ export type CreateTradeSignalInput = {
   source: "TELEGRAM" | "FARCASTER" | "WEB";
 };
 
+export type OmnistonStatus = {
+  enabled: boolean;
+  network: "mainnet" | "testnet";
+  routingMode: "disabled" | "quote_only" | "swap_intent";
+  apiUrl: string;
+  quoteTimeoutMs: number;
+  quoteReady: boolean;
+  swapSubmissionEnabled: boolean;
+  status: string;
+  notes: string[];
+};
+
+export type OmnistonQuoteSummary = {
+  total: number;
+  uniqueTelegramUsers: number;
+  byStatus: Array<{ status: string; count: number }>;
+  topPairs: Array<{ fromAsset: string; toAsset: string; count: number }>;
+  recent: Array<{
+    id: string;
+    fromAsset: string;
+    toAsset: string;
+    amountUnits: string;
+    status: string;
+    inputUnits: string | null;
+    outputUnits: string | null;
+    resolverName: string | null;
+    errorCode: string | null;
+    createdAt: string;
+  }>;
+};
+
+export type OmnistonQuoteResult = {
+  quote: {
+    fromAsset: string;
+    toAsset: string;
+    inputSymbol: string;
+    outputSymbol: string;
+    inputUnits: string;
+    outputUnits: string;
+    inputAmount: string;
+    outputAmount: string;
+    settlement: "swap" | "order";
+    resolverName: string;
+    quoteId: string;
+    gasBudget: string | null;
+    routeCount: number | null;
+    recommendedMinOutputAmount: string | null;
+  };
+  event: unknown;
+};
+
+export type RequestOmnistonQuoteInput = {
+  fromAsset: string;
+  toAsset: string;
+  amountUnits: string;
+  platformUserId?: string | null;
+  username?: string | null;
+};
+
 type ApiSuccess<TData> = {
   ok: true;
   data: TData;
@@ -587,6 +646,43 @@ export async function listMarkets() {
 
     return Array.isArray(response) ? response : (response.markets ?? []);
   }, [] as Market[]);
+}
+
+export async function getOmnistonStatus() {
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ omniston: OmnistonStatus }>("/omniston/quote-status");
+    return response.omniston;
+  }, {
+    enabled: false,
+    network: "mainnet",
+    routingMode: "disabled",
+    apiUrl: "",
+    quoteTimeoutMs: 8000,
+    quoteReady: false,
+    swapSubmissionEnabled: false,
+    status: "UNAVAILABLE",
+    notes: ["Omniston status is temporarily unavailable."],
+  } satisfies OmnistonStatus);
+}
+
+export async function getOmnistonSummary() {
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ summary: OmnistonQuoteSummary }>("/omniston/quote-summary");
+    return response.summary;
+  }, {
+    total: 0,
+    uniqueTelegramUsers: 0,
+    byStatus: [],
+    topPairs: [],
+    recent: [],
+  } satisfies OmnistonQuoteSummary);
+}
+
+export async function requestOmnistonQuote(input: RequestOmnistonQuoteInput) {
+  return coreRequest<OmnistonQuoteResult>("/omniston/quote", {
+    method: "POST",
+    body: input,
+  });
 }
 
 export async function getMarket(id: string) {
