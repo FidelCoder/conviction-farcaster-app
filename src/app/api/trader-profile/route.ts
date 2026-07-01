@@ -4,6 +4,7 @@ import {
   CoreApiError,
   createBrowserWalletSession,
   upsertTraderProfile,
+  type UserSession,
 } from "../../../lib/core-api";
 import {
   buildVictionHandle,
@@ -21,12 +22,13 @@ export async function POST(request: Request) {
   }
 
   const walletAddress = stringField(body, "walletAddress");
+  const userId = stringField(body, "userId");
   const handle = buildVictionHandle(normalizeVictionHandle(stringField(body, "handle")));
   const bio = optionalString(body.bio);
   const avatarUrl = optionalString(body.avatarUrl);
 
-  if (!evmAddressPattern.test(walletAddress)) {
-    return validationError("Connect a valid EVM wallet before updating a profile.");
+  if (!userId && !evmAddressPattern.test(walletAddress)) {
+    return validationError("Sign in with a supported wallet before updating a profile.");
   }
 
   if (!isClaimedVictionHandle(handle)) {
@@ -34,16 +36,23 @@ export async function POST(request: Request) {
   }
 
   try {
-    const session = await createBrowserWalletSession({ walletAddress });
+    const session = userId ? null : await createBrowserWalletSession({ walletAddress });
+    const profileUserId = userId || session?.user.id;
+
+    if (!profileUserId) {
+      return validationError("A signed-in user is required before updating a profile.");
+    }
+
     const traderProfile = await upsertTraderProfile({
-      userId: session.user.id,
+      userId: profileUserId,
       handle,
       bio,
       avatarUrl,
     });
+    const nextSession = session ? ({ ...session, traderProfile } satisfies UserSession) : null;
 
     return NextResponse.json(
-      { ok: true, data: { session: { ...session, traderProfile }, traderProfile } },
+      { ok: true, data: { session: nextSession, traderProfile } },
       { status: 201 },
     );
   } catch (error) {

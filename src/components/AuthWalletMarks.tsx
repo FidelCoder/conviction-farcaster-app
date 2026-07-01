@@ -28,6 +28,22 @@ export function BrowserWalletMarks({ className = "" }: WalletMarkProps) {
   );
 }
 
+export function TonWalletMark({ className = "" }: WalletMarkProps) {
+  return (
+    <span className={"wallet-brand-mark wallet-brand-mark-ton " + className} aria-label="TON wallet" role="img">
+      <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+        <path d="M6.4 12.8c.86-1.52 2.49-2.46 4.24-2.46h26.72c1.75 0 3.38.94 4.24 2.46.86 1.51.83 3.38-.09 4.87L27.91 39.63a4.57 4.57 0 0 1-7.82 0L6.49 17.67a4.74 4.74 0 0 1-.09-4.87Z" fill="url(#tonGradient)" />
+        <path d="M13.55 15.16h20.9c.52 0 .85.56.59 1.01L25.02 33.34a1.18 1.18 0 0 1-2.04 0L12.96 16.17a.68.68 0 0 1 .59-1.01Zm9.08 2.66h-5.72l5.72 9.8v-9.8Zm2.74 9.8 5.72-9.8h-5.72v9.8Z" fill="#fff" />
+        <defs>
+          <linearGradient id="tonGradient" x1="8" x2="40" y1="12" y2="38" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#35C4FF" />
+            <stop offset="1" stopColor="#007AFF" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </span>
+  );
+}
 
 export function ThirdwebMark({ className = "" }: WalletMarkProps) {
   return (

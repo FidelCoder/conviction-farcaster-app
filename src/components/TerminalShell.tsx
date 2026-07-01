@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { MobileWalletLauncher } from "./MobileWalletLauncher";
 import { RequiredVictionOnboarding } from "./RequiredVictionOnboarding";
 import { ThirdwebWalletBridge, ThirdwebWalletProvider } from "./ThirdwebWalletBridge";
+import { TonWalletBridge } from "./TonWalletBridge";
 import {
   clearStoredBrowserWalletSession,
   getSessionWalletAddress,
@@ -55,8 +56,9 @@ const emptyPortfolio: UserPortfolio = {
 };
 
 type AlertMessage = { type: "success" | "info"; text: string } | null;
-type SignInMode = "smart" | "eoa";
-type SessionWalletKind = "smart" | "eoa";
+type SignInMode = "smart" | "eoa" | "ton";
+type SessionWalletKind = "smart" | "eoa" | "ton";
+const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
 
 export function TerminalShell({
   activeTab,
@@ -83,6 +85,7 @@ export function TerminalShell({
 
       const nextAddress = getSessionWalletAddress(nextSession) ?? current.address;
       const isSameWallet = current.address?.toLowerCase() === nextAddress?.toLowerCase();
+      const canReadTokenBalances = Boolean(nextAddress && evmAddressPattern.test(nextAddress));
 
       return {
         ...current,
@@ -93,8 +96,8 @@ export function TerminalShell({
         vaultTotalBalances: isSameWallet ? current.vaultTotalBalances : {},
         walletBalances: isSameWallet ? current.walletBalances : {},
         vaultTransactions: isSameWallet ? current.vaultTransactions : [],
-        walletBalancesMessage: nextAddress ? "Reading wallet token balances..." : undefined,
-        walletBalancesStatus: nextAddress ? "loading" : "idle",
+        walletBalancesMessage: canReadTokenBalances ? "Reading wallet token balances..." : undefined,
+        walletBalancesStatus: canReadTokenBalances ? "loading" : "idle",
       };
     });
   }, []);
@@ -116,7 +119,7 @@ export function TerminalShell({
   }, [applySession, sessionOverride]);
 
   useEffect(() => {
-    if (!portfolio.connected || !portfolio.address) return;
+    if (!portfolio.connected || !portfolio.address || !evmAddressPattern.test(portfolio.address)) return;
 
     let isCurrent = true;
     const walletAddress = portfolio.address;
@@ -184,14 +187,22 @@ export function TerminalShell({
 
     if (mode === "smart") {
       if (isThirdwebConfigured()) {
+        window.dispatchEvent(new Event("conviction-ton-disconnect"));
         window.dispatchEvent(new Event("conviction-thirdweb-smart-connect"));
         return;
       }
 
-      triggerAlert("info", "Smart wallet auth is not configured yet. Use Other wallets for now.");
+      triggerAlert("info", "Smart wallet auth is not configured yet. Use EVM wallet sign-in or TON wallet.");
       return;
     }
 
+    if (mode === "ton") {
+      window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
+      window.dispatchEvent(new Event("conviction-ton-connect"));
+      return;
+    }
+
+    window.dispatchEvent(new Event("conviction-ton-disconnect"));
     window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
     const provider = await resolveEvmWalletProvider();
 
@@ -226,7 +237,7 @@ export function TerminalShell({
       setStoredBrowserWalletSession(body.data.session);
       setStoredBrowserSessionWalletKind("eoa");
       onSessionChange?.(body.data.session);
-      triggerAlert("success", "Wallet connected and registered with core.");
+      triggerAlert("success", "EVM wallet signed in and registered with core.");
       setWalletBalanceRefreshNonce((current) => current + 1);
     } catch {
       triggerAlert("info", "Wallet connection was cancelled or failed.");
@@ -235,6 +246,7 @@ export function TerminalShell({
 
   function handleDisconnectWallet() {
     window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
+    window.dispatchEvent(new Event("conviction-ton-disconnect"));
     applySession(null);
     setSessionWalletKind(null);
     clearStoredBrowserWalletSession();
@@ -273,6 +285,36 @@ export function TerminalShell({
     onSessionChange?.(null);
   }
 
+  function handleTonSessionReady(nextSession: UserSession) {
+    applySession(nextSession);
+    setSessionWalletKind("ton");
+    setStoredBrowserWalletSession(nextSession);
+    setStoredBrowserSessionWalletKind("ton");
+    onSessionChange?.(nextSession);
+  }
+
+  const handleTonWalletActive = useCallback((address: string) => {
+    setSessionWalletKind((current) => {
+      const activeAddress = portfolio.address;
+
+      if (activeAddress && activeAddress === address) {
+        setStoredBrowserSessionWalletKind("ton");
+        return "ton";
+      }
+
+      return current;
+    });
+  }, [portfolio.address]);
+
+  function handleTonDisconnectSession() {
+    if (sessionWalletKind !== "ton") return;
+
+    applySession(null);
+    setSessionWalletKind(null);
+    clearStoredBrowserWalletSession();
+    onSessionChange?.(null);
+  }
+
   function handleProfileClaimed(nextSession: UserSession) {
     applySession(nextSession);
     setStoredBrowserWalletSession(nextSession);
@@ -289,6 +331,13 @@ export function TerminalShell({
           onSessionReady={handleThirdwebSessionReady}
           onSmartWalletActive={handleSmartWalletActive}
           onStatus={triggerAlert}
+        />
+        <TonWalletBridge
+          activeAddress={portfolio.address}
+          onDisconnectSession={handleTonDisconnectSession}
+          onSessionReady={handleTonSessionReady}
+          onStatus={triggerAlert}
+          onTonWalletActive={handleTonWalletActive}
         />
       <RequiredVictionOnboarding
         onClaimed={handleProfileClaimed}

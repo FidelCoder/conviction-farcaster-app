@@ -27,7 +27,6 @@ export default async function TelegramMiniAppPage() {
   return (
     <>
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
-      <Script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js" strategy="afterInteractive" />
       <TelegramMiniApp marketCount={markets.length} markets={sortedMarkets.slice(0, 120).map(toMiniMarket)} />
     </>
   );

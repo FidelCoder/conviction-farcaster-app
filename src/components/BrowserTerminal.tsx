@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { encodeFunctionData, erc20Abi, parseAbi, parseUnits } from "viem";
 
-import { BrowserWalletMarks, GoogleWalletMark, ThirdwebMark } from "./AuthWalletMarks";
+import { BrowserWalletMarks, GoogleWalletMark, ThirdwebMark, TonWalletMark } from "./AuthWalletMarks";
 import { MobileWalletLauncher } from "./MobileWalletLauncher";
 import { RequiredVictionOnboarding } from "./RequiredVictionOnboarding";
 import { ThirdwebWalletBridge, ThirdwebWalletProvider } from "./ThirdwebWalletBridge";
+import { TonWalletBridge } from "./TonWalletBridge";
 import {
   clearStoredBrowserWalletSession,
   getSessionWalletAddress,
@@ -97,8 +98,8 @@ type ExecutionSettlementAttempt = {
 
 type AlertMessage = { type: "success" | "info"; text: string } | null;
 type DepositResult = VaultDepositTransaction | false;
-type SignInMode = "smart" | "eoa";
-type SessionWalletKind = "smart" | "eoa";
+type SignInMode = "smart" | "eoa" | "ton";
+type SessionWalletKind = "smart" | "eoa" | "ton";
 
 type SmartVaultTransactionResult = {
   approvalHash: string | null;
@@ -141,6 +142,7 @@ const TERMINAL_PATH_TABS: Record<string, TerminalTab> = {
   "/vaults": "vaults",
 };
 const TERMINAL_TAB_STORAGE_KEY = "conviction-active-terminal-tab";
+const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
 
 const emptyPortfolio: UserPortfolio = {
   connected: false,
@@ -229,6 +231,7 @@ export function BrowserTerminal({
 
       const nextAddress = getSessionWalletAddress(nextSession) ?? current.address;
       const isSameWallet = current.address?.toLowerCase() === nextAddress?.toLowerCase();
+      const canReadTokenBalances = Boolean(nextAddress && evmAddressPattern.test(nextAddress));
 
       return {
         ...current,
@@ -239,8 +242,8 @@ export function BrowserTerminal({
         vaultTotalBalances: isSameWallet ? current.vaultTotalBalances : {},
         walletBalances: isSameWallet ? current.walletBalances : {},
         vaultTransactions: isSameWallet ? current.vaultTransactions : [],
-        walletBalancesMessage: nextAddress ? "Reading wallet token balances..." : undefined,
-        walletBalancesStatus: nextAddress ? "loading" : "idle",
+        walletBalancesMessage: canReadTokenBalances ? "Reading wallet token balances..." : undefined,
+        walletBalancesStatus: canReadTokenBalances ? "loading" : "idle",
       };
     });
   }, []);
@@ -300,7 +303,7 @@ export function BrowserTerminal({
   }, [session]);
 
   useEffect(() => {
-    if (!portfolio.connected || !portfolio.address) return;
+    if (!portfolio.connected || !portfolio.address || !evmAddressPattern.test(portfolio.address)) return;
 
     let isCurrent = true;
     const walletAddress = portfolio.address;
@@ -376,14 +379,22 @@ export function BrowserTerminal({
 
     if (mode === "smart") {
       if (isThirdwebConfigured()) {
+        window.dispatchEvent(new Event("conviction-ton-disconnect"));
         window.dispatchEvent(new Event("conviction-thirdweb-smart-connect"));
         return;
       }
 
-      triggerAlert("info", "Smart wallet auth is not configured yet. Use EOA wallet sign-in.");
+      triggerAlert("info", "Smart wallet auth is not configured yet. Use EVM wallet sign-in or TON wallet.");
       return;
     }
 
+    if (mode === "ton") {
+      window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
+      window.dispatchEvent(new Event("conviction-ton-connect"));
+      return;
+    }
+
+    window.dispatchEvent(new Event("conviction-ton-disconnect"));
     window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
     const provider = await resolveEvmWalletProvider();
 
@@ -417,7 +428,7 @@ export function BrowserTerminal({
       setSessionWalletKind("eoa");
       setStoredBrowserWalletSession(body.data.session);
       setStoredBrowserSessionWalletKind("eoa");
-      triggerAlert("success", "EOA wallet signed in and registered with core.");
+      triggerAlert("success", "EVM wallet signed in and registered with core.");
     } catch {
       triggerAlert("info", "Wallet connection was cancelled or failed.");
     }
@@ -430,6 +441,7 @@ export function BrowserTerminal({
 
   function handleDisconnectWallet() {
     window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
+    window.dispatchEvent(new Event("conviction-ton-disconnect"));
     applySession(null);
     setSessionWalletKind(null);
     clearStoredBrowserWalletSession();
@@ -457,6 +469,35 @@ export function BrowserTerminal({
   }, [portfolio.address]);
 
   function handleThirdwebDisconnectSession() {
+    applySession(null);
+    setSessionWalletKind(null);
+    clearStoredBrowserWalletSession();
+  }
+
+  function handleTonSessionReady(nextSession: UserSession) {
+    applySession(nextSession);
+    setSessionWalletKind("ton");
+    setStoredBrowserWalletSession(nextSession);
+    setStoredBrowserSessionWalletKind("ton");
+    triggerAlert("success", "TON wallet signed in and registered with core.");
+  }
+
+  const handleTonWalletActive = useCallback((address: string) => {
+    setSessionWalletKind((current) => {
+      const activeAddress = portfolio.address;
+
+      if (activeAddress && activeAddress === address) {
+        setStoredBrowserSessionWalletKind("ton");
+        return "ton";
+      }
+
+      return current;
+    });
+  }, [portfolio.address]);
+
+  function handleTonDisconnectSession() {
+    if (sessionWalletKind !== "ton") return;
+
     applySession(null);
     setSessionWalletKind(null);
     clearStoredBrowserWalletSession();
@@ -973,6 +1014,13 @@ export function BrowserTerminal({
           onSmartWalletActive={handleSmartWalletActive}
           onStatus={triggerAlert}
         />
+        <TonWalletBridge
+          activeAddress={portfolio.address}
+          onDisconnectSession={handleTonDisconnectSession}
+          onSessionReady={handleTonSessionReady}
+          onStatus={triggerAlert}
+          onTonWalletActive={handleTonWalletActive}
+        />
         <RequiredVictionOnboarding
           onClaimed={handleProfileClaimed}
           session={session}
@@ -1127,7 +1175,7 @@ function SignInChoiceDialog({
         <div className="viction-onboarding-heading">
           <span>Sign in</span>
           <h2 id="sign-in-choice-title">Choose how to enter</h2>
-          <p>Use Google for a smart wallet or connect the self-custody wallet where you already hold funds.</p>
+          <p>Choose Google smart wallet, TON wallet, or the EVM wallet where you already hold funds.</p>
         </div>
         <div className="sign-in-choice-grid">
           <button className="sign-in-choice-option" onClick={() => onSelect("smart")} type="button">
@@ -1136,9 +1184,15 @@ function SignInChoiceDialog({
             <strong>Smart wallet</strong>
             <ThirdwebMark />
           </button>
+          <button className="sign-in-choice-option" onClick={() => onSelect("ton")} type="button">
+            <TonWalletMark className="sign-in-choice-mark" />
+            <span>TON</span>
+            <strong>TON wallet</strong>
+            <small>Tonkeeper, Telegram Wallet, MyTonWallet, and other TON Connect wallets.</small>
+          </button>
           <button className="sign-in-choice-option" onClick={() => onSelect("eoa")} type="button">
             <BrowserWalletMarks className="sign-in-choice-marks" />
-            <span>Other wallets</span>
+            <span>EVM wallets</span>
             <strong>Self-custody wallet</strong>
             <small>MetaMask, Coinbase, Trust Wallet, Rabby, Phantom, OKX, and other EOA wallets.</small>
           </button>

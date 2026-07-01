@@ -2,7 +2,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import type { UserSession } from "../../lib/core-api";
-import { BrowserWalletMarks, GoogleWalletMark, ThirdwebMark } from "../../components/AuthWalletMarks";
+import { BrowserWalletMarks, GoogleWalletMark, ThirdwebMark, TonWalletMark } from "../../components/AuthWalletMarks";
 import type { PortfolioWalletBalance, UserPortfolio } from "../types";
 import { Bell, BookOpen, Briefcase, Check, Copy, HelpCircle, LogOut, Menu, Settings, Wallet } from "lucide-react";
 
@@ -10,7 +10,7 @@ interface HeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   portfolio: UserPortfolio;
-  onConnectWallet: (mode?: "smart" | "eoa") => void;
+  onConnectWallet: (mode?: "smart" | "eoa" | "ton") => void;
   onOpenSignInMenu?: () => void;
   onDisconnectWallet?: () => void;
   onOpenMenu?: () => void;
@@ -100,7 +100,7 @@ export default function Header({
     window.location.href = tab.href;
   }
 
-  function handleSignInMode(mode: "smart" | "eoa") {
+  function handleSignInMode(mode: "smart" | "eoa" | "ton") {
     setWalletMenuOpen(false);
     onConnectWallet(mode);
   }
@@ -295,7 +295,7 @@ export default function Header({
                 <>
                   <div className="border-b border-[#262626] px-3 py-3">
                     <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">Choose sign-in method</p>
-                    <p className="mt-1 text-xs leading-relaxed text-[#ccc3d8]/80">Start with Google smart wallet or use the wallet where you already hold funds.</p>
+                    <p className="mt-1 text-xs leading-relaxed text-[#ccc3d8]/80">Start with Google smart wallet, TON wallet, or an EVM wallet where you already hold funds.</p>
                   </div>
                   <button
                     className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-white/5"
@@ -312,13 +312,25 @@ export default function Header({
                   </button>
                   <button
                     className="flex w-full items-center gap-3 border-t border-[#262626] px-3 py-3 text-left transition-colors hover:bg-white/5"
+                    onClick={() => handleSignInMode("ton")}
+                    role="menuitem"
+                    type="button"
+                  >
+                    <TonWalletMark className="h-9 w-9" />
+                    <span>
+                      <strong className="block font-mono text-[10px] uppercase tracking-widest text-white">TON wallet</strong>
+                      <small className="mt-1 block text-xs leading-relaxed text-[#ccc3d8]/75">Tonkeeper, Telegram Wallet, MyTonWallet, and more</small>
+                    </span>
+                  </button>
+                  <button
+                    className="flex w-full items-center gap-3 border-t border-[#262626] px-3 py-3 text-left transition-colors hover:bg-white/5"
                     onClick={() => handleSignInMode("eoa")}
                     role="menuitem"
                     type="button"
                   >
                     <BrowserWalletMarks className="scale-90 origin-left" />
                     <span>
-                      <strong className="block font-mono text-[10px] uppercase tracking-widest text-white">Other wallets</strong>
+                      <strong className="block font-mono text-[10px] uppercase tracking-widest text-white">EVM wallets</strong>
                       <small className="mt-1 block text-xs leading-relaxed text-[#ccc3d8]/75">MetaMask, Coinbase, Trust Wallet, and more</small>
                     </span>
                   </button>
@@ -359,6 +371,7 @@ function getWalletButtonLabel(portfolio: UserPortfolio, balances: PortfolioWalle
   if (totals.WETH !== undefined) return formatTokenAmount(totals.WETH, "WETH");
   if (portfolio.usdcBalance > 0) return formatTokenAmount(portfolio.usdcBalance, "USDC");
   if (portfolio.wethBalance > 0) return formatTokenAmount(portfolio.wethBalance, "WETH");
+  if (portfolio.address && !portfolio.address.startsWith("0x")) return "TON ACTIVE";
 
   return "0.00 USDC";
 }
