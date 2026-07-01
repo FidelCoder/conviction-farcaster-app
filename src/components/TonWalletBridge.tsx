@@ -13,10 +13,13 @@ type TonConnectUI = {
   connectWallet: () => Promise<TonWalletInfo | null>;
   disconnect: () => Promise<void>;
   onStatusChange: (callback: (wallet: TonWalletInfo | null) => void) => () => void;
+  openModal?: () => Promise<void>;
+  uiOptions?: { twaReturnUrl?: string };
   wallet?: TonWalletInfo | null;
 };
 
 type TonConnectUIConstructor = new (options: { manifestUrl: string; buttonRootId?: string }) => TonConnectUI;
+const TELEGRAM_TWA_RETURN_URL = "https://t.me/ConvictionMarkets_bot";
 
 type TonSessionResponse =
   | { ok: true; data: { session: UserSession } }
@@ -91,6 +94,7 @@ export function TonWalletBridge({
       if (cancelled) return;
 
       const ui = new constructor({ manifestUrl: window.location.origin + "/tonconnect-manifest.json" });
+      if (isTelegramMiniApp()) ui.uiOptions = { twaReturnUrl: TELEGRAM_TWA_RETURN_URL };
       setTonUi(ui);
 
       if (ui.wallet?.account?.address) {
@@ -122,7 +126,7 @@ export function TonWalletBridge({
         onStatus("info", "TON Connect is still loading. Try again in a moment.");
         return;
       }
-      void tonUi.connectWallet().catch(() => {
+      void (tonUi.openModal ? tonUi.openModal() : tonUi.connectWallet()).catch(() => {
         onStatus("info", "TON wallet connection was cancelled or failed.");
       });
     }
@@ -149,4 +153,9 @@ export function TonWalletBridge({
 
 function shortAddress(address: string) {
   return address.slice(0, 6) + "..." + address.slice(-4);
+}
+
+function isTelegramMiniApp() {
+  if (typeof window === "undefined") return false;
+  return Boolean((window as Window & { Telegram?: { WebApp?: unknown } }).Telegram?.WebApp);
 }

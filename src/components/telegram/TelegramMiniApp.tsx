@@ -54,11 +54,14 @@ type TonConnectUI = {
   connectWallet: () => Promise<TonWalletInfo | null>;
   disconnect: () => Promise<void>;
   onStatusChange: (callback: (wallet: TonWalletInfo | null) => void) => () => void;
+  openModal?: () => Promise<void>;
+  uiOptions?: { twaReturnUrl?: string };
   wallet?: TonWalletInfo | null;
 };
 
 type TonConnectUIConstructor = new (options: { manifestUrl: string; buttonRootId?: string }) => TonConnectUI;
 
+const TELEGRAM_TWA_RETURN_URL = "https://t.me/ConvictionMarkets_bot";
 const tabs: MiniTab[] = ["Markets", "Pulse", "Margin", "Vaults", "Wallet"];
 const tonAssets = ["TON", "USDT", "STON"];
 const evmChains = [
@@ -130,6 +133,7 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
       if (cancelled) return;
 
       const ui = new constructor({ manifestUrl: window.location.origin + "/tonconnect-manifest.json" });
+      ui.uiOptions = { twaReturnUrl: TELEGRAM_TWA_RETURN_URL };
       setTonUi(ui);
       setTonWallet(ui.wallet ?? null);
       if (ui.wallet?.account?.address) void createTonSession(ui.wallet.account.address);
@@ -219,6 +223,11 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
       return;
     }
     try {
+      setStatus({ tone: "info", text: "Choose a TON wallet, approve the connection, then return to Conviction in Telegram." });
+      if (tonUi.openModal) {
+        await tonUi.openModal();
+        return;
+      }
       await tonUi.connectWallet();
     } catch {
       setStatus({ tone: "error", text: "TON wallet connection was cancelled or failed." });
