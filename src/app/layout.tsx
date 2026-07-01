@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import type { ReactNode } from "react";
 
 import { AppHeader } from "../components/AppHeader";
@@ -205,6 +206,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         <div className="site-backdrop" aria-hidden="true" />
         <AppHeader />
         <MiniAppReady />
+        <Script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js" strategy="afterInteractive" />
         {children}
       </body>
     </html>

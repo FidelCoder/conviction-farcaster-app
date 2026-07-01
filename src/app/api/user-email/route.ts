@@ -12,10 +12,11 @@ export async function PATCH(request: Request) {
   }
 
   const walletAddress = stringField(body, "walletAddress");
+  const userId = stringField(body, "userId");
   const email = stringField(body, "email");
 
-  if (!evmAddressPattern.test(walletAddress)) {
-    return validationError("Connect a valid EVM wallet before updating email.");
+  if (!userId && !evmAddressPattern.test(walletAddress)) {
+    return validationError("Sign in with a supported wallet before updating email.");
   }
 
   if (!email || !email.includes("@")) {
@@ -23,9 +24,15 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const session = await createBrowserWalletSession({ walletAddress });
-    const result = await updateUserEmail(session.user.id, email);
-    const nextSession = { ...session, user: { ...session.user, email: result.email } };
+    const session = userId ? null : await createBrowserWalletSession({ walletAddress });
+    const profileUserId = userId || session?.user.id;
+
+    if (!profileUserId) {
+      return validationError("A signed-in user is required before updating email.");
+    }
+
+    const result = await updateUserEmail(profileUserId, email);
+    const nextSession = session ? { ...session, user: { ...session.user, email: result.email } } : null;
 
     return NextResponse.json({ ok: true, data: { email: result.email, session: nextSession } });
   } catch (error) {

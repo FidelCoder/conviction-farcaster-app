@@ -11,7 +11,7 @@ import {
 } from "../lib/viction-profile";
 
 type ProfileClaimResponse =
-  | { ok: true; data: { session: UserSession } }
+  | { ok: true; data: { session: UserSession | null; traderProfile?: UserSession["traderProfile"] } }
   | { ok: false; error: { code: string; message: string } };
 
 const ONBOARDING_AVATARS = [
@@ -66,11 +66,6 @@ export function RequiredVictionOnboarding({
 
     if (!session) return;
 
-    if (!walletAddress) {
-      setStatus({ type: "error", message: "Finish wallet sign-in before claiming your .viction identity." });
-      return;
-    }
-
     const cleanHandle = normalizeVictionHandle(handle);
 
     if (cleanHandle.length < 2) {
@@ -85,6 +80,7 @@ export function RequiredVictionOnboarding({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          userId: session.user.id,
           walletAddress,
           handle: buildVictionHandle(cleanHandle),
           bio: bio.trim() || null,
@@ -101,13 +97,16 @@ export function RequiredVictionOnboarding({
         return;
       }
 
-      let nextSession = profileBody.data.session;
+      let nextSession = profileBody.data.session ?? {
+        ...session,
+        traderProfile: profileBody.data.traderProfile ?? session.traderProfile,
+      };
 
       if (email.trim()) {
         const emailResponse = await fetch("/api/user-email", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ walletAddress, email: email.trim() }),
+          body: JSON.stringify({ userId: session.user.id, walletAddress, email: email.trim() }),
         });
         const emailBody = (await emailResponse.json()) as ProfileClaimResponse;
 

@@ -72,7 +72,6 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
   const [query, setQuery] = useState("");
   const [topic, setTopic] = useState("All");
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
-  const [telegramSession, setTelegramSession] = useState<UserSession | null>(null);
   const [tonSession, setTonSession] = useState<UserSession | null>(null);
   const [tonUi, setTonUi] = useState<TonConnectUI | null>(null);
   const [tonWallet, setTonWallet] = useState<TonWalletInfo | null>(null);
@@ -112,24 +111,54 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
   }, []);
 
   useEffect(() => {
-    const constructor = (window as Window & { TON_CONNECT_UI?: { TonConnectUI?: TonConnectUIConstructor } }).TON_CONNECT_UI?.TonConnectUI;
-    if (!constructor || tonUi) return;
-    const ui = new constructor({ manifestUrl: window.location.origin + "/tonconnect-manifest.json" });
-    setTonUi(ui);
-    setTonWallet(ui.wallet ?? null);
-    return ui.onStatusChange((wallet) => {
-      setTonWallet(wallet);
-      if (wallet?.account?.address) {
-        void createTonSession(wallet.account.address);
+    if (tonUi) return;
+
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+    let attempts = 0;
+    let timer: number | undefined;
+
+    function boot() {
+      const constructor = (window as Window & { TON_CONNECT_UI?: { TonConnectUI?: TonConnectUIConstructor } }).TON_CONNECT_UI?.TonConnectUI;
+
+      if (!constructor) {
+        attempts += 1;
+        if (attempts <= 40) timer = window.setTimeout(boot, 150);
+        return;
       }
-    });
+
+      if (cancelled) return;
+
+      const ui = new constructor({ manifestUrl: window.location.origin + "/tonconnect-manifest.json" });
+      setTonUi(ui);
+      setTonWallet(ui.wallet ?? null);
+      if (ui.wallet?.account?.address) void createTonSession(ui.wallet.account.address);
+
+      unsubscribe = ui.onStatusChange((wallet) => {
+        setTonWallet(wallet);
+        if (wallet?.account?.address) {
+          void createTonSession(wallet.account.address);
+        } else {
+          setTonSession(null);
+        }
+      });
+    }
+
+    boot();
+
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+      unsubscribe?.();
+    };
   }, [tonUi]);
 
-  const activeSession = tonSession ?? telegramSession;
-  const activeProfile = activeSession?.traderProfile ?? null;
-  const activeUserId = activeSession?.user.id ?? telegramSession?.user.id ?? null;
   const tonAddress = tonWallet?.account?.address ?? null;
-  const displayName = activeProfile?.handle ?? telegramName(telegramUser) ?? "Telegram trader";
+  const activeSession = tonSession;
+  const activeProfile = activeSession?.traderProfile ?? null;
+  const activeUserId = activeSession?.user.id ?? null;
+  const telegramLabel = telegramName(telegramUser) ?? "Telegram trader";
+  const displayName = activeProfile?.handle ?? telegramLabel;
   const selectedMarket = markets.find((market) => market.id === selectedMarketId) ?? markets[0] ?? null;
 
   const topics = useMemo(() => {
@@ -164,7 +193,7 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
         }),
       });
       const body = (await response.json()) as { ok: true; data: { session: UserSession } } | { ok: false; error: { message: string } };
-      if (response.ok && body.ok) setTelegramSession(body.data.session);
+      if (!response.ok || !body.ok) throw new Error(body.ok ? "Telegram session failed." : body.error.message);
     } catch {
       setStatus({ tone: "error", text: "Telegram session could not be created. You can still browse markets." });
     }
@@ -207,8 +236,12 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
   }
 
   async function claimProfile() {
+    if (!tonAddress) {
+      setStatus({ tone: "error", text: "Connect a TON wallet before claiming your .viction identity." });
+      return;
+    }
     if (!activeUserId) {
-      setStatus({ tone: "error", text: "Open this Mini App from Telegram or connect TON first." });
+      setStatus({ tone: "error", text: "TON session is still syncing. Try again in a moment." });
       return;
     }
     const handle = cleanHandle(claimHandle);
@@ -233,7 +266,6 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
         setStatus({ tone: "error", text: body.ok ? "Profile claim failed." : body.error.message });
         return;
       }
-      setTelegramSession((current) => (current && current.user.id === activeUserId ? { ...current, traderProfile: body.data.traderProfile } : current));
       setTonSession((current) => (current && current.user.id === activeUserId ? { ...current, traderProfile: body.data.traderProfile } : current));
       setStatus({ tone: "success", text: "Claimed " + handle + ".viction" });
     } catch {
@@ -255,8 +287,8 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
   }
 
   async function publishPulse() {
-    if (!activeUserId) {
-      setStatus({ tone: "error", text: "Sign in from Telegram or connect TON before posting." });
+    if (!tonAddress || !activeUserId) {
+      setStatus({ tone: "error", text: "Connect a TON wallet before posting." });
       return;
     }
     if (!activeProfile) {
@@ -301,8 +333,8 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
   }
 
   async function requestMargin() {
-    if (!activeUserId || !selectedMarket) {
-      setStatus({ tone: "error", text: "Select a market and sign in first." });
+    if (!tonAddress || !activeUserId || !selectedMarket) {
+      setStatus({ tone: "error", text: "Connect a TON wallet and select a market first." });
       return;
     }
     if (!activeProfile) {
@@ -351,7 +383,11 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
       return;
     }
     if (!activeUserId) {
-      setStatus({ tone: "error", text: "Session is not ready yet. Try again in a moment." });
+      setStatus({ tone: "error", text: "TON session is not ready yet. Try again in a moment." });
+      return;
+    }
+    if (!activeProfile) {
+      setStatus({ tone: "error", text: "Claim your .viction profile before preparing vault liquidity." });
       return;
     }
     setSaving(true);
@@ -399,12 +435,13 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
           </div>
         </div>
         <div className="telegram-mini-status" data-ready={activeProfile ? "true" : "false"}>
-          <span>{activeProfile ? "Profile ready" : "Claim profile"}</span>
+          <span>{activeProfile ? "Profile ready" : tonAddress ? "Claim profile" : "Connect TON"}</span>
           <strong>{marketCount} markets</strong>
         </div>
         <div className="telegram-mini-copy">
           <h1>Markets, Pulse, margin, and TON liquidity inside Telegram.</h1>
           <p>Find events, post market calls, request margin, and prepare TON vault liquidity from the mobile Mini App.</p>
+          <small className="telegram-mini-telegram-user">Detected {telegramLabel}</small>
         </div>
         <div className="telegram-mini-actions">
           <button type="button" onClick={() => setActiveTab("Markets")}>Find markets <ArrowRight size={15} /></button>
@@ -419,16 +456,25 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
             <Sparkles size={18} />
             <div>
               <span>.viction profile required</span>
-              <strong>Claim your trading identity</strong>
+              <strong>{tonAddress ? "Claim your trading identity" : "Connect TON wallet first"}</strong>
             </div>
           </div>
-          <div className="telegram-mini-handle-row">
-            <input value={claimHandle} onChange={(event) => setClaimHandle(cleanHandle(event.target.value))} placeholder="griffins" />
-            <span>.viction</span>
-          </div>
-          <button className="telegram-mini-primary" type="button" disabled={saving || !activeUserId} onClick={claimProfile}>
-            {saving ? "Claiming..." : "Claim profile"}
-          </button>
+          <p className="telegram-mini-muted-copy">
+            Detected {telegramLabel}. Connect a TON wallet, then claim the .viction name attached to that wallet before posting, margin, or vault actions.
+          </p>
+          {tonAddress ? (
+            <>
+              <div className="telegram-mini-handle-row">
+                <input value={claimHandle} onChange={(event) => setClaimHandle(cleanHandle(event.target.value))} placeholder="griffins" />
+                <span>.viction</span>
+              </div>
+              <button className="telegram-mini-primary" type="button" disabled={saving || !activeUserId} onClick={claimProfile}>
+                {saving ? "Claiming..." : "Claim profile"}
+              </button>
+            </>
+          ) : (
+            <button className="telegram-mini-primary" type="button" onClick={connectTonWallet}>Connect TON wallet</button>
+          )}
         </section>
       ) : null}
 
@@ -484,7 +530,7 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
                 <label>Conviction {convictionLevel}%<input type="range" min="1" max="100" value={convictionLevel} onChange={(event) => setConvictionLevel(Number(event.target.value))} /></label>
               </div>
             ) : null}
-            <button className="telegram-mini-primary" type="button" disabled={saving || !pulseBody.trim()} onClick={publishPulse}>Publish <Send size={15} /></button>
+            <button className="telegram-mini-primary" type="button" disabled={saving || !pulseBody.trim() || !activeProfile} onClick={publishPulse}>Publish <Send size={15} /></button>
           </div>
           <div className="telegram-mini-section-title">
             <MessageCircle size={18} />
@@ -514,7 +560,7 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
           </div>
           <label className="telegram-mini-amount">EVM wallet for current vault rails<input value={evmWallet} onChange={(event) => setEvmWallet(event.target.value)} placeholder="0x..." /></label>
           <label className="telegram-mini-amount">Chain<select value={chainId} onChange={(event) => setChainId(event.target.value)}>{evmChains.map((chain) => <option key={chain.id} value={chain.id}>{chain.label}</option>)}</select></label>
-          <button className="telegram-mini-primary" type="button" disabled={saving || !selectedMarket} onClick={requestMargin}>Request margin <BarChart3 size={15} /></button>
+          <button className="telegram-mini-primary" type="button" disabled={saving || !selectedMarket || !activeProfile} onClick={requestMargin}>Request margin <BarChart3 size={15} /></button>
           <div className="telegram-mini-note">Today’s executable vault rails are EVM. TON margin is tracked separately until the TON vault contract is deployed.</div>
         </section>
       ) : null}
@@ -533,7 +579,7 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
             <label>Asset<select value={vaultAsset} onChange={(event) => setVaultAsset(event.target.value)}>{tonAssets.map((asset) => <option key={asset}>{asset}</option>)}</select></label>
             <label>Amount<input value={vaultAmount} onChange={(event) => setVaultAmount(event.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" /></label>
           </div>
-          <button className="telegram-mini-primary" type="button" disabled={saving || !tonAddress} onClick={requestTonVault}>Record liquidity intent <ShieldCheck size={15} /></button>
+          <button className="telegram-mini-primary" type="button" disabled={saving || !tonAddress || !activeProfile} onClick={requestTonVault}>Record liquidity intent <ShieldCheck size={15} /></button>
           <MiniFeature icon={<CheckCircle2 size={19} />} title="EVM vaults remain active" body="Use the full app for Base, Ethereum, and Arbitrum Sepolia vault deposits while TON vault custody is prepared." href="/vaults" cta="Open full vaults" />
         </section>
       ) : null}
