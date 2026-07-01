@@ -14,12 +14,21 @@ type TonConnectUI = {
   disconnect: () => Promise<void>;
   onStatusChange: (callback: (wallet: TonWalletInfo | null) => void) => () => void;
   openModal?: () => Promise<void>;
-  uiOptions?: { actionsConfiguration?: { returnStrategy?: "back" | "none" | `${string}://${string}`; twaReturnUrl?: `${string}://${string}` } };
   wallet?: TonWalletInfo | null;
 };
 
-type TonConnectUIConstructor = new (options: { manifestUrl: string; buttonRootId?: string }) => TonConnectUI;
-const TELEGRAM_TWA_RETURN_URL = "https://t.me/ConvictionMarkets_bot/Conviction";
+type TonConnectActionsConfiguration = {
+  returnStrategy?: "back" | "none" | `${string}://${string}`;
+  twaReturnUrl?: `${string}://${string}`;
+};
+
+type TonConnectUIConstructor = new (options: {
+  manifestUrl: string;
+  buttonRootId?: string | null;
+  actionsConfiguration?: TonConnectActionsConfiguration;
+  enableAndroidBackHandler?: boolean;
+}) => TonConnectUI;
+const TELEGRAM_BOT_URL = "https://t.me/ConvictionMarkets_bot";
 
 type TonSessionResponse =
   | { ok: true; data: { session: UserSession } }
@@ -93,8 +102,11 @@ export function TonWalletBridge({
 
       if (cancelled) return;
 
-      const ui = new constructor({ manifestUrl: window.location.origin + "/tonconnect-manifest.json" });
-      if (isTelegramMiniApp()) ui.uiOptions = { actionsConfiguration: { returnStrategy: "back", twaReturnUrl: TELEGRAM_TWA_RETURN_URL } };
+      const ui = new constructor({
+        manifestUrl: window.location.origin + "/tonconnect-manifest.json",
+        buttonRootId: null,
+        ...(isTelegramMiniApp() ? { actionsConfiguration: getTonConnectActionsConfiguration(), enableAndroidBackHandler: false } : {}),
+      });
       setTonUi(ui);
 
       if (ui.wallet?.account?.address) {
@@ -149,6 +161,22 @@ export function TonWalletBridge({
 
 
   return null;
+}
+
+function getTonConnectActionsConfiguration(): TonConnectActionsConfiguration {
+  return {
+    returnStrategy: "back",
+    twaReturnUrl: getTelegramTwaReturnUrl(),
+  };
+}
+
+function getTelegramTwaReturnUrl(): `${string}://${string}` {
+  const configuredUrl = process.env.NEXT_PUBLIC_TELEGRAM_TWA_RETURN_URL?.trim();
+  if (configuredUrl && /^https:\/\/t\.me\/[A-Za-z0-9_]+(?:\/[A-Za-z0-9_]+)?(?:\?.*)?$/.test(configuredUrl)) {
+    return configuredUrl as `${string}://${string}`;
+  }
+
+  return TELEGRAM_BOT_URL;
 }
 
 function shortAddress(address: string) {

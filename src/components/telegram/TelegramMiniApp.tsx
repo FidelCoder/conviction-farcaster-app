@@ -55,13 +55,22 @@ type TonConnectUI = {
   disconnect: () => Promise<void>;
   onStatusChange: (callback: (wallet: TonWalletInfo | null) => void) => () => void;
   openModal?: () => Promise<void>;
-  uiOptions?: { actionsConfiguration?: { returnStrategy?: "back" | "none" | `${string}://${string}`; twaReturnUrl?: `${string}://${string}` } };
   wallet?: TonWalletInfo | null;
 };
 
-type TonConnectUIConstructor = new (options: { manifestUrl: string; buttonRootId?: string }) => TonConnectUI;
+type TonConnectActionsConfiguration = {
+  returnStrategy?: "back" | "none" | `${string}://${string}`;
+  twaReturnUrl?: `${string}://${string}`;
+};
 
-const TELEGRAM_TWA_RETURN_URL = "https://t.me/ConvictionMarkets_bot/Conviction";
+type TonConnectUIConstructor = new (options: {
+  manifestUrl: string;
+  buttonRootId?: string | null;
+  actionsConfiguration?: TonConnectActionsConfiguration;
+  enableAndroidBackHandler?: boolean;
+}) => TonConnectUI;
+
+const TELEGRAM_BOT_URL = "https://t.me/ConvictionMarkets_bot";
 const tabs: MiniTab[] = ["Markets", "Pulse", "Margin", "Vaults", "Wallet"];
 const tonAssets = ["TON", "USDT", "STON"];
 const evmChains = [
@@ -132,8 +141,14 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
 
       if (cancelled) return;
 
-      const ui = new constructor({ manifestUrl: window.location.origin + "/tonconnect-manifest.json" });
-      ui.uiOptions = { actionsConfiguration: { returnStrategy: "back", twaReturnUrl: TELEGRAM_TWA_RETURN_URL } };
+      patchTelegramWalletLinkOpening();
+
+      const ui = new constructor({
+        manifestUrl: window.location.origin + "/tonconnect-manifest.json",
+        buttonRootId: null,
+        actionsConfiguration: getTonConnectActionsConfiguration(),
+        enableAndroidBackHandler: false,
+      });
       setTonUi(ui);
       setTonWallet(ui.wallet ?? null);
       if (ui.wallet?.account?.address) void createTonSession(ui.wallet.account.address);
@@ -639,6 +654,7 @@ type TelegramWebApp = {
   ready?: () => void;
   expand?: () => void;
   openTelegramLink?: (url: string) => void;
+  openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
   initDataUnsafe?: { user?: TelegramUser };
 };
 
@@ -650,6 +666,60 @@ function telegramName(user: TelegramUser | null) {
 
 function cleanHandle(value: string) {
   return value.toLowerCase().replace(/\.viction$/i, "").replace(/[^a-z0-9_-]/g, "").slice(0, 32);
+}
+
+function patchTelegramWalletLinkOpening() {
+  if (typeof window === "undefined") return;
+
+  const windowWithPatch = window as Window & {
+    __convictionTonWindowOpenPatched?: boolean;
+    __convictionOriginalWindowOpen?: typeof window.open;
+  };
+
+  if (windowWithPatch.__convictionTonWindowOpenPatched) return;
+
+  const telegram = getTelegramWebApp();
+  if (!telegram?.openLink && !telegram?.openTelegramLink) return;
+
+  const originalOpen = window.open.bind(window);
+  windowWithPatch.__convictionOriginalWindowOpen = originalOpen;
+  windowWithPatch.__convictionTonWindowOpenPatched = true;
+
+  window.open = function patchedTelegramWindowOpen(url?: string | URL, target?: string, features?: string): WindowProxy | null {
+    if (url) {
+      try {
+        const href = new URL(url.toString(), window.location.href);
+        if (href.protocol === "https:" && href.hostname === "t.me" && telegram.openTelegramLink) {
+          telegram.openTelegramLink(href.toString());
+          return null;
+        }
+        if (href.protocol === "https:" && href.hostname !== window.location.hostname && telegram.openLink) {
+          telegram.openLink(href.toString(), { try_instant_view: false });
+          return null;
+        }
+      } catch {
+        // Fall back to the browser implementation for non-URL inputs.
+      }
+    }
+
+    return originalOpen(url, target, features);
+  };
+}
+
+function getTonConnectActionsConfiguration(): TonConnectActionsConfiguration {
+  return {
+    returnStrategy: "back",
+    twaReturnUrl: getTelegramTwaReturnUrl(),
+  };
+}
+
+function getTelegramTwaReturnUrl(): `${string}://${string}` {
+  const configuredUrl = process.env.NEXT_PUBLIC_TELEGRAM_TWA_RETURN_URL?.trim();
+  if (configuredUrl && /^https:\/\/t\.me\/[A-Za-z0-9_]+(?:\/[A-Za-z0-9_]+)?(?:\?.*)?$/.test(configuredUrl)) {
+    return configuredUrl as `${string}://${string}`;
+  }
+
+  return TELEGRAM_BOT_URL;
 }
 
 function shortAddress(address: string) {
