@@ -206,7 +206,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         <div className="site-backdrop" aria-hidden="true" />
         <AppHeader />
         <MiniAppReady />
-        <Script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js" strategy="afterInteractive" />
+        <Script src="https://unpkg.com/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js" strategy="afterInteractive" />
         {children}
       </body>
     </html>
