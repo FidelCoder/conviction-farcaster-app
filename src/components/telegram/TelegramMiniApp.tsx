@@ -7,17 +7,17 @@ import {
   ArrowRight,
   BarChart3,
   BellRing,
-  Bot,
+  CheckCircle2,
   ExternalLink,
   MessageCircle,
-  RefreshCw,
   Search,
+  Send,
   ShieldCheck,
   Sparkles,
   Wallet,
 } from "lucide-react";
 
-import type { OmnistonQuoteSummary, OmnistonStatus } from "../../lib/core-api";
+import type { SocialTimelineEvent, UserSession } from "../../lib/core-api";
 
 export type TelegramMiniMarket = {
   id: string;
@@ -32,8 +32,6 @@ export type TelegramMiniMarket = {
 type TelegramMiniAppProps = {
   marketCount: number;
   markets: TelegramMiniMarket[];
-  omniston: OmnistonStatus;
-  summary: OmnistonQuoteSummary;
 };
 
 type TelegramUser = {
@@ -41,118 +39,358 @@ type TelegramUser = {
   first_name?: string;
   last_name?: string;
   username?: string;
+  photo_url?: string;
 };
 
-type QuoteState =
-  | { status: "idle"; message: string | null }
-  | { status: "loading"; message: string | null }
-  | { status: "quoted"; message: string; outputAmount: string; resolverName: string; routeCount: number | null }
-  | { status: "error"; message: string };
+type MiniTab = "Markets" | "Pulse" | "Margin" | "Vaults" | "Wallet";
+type Side = "YES" | "NO";
 
-const amountPresets = [
-  { label: "1 TON", from: "TON", to: "USDT", units: "1000000000" },
-  { label: "10 USDT", from: "USDT", to: "TON", units: "10000000" },
-  { label: "25 USDT", from: "USDT", to: "STON", units: "25000000" },
+type TonWalletInfo = {
+  account?: { address?: string; chain?: string; publicKey?: string };
+  device?: { appName?: string };
+};
+
+type TonConnectUI = {
+  connectWallet: () => Promise<TonWalletInfo | null>;
+  disconnect: () => Promise<void>;
+  onStatusChange: (callback: (wallet: TonWalletInfo | null) => void) => () => void;
+  wallet?: TonWalletInfo | null;
+};
+
+type TonConnectUIConstructor = new (options: { manifestUrl: string; buttonRootId?: string }) => TonConnectUI;
+
+const tabs: MiniTab[] = ["Markets", "Pulse", "Margin", "Vaults", "Wallet"];
+const tonAssets = ["TON", "USDT", "STON"];
+const evmChains = [
+  { id: 84532, label: "Base Sepolia" },
+  { id: 11155111, label: "Ethereum Sepolia" },
+  { id: 421614, label: "Arbitrum Sepolia" },
 ];
 
-const tabs = ["Markets", "Quote", "Vaults", "Pulse", "Support"] as const;
-type MiniTab = (typeof tabs)[number];
-
-export function TelegramMiniApp({ marketCount, markets, omniston, summary }: TelegramMiniAppProps) {
+export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) {
   const [activeTab, setActiveTab] = useState<MiniTab>("Markets");
   const [query, setQuery] = useState("");
   const [topic, setTopic] = useState("All");
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
-  const [quoteInput, setQuoteInput] = useState({ fromAsset: "TON", toAsset: "USDT", amountUnits: "1000000000" });
-  const [quoteState, setQuoteState] = useState<QuoteState>({ status: "idle", message: null });
+  const [telegramSession, setTelegramSession] = useState<UserSession | null>(null);
+  const [tonSession, setTonSession] = useState<UserSession | null>(null);
+  const [tonUi, setTonUi] = useState<TonConnectUI | null>(null);
+  const [tonWallet, setTonWallet] = useState<TonWalletInfo | null>(null);
+  const [selectedMarketId, setSelectedMarketId] = useState(markets[0]?.id ?? "");
+  const [pulseEvents, setPulseEvents] = useState<SocialTimelineEvent[]>([]);
+  const [pulseBody, setPulseBody] = useState("");
+  const [signalMode, setSignalMode] = useState(false);
+  const [side, setSide] = useState<Side>("YES");
+  const [convictionLevel, setConvictionLevel] = useState(70);
+  const [marginAmount, setMarginAmount] = useState("10");
+  const [marginLeverage, setMarginLeverage] = useState("3");
+  const [evmWallet, setEvmWallet] = useState("");
+  const [chainId, setChainId] = useState("84532");
+  const [vaultAmount, setVaultAmount] = useState("5");
+  const [vaultAsset, setVaultAsset] = useState("TON");
+  const [status, setStatus] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
+  const [loadingPulse, setLoadingPulse] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [claimHandle, setClaimHandle] = useState("");
 
   useEffect(() => {
     const telegram = getTelegramWebApp();
     telegram?.ready?.();
     telegram?.expand?.();
-    setTelegramUser(telegram?.initDataUnsafe?.user ?? null);
+    const user = telegram?.initDataUnsafe?.user ?? null;
+    setTelegramUser(user);
+    if (user?.username) setClaimHandle(cleanHandle(user.username));
   }, []);
+
+  useEffect(() => {
+    if (!telegramUser?.id) return;
+    void createTelegramSessionFromUser(telegramUser);
+  }, [telegramUser]);
+
+  useEffect(() => {
+    void loadPulse();
+  }, []);
+
+  useEffect(() => {
+    const constructor = (window as Window & { TON_CONNECT_UI?: { TonConnectUI?: TonConnectUIConstructor } }).TON_CONNECT_UI?.TonConnectUI;
+    if (!constructor || tonUi) return;
+    const ui = new constructor({ manifestUrl: window.location.origin + "/tonconnect-manifest.json" });
+    setTonUi(ui);
+    setTonWallet(ui.wallet ?? null);
+    return ui.onStatusChange((wallet) => {
+      setTonWallet(wallet);
+      if (wallet?.account?.address) {
+        void createTonSession(wallet.account.address);
+      }
+    });
+  }, [tonUi]);
+
+  const activeSession = tonSession ?? telegramSession;
+  const activeProfile = activeSession?.traderProfile ?? null;
+  const activeUserId = activeSession?.user.id ?? telegramSession?.user.id ?? null;
+  const tonAddress = tonWallet?.account?.address ?? null;
+  const displayName = activeProfile?.handle ?? telegramName(telegramUser) ?? "Telegram trader";
+  const selectedMarket = markets.find((market) => market.id === selectedMarketId) ?? markets[0] ?? null;
 
   const topics = useMemo(() => {
     const values = new Map<string, number>();
-    markets.forEach((market) => {
-      values.set(market.topic, (values.get(market.topic) ?? 0) + 1);
-    });
-
-    return ["All", ...[...values.entries()].sort((left, right) => right[1] - left[1]).map(([label]) => label)].slice(0, 10);
+    markets.forEach((market) => values.set(market.topic, (values.get(market.topic) ?? 0) + 1));
+    return ["All", ...[...values.entries()].sort((left, right) => right[1] - left[1]).map(([label]) => label)].slice(0, 12);
   }, [markets]);
 
   const filteredMarkets = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-
     return markets
       .filter((market) => {
-        const text = [market.title, market.category, market.topic, market.region]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
+        const text = [market.title, market.category, market.topic, market.region].join(" ").toLowerCase();
         if (topic !== "All" && market.topic !== topic) return false;
         if (normalizedQuery && !text.includes(normalizedQuery)) return false;
         return true;
       })
-      .slice(0, 18);
+      .slice(0, 24);
   }, [markets, query, topic]);
 
-  const featuredMarkets = filteredMarkets.slice(0, 5);
-  const displayName = telegramUser?.username
-    ? "@" + telegramUser.username
-    : telegramUser?.first_name
-      ? telegramUser.first_name
-      : "Telegram trader";
-
-  async function requestQuote() {
-    setQuoteState({ status: "loading", message: "Requesting quote-only route..." });
-
+  async function createTelegramSessionFromUser(user: TelegramUser) {
+    if (!user.id) return;
     try {
-      const response = await fetch("/api/omniston/quote", {
+      const response = await fetch("/api/telegram-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...quoteInput,
-          platformUserId: telegramUser?.id ? String(telegramUser.id) : null,
-          username: telegramUser?.username ?? null,
+          telegramUserId: String(user.id),
+          username: user.username ?? null,
+          displayName: [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username || null,
+          profileUrl: user.photo_url ?? null,
         }),
       });
-      const body = (await response.json()) as
-        | { ok: true; data: { quote: { outputAmount: string; resolverName: string; routeCount: number | null } } }
-        | { ok: false; error: { message: string } };
+      const body = (await response.json()) as { ok: true; data: { session: UserSession } } | { ok: false; error: { message: string } };
+      if (response.ok && body.ok) setTelegramSession(body.data.session);
+    } catch {
+      setStatus({ tone: "error", text: "Telegram session could not be created. You can still browse markets." });
+    }
+  }
 
+  async function createTonSession(address: string) {
+    try {
+      const response = await fetch("/api/ton-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tonAddress: address, displayName: "TON " + shortAddress(address) }),
+      });
+      const body = (await response.json()) as { ok: true; data: { session: UserSession } } | { ok: false; error: { message: string } };
+      if (response.ok && body.ok) setTonSession(body.data.session);
+    } catch {
+      setStatus({ tone: "error", text: "TON session could not be linked." });
+    }
+  }
+
+  async function connectTonWallet() {
+    if (!tonUi) {
+      setStatus({ tone: "error", text: "TON Connect is still loading. Try again in a moment." });
+      return;
+    }
+    try {
+      await tonUi.connectWallet();
+    } catch {
+      setStatus({ tone: "error", text: "TON wallet connection was cancelled or failed." });
+    }
+  }
+
+  async function disconnectTonWallet() {
+    try {
+      await tonUi?.disconnect();
+      setTonWallet(null);
+      setTonSession(null);
+    } catch {
+      setStatus({ tone: "error", text: "TON wallet disconnect failed." });
+    }
+  }
+
+  async function claimProfile() {
+    if (!activeUserId) {
+      setStatus({ tone: "error", text: "Open this Mini App from Telegram or connect TON first." });
+      return;
+    }
+    const handle = cleanHandle(claimHandle);
+    if (!handle || handle.length < 2) {
+      setStatus({ tone: "error", text: "Choose a readable .viction name." });
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await fetch("/api/trader-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: activeUserId,
+          handle: handle + ".viction",
+          bio: "Trading from Telegram",
+          avatarUrl: "/api/viction-avatar?seed=" + encodeURIComponent(handle),
+        }),
+      });
+      const body = (await response.json()) as { ok: true; data: { traderProfile: UserSession["traderProfile"] } } | { ok: false; error: { message: string } };
       if (!response.ok || !body.ok) {
-        setQuoteState({ status: "error", message: body.ok ? "Quote failed." : body.error.message });
+        setStatus({ tone: "error", text: body.ok ? "Profile claim failed." : body.error.message });
         return;
       }
-
-      setQuoteState({
-        status: "quoted",
-        message: "Quote-only route ready. No wallet transaction was submitted.",
-        outputAmount: body.data.quote.outputAmount,
-        resolverName: body.data.quote.resolverName,
-        routeCount: body.data.quote.routeCount,
-      });
+      setTelegramSession((current) => (current && current.user.id === activeUserId ? { ...current, traderProfile: body.data.traderProfile } : current));
+      setTonSession((current) => (current && current.user.id === activeUserId ? { ...current, traderProfile: body.data.traderProfile } : current));
+      setStatus({ tone: "success", text: "Claimed " + handle + ".viction" });
     } catch {
-      setQuoteState({ status: "error", message: "Quote request failed. Try again in a moment." });
+      setStatus({ tone: "error", text: "Profile claim failed. Try again." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function loadPulse() {
+    setLoadingPulse(true);
+    try {
+      const response = await fetch("/api/social/timeline?limit=30", { cache: "no-store" });
+      const body = (await response.json()) as { ok: true; data: { events: SocialTimelineEvent[] } } | { ok: false; error: { message: string } };
+      if (response.ok && body.ok) setPulseEvents(body.data.events);
+    } finally {
+      setLoadingPulse(false);
+    }
+  }
+
+  async function publishPulse() {
+    if (!activeUserId) {
+      setStatus({ tone: "error", text: "Sign in from Telegram or connect TON before posting." });
+      return;
+    }
+    if (!activeProfile) {
+      setStatus({ tone: "error", text: "Claim a .viction profile before posting." });
+      return;
+    }
+    if (!pulseBody.trim()) {
+      setStatus({ tone: "error", text: "Write something before publishing." });
+      return;
+    }
+    setSaving(true);
+    try {
+      const endpoint = signalMode ? "/api/signals" : "/api/social/posts";
+      const payload = signalMode
+        ? {
+            traderProfileId: activeProfile.id,
+            marketId: selectedMarket?.id,
+            side,
+            thesis: pulseBody.trim(),
+            convictionLevel,
+            source: "TELEGRAM",
+          }
+        : { authorUserId: activeUserId, body: pulseBody.trim(), mediaUrl: null, mediaType: null };
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = (await response.json()) as { ok: boolean; error?: { message: string } };
+      if (!response.ok || !body.ok) {
+        setStatus({ tone: "error", text: body.error?.message ?? "Post was not accepted." });
+        return;
+      }
+      setPulseBody("");
+      setStatus({ tone: "success", text: signalMode ? "Signal posted to Pulse." : "Post published to Pulse." });
+      await loadPulse();
+    } catch {
+      setStatus({ tone: "error", text: "Pulse publish failed. Try again." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function requestMargin() {
+    if (!activeUserId || !selectedMarket) {
+      setStatus({ tone: "error", text: "Select a market and sign in first." });
+      return;
+    }
+    if (!activeProfile) {
+      setStatus({ tone: "error", text: "Claim your .viction profile before requesting margin." });
+      return;
+    }
+    if (!/^0x[a-fA-F0-9]{40}$/.test(evmWallet.trim())) {
+      setStatus({ tone: "error", text: "Use an EVM wallet address for today’s on-chain margin rails. TON margin comes after the TON vault contract is deployed." });
+      return;
+    }
+    setSaving(true);
+    try {
+      const collateral = Number(marginAmount);
+      const leverage = Number(marginLeverage);
+      const response = await fetch("/api/margin-intents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: activeUserId,
+          marketId: selectedMarket.id,
+          side,
+          quantity: String(Math.max(collateral * leverage, 1)),
+          marginCollateral: marginAmount,
+          leverageMultiplier: marginLeverage,
+          walletAddress: evmWallet.trim(),
+          chainId,
+          visibility: "PUBLIC",
+        }),
+      });
+      const body = (await response.json()) as { ok: boolean; error?: { message: string } };
+      if (!response.ok || !body.ok) {
+        setStatus({ tone: "error", text: body.error?.message ?? "Margin request failed." });
+        return;
+      }
+      setStatus({ tone: "success", text: "Margin request recorded. Complete the wallet transaction from the full desk when ready." });
+    } catch {
+      setStatus({ tone: "error", text: "Margin request failed. Try again." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function requestTonVault() {
+    if (!tonAddress) {
+      setStatus({ tone: "error", text: "Connect a TON wallet before preparing vault liquidity." });
+      return;
+    }
+    if (!activeUserId) {
+      setStatus({ tone: "error", text: "Session is not ready yet. Try again in a moment." });
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await fetch("/api/ton-vaults", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: activeUserId,
+          telegramUserId: telegramUser?.id ? String(telegramUser.id) : null,
+          tonAddress,
+          asset: vaultAsset,
+          amount: vaultAmount,
+          note: "Telegram Mini App TON vault liquidity intent",
+        }),
+      });
+      const body = (await response.json()) as { ok: true; data: { intent: { id: string } } } | { ok: false; error: { message: string } };
+      if (!response.ok || !body.ok) {
+        setStatus({ tone: "error", text: body.ok ? "Vault intent failed." : body.error.message });
+        return;
+      }
+      setStatus({ tone: "success", text: "TON vault intent recorded. Contract transfer opens after TON vault deployment." });
+    } catch {
+      setStatus({ tone: "error", text: "TON vault intent failed. Try again." });
+    } finally {
+      setSaving(false);
     }
   }
 
   function openTelegramCommunity() {
     const telegram = getTelegramWebApp();
     const url = "https://t.me/+KYjXR2Tz2P4xMGY0";
-    if (telegram?.openTelegramLink) {
-      telegram.openTelegramLink(url);
-      return;
-    }
-    window.open(url, "_blank", "noopener,noreferrer");
+    if (telegram?.openTelegramLink) telegram.openTelegramLink(url);
+    else window.open(url, "_blank", "noopener,noreferrer");
   }
 
   return (
     <main className="telegram-mini-shell">
-      <section className="telegram-mini-hero">
+      <section className="telegram-mini-hero telegram-mini-product-hero">
         <div className="telegram-mini-brand">
           <Image src="/logo/conviction-markets-icon.png" alt="Conviction Markets" width={42} height={42} priority />
           <div>
@@ -160,29 +398,43 @@ export function TelegramMiniApp({ marketCount, markets, omniston, summary }: Tel
             <strong>{displayName}</strong>
           </div>
         </div>
-        <div className="telegram-mini-status" data-ready={omniston.quoteReady ? "true" : "false"}>
-          <span>{omniston.quoteReady ? "Omniston ready" : "Quotes offline"}</span>
+        <div className="telegram-mini-status" data-ready={activeProfile ? "true" : "false"}>
+          <span>{activeProfile ? "Profile ready" : "Claim profile"}</span>
           <strong>{marketCount} markets</strong>
         </div>
         <div className="telegram-mini-copy">
-          <h1>Trade the market pulse from Telegram.</h1>
-          <p>Explore prediction markets, check TON routes, follow Pulse, and jump into margin or vault workflows when you need the full desk.</p>
+          <h1>Markets, Pulse, margin, and TON liquidity inside Telegram.</h1>
+          <p>Find events, post market calls, request margin, and prepare TON vault liquidity from the mobile Mini App.</p>
         </div>
         <div className="telegram-mini-actions">
-          <Link href="/markets" target="_blank">
-            Open markets <ArrowRight size={15} />
-          </Link>
-          <button type="button" onClick={() => setActiveTab("Quote")}>
-            TON quote <RefreshCw size={15} />
-          </button>
+          <button type="button" onClick={() => setActiveTab("Markets")}>Find markets <ArrowRight size={15} /></button>
+          <button type="button" onClick={() => setActiveTab("Vaults")}>TON vault <Wallet size={15} /></button>
         </div>
+        {status ? <div className={"telegram-mini-alert " + status.tone}>{status.text}</div> : null}
       </section>
+
+      {!activeProfile ? (
+        <section className="telegram-mini-panel telegram-mini-claim-card">
+          <div className="telegram-mini-section-title">
+            <Sparkles size={18} />
+            <div>
+              <span>.viction profile required</span>
+              <strong>Claim your trading identity</strong>
+            </div>
+          </div>
+          <div className="telegram-mini-handle-row">
+            <input value={claimHandle} onChange={(event) => setClaimHandle(cleanHandle(event.target.value))} placeholder="griffins" />
+            <span>.viction</span>
+          </div>
+          <button className="telegram-mini-primary" type="button" disabled={saving || !activeUserId} onClick={claimProfile}>
+            {saving ? "Claiming..." : "Claim profile"}
+          </button>
+        </section>
+      ) : null}
 
       <nav className="telegram-mini-tabs" aria-label="Mini app tabs">
         {tabs.map((tab) => (
-          <button key={tab} type="button" aria-pressed={activeTab === tab} onClick={() => setActiveTab(tab)}>
-            {tab}
-          </button>
+          <button key={tab} type="button" aria-pressed={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</button>
         ))}
       </nav>
 
@@ -190,116 +442,123 @@ export function TelegramMiniApp({ marketCount, markets, omniston, summary }: Tel
         <section className="telegram-mini-panel">
           <div className="telegram-mini-search">
             <Search size={16} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search World Cup, TON, Africa, crypto..." />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search Africa, crypto, football, politics..." />
           </div>
           <div className="telegram-mini-chip-row" aria-label="Market topics">
-            {topics.map((item) => (
-              <button key={item} type="button" aria-pressed={topic === item} onClick={() => setTopic(item)}>
-                {item}
-              </button>
-            ))}
+            {topics.map((item) => <button key={item} type="button" aria-pressed={topic === item} onClick={() => setTopic(item)}>{item}</button>)}
           </div>
           <div className="telegram-mini-market-list">
-            {featuredMarkets.map((market) => (
-              <MiniMarketCard key={market.id} market={market} />
-            ))}
-          </div>
-          <Link className="telegram-mini-wide-link" href="/markets" target="_blank">
-            Browse all market categories <ExternalLink size={15} />
-          </Link>
-        </section>
-      ) : null}
-
-      {activeTab === "Quote" ? (
-        <section className="telegram-mini-panel telegram-mini-quote-panel">
-          <div className="telegram-mini-section-title">
-            <RefreshCw size={18} />
-            <div>
-              <span>Omniston quote-only</span>
-              <strong>TON routing preview</strong>
-            </div>
-          </div>
-          <div className="telegram-mini-quote-grid">
-            <label>
-              From
-              <select value={quoteInput.fromAsset} onChange={(event) => setQuoteInput((current) => ({ ...current, fromAsset: event.target.value }))}>
-                <option>TON</option>
-                <option>USDT</option>
-                <option>STON</option>
-              </select>
-            </label>
-            <label>
-              To
-              <select value={quoteInput.toAsset} onChange={(event) => setQuoteInput((current) => ({ ...current, toAsset: event.target.value }))}>
-                <option>USDT</option>
-                <option>TON</option>
-                <option>STON</option>
-              </select>
-            </label>
-          </div>
-          <label className="telegram-mini-amount">
-            Amount units
-            <input value={quoteInput.amountUnits} onChange={(event) => setQuoteInput((current) => ({ ...current, amountUnits: event.target.value.replace(/\D/g, "") }))} inputMode="numeric" />
-          </label>
-          <div className="telegram-mini-chip-row">
-            {amountPresets.map((preset) => (
-              <button key={preset.label} type="button" onClick={() => setQuoteInput({ fromAsset: preset.from, toAsset: preset.to, amountUnits: preset.units })}>
-                {preset.label}
+            {filteredMarkets.map((market) => (
+              <button key={market.id} className="telegram-mini-market-card" type="button" aria-pressed={selectedMarketId === market.id} onClick={() => { setSelectedMarketId(market.id); setActiveTab("Margin"); }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={market.imageUrl} alt="" loading="lazy" />
+                <div>
+                  <span>{market.topic} · {market.region}</span>
+                  <strong>{market.title}</strong>
+                  <small>YES {market.yesPercent}</small>
+                </div>
               </button>
             ))}
           </div>
-          <button className="telegram-mini-primary" type="button" disabled={quoteState.status === "loading" || !omniston.quoteReady} onClick={requestQuote}>
-            {quoteState.status === "loading" ? "Requesting quote..." : "Get quote"}
-          </button>
-          <QuoteResult state={quoteState} />
-          <div className="telegram-mini-stats-grid">
-            <Stat label="Quote attempts" value={String(summary.total)} />
-            <Stat label="Telegram users" value={String(summary.uniqueTelegramUsers)} />
-            <Stat label="Mode" value={omniston.routingMode.replace("_", " ")} />
-          </div>
-        </section>
-      ) : null}
-
-      {activeTab === "Vaults" ? (
-        <section className="telegram-mini-panel telegram-mini-stack">
-          <MiniFeature icon={<Wallet size={19} />} title="Vault liquidity" body="Vaults are the capital layer behind margin requests. Use the full app to deposit, track collateral, and review risk." href="/vaults" cta="Open vaults" />
-          <MiniFeature icon={<ShieldCheck size={19} />} title="Margin readiness" body="Wallet approvals, deposits, and margin intent calls are available. Real venue fill settlement remains gated until adapters are enabled." href="/beta-readiness" cta="View readiness" />
-          <MiniFeature icon={<BarChart3 size={19} />} title="Trading desk" body="Open larger YES/NO exposure from the full desk after reviewing market rules and liquidity." href="/margin-desk" cta="Open margin desk" />
+          <Link className="telegram-mini-wide-link" href="/markets" target="_blank">Open full market board <ExternalLink size={15} /></Link>
         </section>
       ) : null}
 
       {activeTab === "Pulse" ? (
         <section className="telegram-mini-panel telegram-mini-stack">
-          <MiniFeature icon={<MessageCircle size={19} />} title="Market Pulse" body="Prediction-market conversation, public calls, reposts, and market media live in Pulse." href="/activity" cta="Open Pulse" />
-          <MiniFeature icon={<Sparkles size={19} />} title="Highlights" body="AI-assisted market cards and media should be treated as discovery, not financial advice." href="/activity?tab=highlights" cta="View highlights" />
-          <button className="telegram-mini-wide-link" type="button" onClick={openTelegramCommunity}>
-            Join Telegram community <ExternalLink size={15} />
-          </button>
+          <div className="telegram-mini-composer">
+            <textarea value={pulseBody} onChange={(event) => setPulseBody(event.target.value)} placeholder="Post a market take, question, chart note, or community update..." />
+            <div className="telegram-mini-toggle-row">
+              <button type="button" aria-pressed={!signalMode} onClick={() => setSignalMode(false)}>Post</button>
+              <button type="button" aria-pressed={signalMode} onClick={() => setSignalMode(true)}>Market signal</button>
+            </div>
+            {signalMode ? (
+              <div className="telegram-mini-signal-tools">
+                <select value={selectedMarketId} onChange={(event) => setSelectedMarketId(event.target.value)}>
+                  {markets.slice(0, 96).map((market) => <option key={market.id} value={market.id}>{market.title}</option>)}
+                </select>
+                <div className="telegram-mini-toggle-row">
+                  <button type="button" aria-pressed={side === "YES"} onClick={() => setSide("YES")}>YES</button>
+                  <button type="button" aria-pressed={side === "NO"} onClick={() => setSide("NO")}>NO</button>
+                </div>
+                <label>Conviction {convictionLevel}%<input type="range" min="1" max="100" value={convictionLevel} onChange={(event) => setConvictionLevel(Number(event.target.value))} /></label>
+              </div>
+            ) : null}
+            <button className="telegram-mini-primary" type="button" disabled={saving || !pulseBody.trim()} onClick={publishPulse}>Publish <Send size={15} /></button>
+          </div>
+          <div className="telegram-mini-section-title">
+            <MessageCircle size={18} />
+            <div><span>Live Pulse</span><strong>{loadingPulse ? "Loading..." : pulseEvents.length + " updates"}</strong></div>
+          </div>
+          <div className="telegram-mini-pulse-list">
+            {pulseEvents.slice(0, 12).map((event) => <PulseEventCard key={event.id} event={event} />)}
+          </div>
+          <button className="telegram-mini-wide-link" type="button" onClick={openTelegramCommunity}>Join Telegram community <ExternalLink size={15} /></button>
         </section>
       ) : null}
 
-      {activeTab === "Support" ? (
+      {activeTab === "Margin" ? (
         <section className="telegram-mini-panel telegram-mini-stack">
-          <MiniFeature icon={<Bot size={19} />} title="Ask Conviction AI" body="Use /ai in this Telegram group for product, market, vault, and margin questions." href="/support" cta="Open support" />
-          <MiniFeature icon={<BellRing size={19} />} title="Human support" body="If you need account-specific help, include your email and issue summary in the support page." href="/support" cta="Create ticket" />
-          <div className="telegram-mini-note">Support email: convictionsmarket@gmail.com</div>
+          <div className="telegram-mini-selected-market">
+            <span>Selected market</span>
+            <strong>{selectedMarket?.title ?? "Pick a market"}</strong>
+            <small>YES {selectedMarket?.yesPercent ?? "--"}</small>
+          </div>
+          <div className="telegram-mini-toggle-row">
+            <button type="button" aria-pressed={side === "YES"} onClick={() => setSide("YES")}>YES</button>
+            <button type="button" aria-pressed={side === "NO"} onClick={() => setSide("NO")}>NO</button>
+          </div>
+          <div className="telegram-mini-form-grid">
+            <label>Collateral<input value={marginAmount} onChange={(event) => setMarginAmount(event.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" /></label>
+            <label>Leverage<select value={marginLeverage} onChange={(event) => setMarginLeverage(event.target.value)}><option>2</option><option>3</option><option>5</option><option>10</option></select></label>
+          </div>
+          <label className="telegram-mini-amount">EVM wallet for current vault rails<input value={evmWallet} onChange={(event) => setEvmWallet(event.target.value)} placeholder="0x..." /></label>
+          <label className="telegram-mini-amount">Chain<select value={chainId} onChange={(event) => setChainId(event.target.value)}>{evmChains.map((chain) => <option key={chain.id} value={chain.id}>{chain.label}</option>)}</select></label>
+          <button className="telegram-mini-primary" type="button" disabled={saving || !selectedMarket} onClick={requestMargin}>Request margin <BarChart3 size={15} /></button>
+          <div className="telegram-mini-note">Today’s executable vault rails are EVM. TON margin is tracked separately until the TON vault contract is deployed.</div>
+        </section>
+      ) : null}
+
+      {activeTab === "Vaults" ? (
+        <section className="telegram-mini-panel telegram-mini-stack">
+          <div className="telegram-mini-section-title">
+            <Wallet size={18} />
+            <div><span>TON vault</span><strong>{tonAddress ? shortAddress(tonAddress) : "Connect wallet"}</strong></div>
+          </div>
+          <div className="telegram-mini-wallet-card">
+            <p>LPs can register TON liquidity from Telegram now. On-chain transfer opens once the Conviction TON vault contract is deployed and configured.</p>
+            {tonAddress ? <button type="button" onClick={disconnectTonWallet}>Disconnect TON</button> : <button type="button" onClick={connectTonWallet}>Connect TON wallet</button>}
+          </div>
+          <div className="telegram-mini-form-grid">
+            <label>Asset<select value={vaultAsset} onChange={(event) => setVaultAsset(event.target.value)}>{tonAssets.map((asset) => <option key={asset}>{asset}</option>)}</select></label>
+            <label>Amount<input value={vaultAmount} onChange={(event) => setVaultAmount(event.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" /></label>
+          </div>
+          <button className="telegram-mini-primary" type="button" disabled={saving || !tonAddress} onClick={requestTonVault}>Record liquidity intent <ShieldCheck size={15} /></button>
+          <MiniFeature icon={<CheckCircle2 size={19} />} title="EVM vaults remain active" body="Use the full app for Base, Ethereum, and Arbitrum Sepolia vault deposits while TON vault custody is prepared." href="/vaults" cta="Open full vaults" />
+        </section>
+      ) : null}
+
+      {activeTab === "Wallet" ? (
+        <section className="telegram-mini-panel telegram-mini-stack">
+          <MiniFeature icon={<Wallet size={19} />} title="TON wallet" body={tonAddress ? shortAddress(tonAddress) : "Connect Tonkeeper, MyTonWallet, Telegram Wallet, or another TON Connect wallet."} href="/portfolio" cta="Open portfolio" />
+          <button className="telegram-mini-primary" type="button" onClick={tonAddress ? disconnectTonWallet : connectTonWallet}>{tonAddress ? "Disconnect TON" : "Connect TON wallet"}</button>
+          <MiniFeature icon={<BellRing size={19} />} title="Support" body="Use /ai in the community group or open a support ticket if you need human help." href="/support" cta="Open support" />
         </section>
       ) : null}
     </main>
   );
 }
 
-function MiniMarketCard({ market }: { market: TelegramMiniMarket }) {
+function PulseEventCard({ event }: { event: SocialTimelineEvent }) {
+  const title = event.post?.body ?? event.signal?.signal.thesis ?? event.position?.market?.title ?? event.follow?.following.handle ?? "Pulse update";
+  const actor = event.actor.handle ?? event.actor.displayName ?? event.actor.username ?? "trader.viction";
+  const market = event.signal?.market?.title ?? event.position?.market?.title ?? null;
   return (
-    <Link className="telegram-mini-market-card" href={"/markets/" + market.id} target="_blank">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={market.imageUrl} alt="" loading="lazy" />
-      <div>
-        <span>{market.topic} · {market.region}</span>
-        <strong>{market.title}</strong>
-        <small>YES {market.yesPercent}</small>
-      </div>
-    </Link>
+    <article className="telegram-mini-pulse-card">
+      <div><strong>{actor}</strong><span>{event.type.toLowerCase().replace("_", " ")}</span></div>
+      <p>{title}</p>
+      {market ? <small>{market}</small> : null}
+    </article>
   );
 }
 
@@ -316,37 +575,6 @@ function MiniFeature({ icon, title, body, href, cta }: { icon: React.ReactNode; 
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="telegram-mini-stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function QuoteResult({ state }: { state: QuoteState }) {
-  if (state.status === "idle") {
-    return <div className="telegram-mini-note">Quote-only mode never submits a swap. It previews an Omniston route.</div>;
-  }
-
-  if (state.status === "loading") {
-    return <div className="telegram-mini-note">{state.message}</div>;
-  }
-
-  if (state.status === "error") {
-    return <div className="telegram-mini-note error">{state.message}</div>;
-  }
-
-  return (
-    <div className="telegram-mini-quote-result">
-      <span>{state.message}</span>
-      <strong>{state.outputAmount}</strong>
-      <small>Resolver {state.resolverName}{state.routeCount !== null ? " · " + state.routeCount + " routes" : ""}</small>
-    </div>
-  );
-}
-
 function getTelegramWebApp() {
   if (typeof window === "undefined") return null;
   return (window as Window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp ?? null;
@@ -358,3 +586,17 @@ type TelegramWebApp = {
   openTelegramLink?: (url: string) => void;
   initDataUnsafe?: { user?: TelegramUser };
 };
+
+function telegramName(user: TelegramUser | null) {
+  if (!user) return null;
+  if (user.username) return "@" + user.username;
+  return [user.first_name, user.last_name].filter(Boolean).join(" ") || null;
+}
+
+function cleanHandle(value: string) {
+  return value.toLowerCase().replace(/\.viction$/i, "").replace(/[^a-z0-9_-]/g, "").slice(0, 32);
+}
+
+function shortAddress(address: string) {
+  return address.slice(0, 6) + "..." + address.slice(-4);
+}
