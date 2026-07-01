@@ -606,6 +606,30 @@ export type OmnistonQuoteResult = {
   event: unknown;
 };
 
+
+export type TonVaultIntent = {
+  id: string;
+  userId: string | null;
+  telegramUserId: string | null;
+  tonAddress: string;
+  asset: string;
+  amount: string;
+  status: string;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TonVaultSummary = {
+  total: number;
+  byAsset: Array<{ asset: string; count: number }>;
+  recent: TonVaultIntent[];
+  custody: {
+    status: string;
+    message: string;
+  };
+};
+
 export type RequestOmnistonQuoteInput = {
   fromAsset: string;
   toAsset: string;
@@ -704,6 +728,86 @@ export async function getMarket(id: string) {
     null as Market | null,
   );
 }
+
+
+export async function createTelegramSession(input: { telegramUserId: string; username?: string | null; displayName?: string | null; profileUrl?: string | null }) {
+  return coreRequest<UserSession>("/social-accounts", {
+    method: "POST",
+    body: {
+      platform: "TELEGRAM",
+      platformUserId: input.telegramUserId,
+      username: input.username ?? null,
+      displayName: input.displayName ?? input.username ?? "Telegram " + input.telegramUserId,
+      profileUrl: input.profileUrl ?? null,
+    },
+  });
+}
+
+export async function createTonWalletSession(input: { tonAddress: string; displayName?: string | null }) {
+  const normalizedAddress = input.tonAddress.trim();
+  const shortAddress = normalizedAddress.slice(0, 6) + "..." + normalizedAddress.slice(-4);
+
+  return coreRequest<UserSession>("/social-accounts", {
+    method: "POST",
+    body: {
+      platform: "WEB",
+      platformUserId: "ton:" + normalizedAddress,
+      username: "ton-" + shortAddress,
+      displayName: input.displayName ?? "TON " + shortAddress,
+      profileUrl: null,
+    },
+  });
+}
+
+export async function createTonVaultIntent(input: {
+  userId?: string | null;
+  telegramUserId?: string | null;
+  tonAddress: string;
+  asset: string;
+  amount: string;
+  note?: string | null;
+}) {
+  const response = await coreRequest<{ intent?: TonVaultIntent } | TonVaultIntent>("/ton/vault-intents", {
+    method: "POST",
+    body: input,
+  });
+
+  return "intent" in response && response.intent ? response.intent : (response as TonVaultIntent);
+}
+
+export async function listTonVaultIntents(options: { userId?: string; tonAddress?: string; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (options.userId) params.set("userId", options.userId);
+  if (options.tonAddress) params.set("tonAddress", options.tonAddress);
+  if (options.limit) params.set("limit", String(options.limit));
+
+  const response = await coreRequest<{ intents?: TonVaultIntent[] } | TonVaultIntent[]>(
+    "/ton/vault-intents" + (params.size ? "?" + params.toString() : ""),
+    { allowNotFound: true },
+  );
+
+  return Array.isArray(response) ? response : (response?.intents ?? []);
+}
+
+export async function getTonVaultSummary() {
+  return readOrFallback(async () => {
+    const response = await coreRequest<{ summary?: TonVaultSummary } | TonVaultSummary>("/ton/vault-summary", { allowNotFound: true });
+    if (!response) {
+      return fallbackTonVaultSummary;
+    }
+    return "summary" in response && response.summary ? response.summary : (response as TonVaultSummary);
+  }, fallbackTonVaultSummary);
+}
+
+const fallbackTonVaultSummary: TonVaultSummary = {
+  total: 0,
+  byAsset: [],
+  recent: [],
+  custody: {
+    status: "contract_pending",
+    message: "TON vault intent tracking is unavailable right now.",
+  },
+};
 
 export async function createFarcasterSession(input: CreateFarcasterSessionInput) {
   return coreRequest<UserSession>("/social-accounts", {
