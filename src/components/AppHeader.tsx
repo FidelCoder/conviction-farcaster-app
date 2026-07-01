@@ -56,6 +56,7 @@ export function AppHeader() {
 
   if (
     pathname === "/" ||
+    pathname === "/telegram" ||
     terminalRoutePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"))
   ) {
     return null;

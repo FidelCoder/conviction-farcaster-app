@@ -17,11 +17,21 @@ import {
   Wallet,
 } from "lucide-react";
 
-import type { Market, OmnistonQuoteSummary, OmnistonStatus } from "../../lib/core-api";
-import { getMarketDiscoveryProfile, getRegionLabel, getTopicLabel } from "../../lib/market-discovery";
+import type { OmnistonQuoteSummary, OmnistonStatus } from "../../lib/core-api";
+
+export type TelegramMiniMarket = {
+  id: string;
+  title: string;
+  category: string;
+  topic: string;
+  region: string;
+  yesPercent: string;
+  imageUrl: string;
+};
 
 type TelegramMiniAppProps = {
-  markets: Market[];
+  marketCount: number;
+  markets: TelegramMiniMarket[];
   omniston: OmnistonStatus;
   summary: OmnistonQuoteSummary;
 };
@@ -48,7 +58,7 @@ const amountPresets = [
 const tabs = ["Markets", "Quote", "Vaults", "Pulse", "Support"] as const;
 type MiniTab = (typeof tabs)[number];
 
-export function TelegramMiniApp({ markets, omniston, summary }: TelegramMiniAppProps) {
+export function TelegramMiniApp({ marketCount, markets, omniston, summary }: TelegramMiniAppProps) {
   const [activeTab, setActiveTab] = useState<MiniTab>("Markets");
   const [query, setQuery] = useState("");
   const [topic, setTopic] = useState("All");
@@ -66,9 +76,7 @@ export function TelegramMiniApp({ markets, omniston, summary }: TelegramMiniAppP
   const topics = useMemo(() => {
     const values = new Map<string, number>();
     markets.forEach((market) => {
-      const profile = getMarketDiscoveryProfile(market);
-      const label = getTopicLabel(profile.topic);
-      values.set(label, (values.get(label) ?? 0) + 1);
+      values.set(market.topic, (values.get(market.topic) ?? 0) + 1);
     });
 
     return ["All", ...[...values.entries()].sort((left, right) => right[1] - left[1]).map(([label]) => label)].slice(0, 10);
@@ -79,14 +87,12 @@ export function TelegramMiniApp({ markets, omniston, summary }: TelegramMiniAppP
 
     return markets
       .filter((market) => {
-        const profile = getMarketDiscoveryProfile(market);
-        const topicLabel = getTopicLabel(profile.topic);
-        const text = [market.title, market.description, market.category, topicLabel, profile.regions.map(getRegionLabel).join(" ")]
+        const text = [market.title, market.category, market.topic, market.region]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
 
-        if (topic !== "All" && topicLabel !== topic) return false;
+        if (topic !== "All" && market.topic !== topic) return false;
         if (normalizedQuery && !text.includes(normalizedQuery)) return false;
         return true;
       })
@@ -156,7 +162,7 @@ export function TelegramMiniApp({ markets, omniston, summary }: TelegramMiniAppP
         </div>
         <div className="telegram-mini-status" data-ready={omniston.quoteReady ? "true" : "false"}>
           <span>{omniston.quoteReady ? "Omniston ready" : "Quotes offline"}</span>
-          <strong>{markets.length} markets</strong>
+          <strong>{marketCount} markets</strong>
         </div>
         <div className="telegram-mini-copy">
           <h1>Trade the market pulse from Telegram.</h1>
@@ -283,19 +289,15 @@ export function TelegramMiniApp({ markets, omniston, summary }: TelegramMiniAppP
   );
 }
 
-function MiniMarketCard({ market }: { market: Market }) {
-  const profile = getMarketDiscoveryProfile(market);
-  const image = market.providerMetadata?.imageUrl ?? market.providerMetadata?.iconUrl ?? "/logo/conviction-markets-3d-black-bg.png";
-  const yes = formatPercent(market.lastTradePrice ?? market.bestAsk ?? market.bestBid);
-
+function MiniMarketCard({ market }: { market: TelegramMiniMarket }) {
   return (
     <Link className="telegram-mini-market-card" href={"/markets/" + market.id} target="_blank">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={image} alt="" loading="lazy" />
+      <img src={market.imageUrl} alt="" loading="lazy" />
       <div>
-        <span>{getTopicLabel(profile.topic)} · {getRegionLabel(profile.regions[0] ?? "GLOBAL")}</span>
+        <span>{market.topic} · {market.region}</span>
         <strong>{market.title}</strong>
-        <small>YES {yes}</small>
+        <small>YES {market.yesPercent}</small>
       </div>
     </Link>
   );
@@ -343,12 +345,6 @@ function QuoteResult({ state }: { state: QuoteState }) {
       <small>Resolver {state.resolverName}{state.routeCount !== null ? " · " + state.routeCount + " routes" : ""}</small>
     </div>
   );
-}
-
-function formatPercent(value: string | null | undefined) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return "--";
-  return (parsed * 100).toFixed(parsed < 0.1 ? 1 : 0) + "%";
 }
 
 function getTelegramWebApp() {
