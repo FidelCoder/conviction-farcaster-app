@@ -14,12 +14,12 @@ type TonConnectUI = {
   disconnect: () => Promise<void>;
   onStatusChange: (callback: (wallet: TonWalletInfo | null) => void) => () => void;
   openModal?: () => Promise<void>;
-  uiOptions?: { twaReturnUrl?: string };
+  uiOptions?: { actionsConfiguration?: { returnStrategy?: "back" | "none" | `${string}://${string}`; twaReturnUrl?: `${string}://${string}` } };
   wallet?: TonWalletInfo | null;
 };
 
 type TonConnectUIConstructor = new (options: { manifestUrl: string; buttonRootId?: string }) => TonConnectUI;
-const TELEGRAM_TWA_RETURN_URL = "https://t.me/ConvictionMarkets_bot";
+const TELEGRAM_TWA_RETURN_URL = "https://t.me/ConvictionMarkets_bot/Conviction";
 
 type TonSessionResponse =
   | { ok: true; data: { session: UserSession } }
@@ -94,7 +94,7 @@ export function TonWalletBridge({
       if (cancelled) return;
 
       const ui = new constructor({ manifestUrl: window.location.origin + "/tonconnect-manifest.json" });
-      if (isTelegramMiniApp()) ui.uiOptions = { twaReturnUrl: TELEGRAM_TWA_RETURN_URL };
+      if (isTelegramMiniApp()) ui.uiOptions = { actionsConfiguration: { returnStrategy: "back", twaReturnUrl: TELEGRAM_TWA_RETURN_URL } };
       setTonUi(ui);
 
       if (ui.wallet?.account?.address) {
