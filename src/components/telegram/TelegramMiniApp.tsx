@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -51,6 +51,8 @@ type TonWalletInfo = {
 };
 
 type TonConnectUI = {
+  connectionRestored?: Promise<boolean>;
+  connected?: boolean;
   connectWallet: () => Promise<TonWalletInfo | null>;
   disconnect: () => Promise<void>;
   onStatusChange: (callback: (wallet: TonWalletInfo | null) => void) => () => void;
@@ -150,8 +152,23 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
         enableAndroidBackHandler: false,
       });
       setTonUi(ui);
-      setTonWallet(ui.wallet ?? null);
-      if (ui.wallet?.account?.address) void createTonSession(ui.wallet.account.address);
+
+      const syncWallet = () => {
+        const wallet = ui.wallet ?? null;
+        setTonWallet(wallet);
+        const address = wallet?.account?.address ?? null;
+        if (address) void createTonSession(address);
+        return address;
+      };
+
+      syncWallet();
+      void ui.connectionRestored?.then((restored) => {
+        if (cancelled) return;
+        const address = syncWallet();
+        if (!restored && !address) setTonSession(null);
+      }).catch(() => {
+        if (!cancelled) setStatus({ tone: "error", text: "TON wallet session could not be restored. Connect again." });
+      });
 
       unsubscribe = ui.onStatusChange((wallet) => {
         setTonWallet(wallet);
@@ -241,13 +258,38 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
       setStatus({ tone: "info", text: "Choose a TON wallet, approve the connection, then return to Conviction in Telegram." });
       if (tonUi.openModal) {
         await tonUi.openModal();
-        return;
+      } else {
+        await tonUi.connectWallet();
       }
-      await tonUi.connectWallet();
+      window.setTimeout(syncCurrentTonWallet, 350);
     } catch {
       setStatus({ tone: "error", text: "TON wallet connection was cancelled or failed." });
     }
   }
+
+  const syncCurrentTonWallet = useCallback(() => {
+    const wallet = tonUi?.wallet ?? null;
+    setTonWallet(wallet);
+    const address = wallet?.account?.address ?? null;
+    if (address) void createTonSession(address);
+    return address;
+  }, [tonUi]);
+
+  useEffect(() => {
+    if (!tonUi) return;
+
+    function handleReturnToMiniApp() {
+      window.setTimeout(syncCurrentTonWallet, 250);
+    }
+
+    window.addEventListener("focus", handleReturnToMiniApp);
+    document.addEventListener("visibilitychange", handleReturnToMiniApp);
+
+    return () => {
+      window.removeEventListener("focus", handleReturnToMiniApp);
+      document.removeEventListener("visibilitychange", handleReturnToMiniApp);
+    };
+  }, [syncCurrentTonWallet, tonUi]);
 
   async function disconnectTonWallet() {
     try {
