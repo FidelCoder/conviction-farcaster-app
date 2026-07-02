@@ -85,6 +85,105 @@ export type SupportTicketReply = {
   updatedAt: string;
 };
 
+export type AdminFallbackProfile = {
+  userId: string;
+  traderProfileId: string;
+  handle: string;
+  displayName: string | null;
+  reason: string;
+  wallets: Array<{ type: "EVM" | "TON" | string; address: string }>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminFallbackProfilesResult = {
+  count: number;
+  fallbackProfiles: AdminFallbackProfile[];
+};
+
+export type AuthProvider =
+  | "EVM_EOA"
+  | "THIRDWEB_SMART_WALLET"
+  | "TON_WALLET"
+  | "TELEGRAM"
+  | "FARCASTER"
+  | "UNKNOWN";
+
+export type UsageEventType =
+  | "PAGE_VIEW"
+  | "HEARTBEAT"
+  | "AUTH_CONNECT"
+  | "AUTH_DISCONNECT"
+  | "PROFILE_CLAIM"
+  | "MARKET_VIEW"
+  | "MARKET_OPEN_MARGIN"
+  | "MARGIN_REQUEST"
+  | "VAULT_DEPOSIT"
+  | "PULSE_POST"
+  | "PULSE_SIGNAL"
+  | "PULSE_FOLLOW"
+  | "SUPPORT_OPEN"
+  | "MINIAPP_OPEN";
+
+export type RecordUsageEventInput = {
+  area?: string | null;
+  authProvider?: AuthProvider | null;
+  clientSessionId: string;
+  label?: string | null;
+  metadata?: Record<string, unknown> | null;
+  path?: string | null;
+  referrer?: string | null;
+  socialAccountId?: string | null;
+  source?: string | null;
+  type: UsageEventType;
+  userId?: string | null;
+  value?: number | null;
+};
+
+export type AdminUsageAnalyticsResult = {
+  generatedAt: string;
+  users: {
+    rawAccounts: number;
+    realUsers: number;
+    walletLinked: number;
+    evmWallets: number;
+    tonWallets: number;
+    claimedViction: number;
+    fallbackProfiles: number;
+    noProfile: number;
+    emailConfigured: number;
+    active24h: number;
+    active7d: number;
+    internalMarked: number;
+  };
+  acquisition: Record<string, number>;
+  engagement: {
+    sessions: number;
+    trackedEvents: number;
+    avgSessionSeconds: number;
+    medianSessionSeconds: number;
+    avgEventsPerSession: number;
+    signals: number;
+    positions: number;
+    supportTickets: number;
+  };
+  productUsage: {
+    topAreas: Array<{ label: string; count: number }>;
+    topActions: Array<{ label: string; count: number }>;
+    topPaths: Array<{ label: string; count: number }>;
+  };
+  recentSessions: Array<{
+    id: string;
+    authProvider: AuthProvider;
+    currentPath: string | null;
+    durationSeconds: number;
+    eventCount: number;
+    lastSeenAt: string;
+    source: string;
+    userId: string | null;
+  }>;
+};
+
 export type SupportTicket = {
   id: string;
   userId: string | null;
@@ -236,6 +335,11 @@ export type CoreUser = {
   id: string;
   displayName: string | null;
   email: string | null;
+  firstSeenAt?: string | null;
+  lastSeenAt?: string | null;
+  sessionCount?: number;
+  isInternal?: boolean;
+  acquisitionSource?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -247,6 +351,11 @@ export type SocialAccount = {
   platformUserId: string;
   username: string | null;
   profileUrl: string | null;
+  authProvider?: AuthProvider;
+  source?: string | null;
+  firstSeenAt?: string | null;
+  lastSeenAt?: string | null;
+  sessionCount?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -739,11 +848,13 @@ export async function createTelegramSession(input: { telegramUserId: string; use
       username: input.username ?? null,
       displayName: input.displayName ?? input.username ?? "Telegram " + input.telegramUserId,
       profileUrl: input.profileUrl ?? null,
+      authProvider: "TELEGRAM",
+      source: "TELEGRAM_MINI_APP",
     },
   });
 }
 
-export async function createTonWalletSession(input: { tonAddress: string; displayName?: string | null }) {
+export async function createTonWalletSession(input: { tonAddress: string; displayName?: string | null; source?: string | null }) {
   const normalizedAddress = input.tonAddress.trim();
   const shortAddress = normalizedAddress.slice(0, 6) + "..." + normalizedAddress.slice(-4);
 
@@ -755,6 +866,8 @@ export async function createTonWalletSession(input: { tonAddress: string; displa
       username: "ton-" + shortAddress,
       displayName: input.displayName ?? "TON " + shortAddress,
       profileUrl: null,
+      authProvider: "TON_WALLET",
+      source: input.source ?? "WEB_APP",
     },
   });
 }
@@ -820,11 +933,13 @@ export async function createFarcasterSession(input: CreateFarcasterSessionInput)
       profileUrl: input.username
         ? "https://warpcast.com/" + input.username
         : (input.pfpUrl ?? null),
+      authProvider: "FARCASTER",
+      source: "FARCASTER",
     },
   });
 }
 
-export async function createBrowserWalletSession(input: { walletAddress: string }) {
+export async function createBrowserWalletSession(input: { walletAddress: string; authProvider?: AuthProvider | null; source?: string | null; metadata?: Record<string, unknown> | null }) {
   const normalizedAddress = input.walletAddress.trim();
 
   return coreRequest<UserSession>("/social-accounts", {
@@ -835,6 +950,9 @@ export async function createBrowserWalletSession(input: { walletAddress: string 
       username: normalizedAddress.slice(0, 6) + "..." + normalizedAddress.slice(-4),
       displayName: "Wallet " + normalizedAddress.slice(0, 6) + "..." + normalizedAddress.slice(-4),
       profileUrl: null,
+      authProvider: input.authProvider ?? "EVM_EOA",
+      source: input.source ?? "WEB_APP",
+      metadata: input.metadata ?? null,
     },
   });
 }
@@ -894,11 +1012,12 @@ export async function getTraderProfile(id: string) {
   );
 }
 
-export async function discoverUsers(options: { limit?: number; query?: string; viewerUserId?: string } = {}) {
+export async function discoverUsers(options: { limit?: number; query?: string; viewerUserId?: string; claimedOnly?: boolean } = {}) {
   const params = new URLSearchParams();
   params.set("limit", String(options.limit ?? 50));
   if (options.query?.trim()) params.set("query", options.query.trim());
   if (options.viewerUserId) params.set("viewerUserId", options.viewerUserId);
+  if (options.claimedOnly) params.set("claimedOnly", "true");
 
   return readOrFallback(async () => {
     const response = await coreRequest<{ users?: DiscoveredUser[] } | DiscoveredUser[]>(
@@ -1549,6 +1668,12 @@ export async function updateUserEmail(userId: string, email: string) {
   );
 }
 
+export async function listAdminFallbackProfiles(token: string) {
+  return coreRequest<AdminFallbackProfilesResult>("/admin/fallback-profiles", {
+    headers: { Authorization: "Bearer " + token },
+  });
+}
+
 export async function createCopyIntent(input: CreateCopyIntentInput) {
   const response = await coreRequest<
     { copyTrade?: CopyIntent; copyIntent?: CopyIntent } | CopyIntent
@@ -1568,9 +1693,24 @@ export async function createCopyIntent(input: CreateCopyIntentInput) {
   return response as CopyIntent;
 }
 
+
+export async function recordUsageEvent(input: RecordUsageEventInput) {
+  return coreRequest<{ eventId: string; sessionId: string }>("/analytics/events", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function getAdminUsageAnalytics(token: string) {
+  return coreRequest<AdminUsageAnalyticsResult>("/admin/analytics", {
+    headers: { Authorization: "Bearer " + token },
+  });
+}
+
 type CoreRequestOptions = {
   allowNotFound?: boolean;
   body?: unknown;
+  headers?: HeadersInit;
   method?: "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
 };
 
@@ -1607,6 +1747,13 @@ async function coreRequest<TData>(path: string, options: CoreRequestOptions = {}
 
   if (hasBody) {
     headers["Content-Type"] = "application/json";
+  }
+
+  if (options.headers) {
+    const extraHeaders = new Headers(options.headers);
+    extraHeaders.forEach((value, key) => {
+      headers[key] = value;
+    });
   }
 
   let response: Response;

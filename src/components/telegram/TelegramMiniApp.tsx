@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import type { SocialTimelineEvent, UserSession } from "../../lib/core-api";
+import { trackProductEvent, useProductAnalytics } from "../../lib/product-analytics";
 
 export type TelegramMiniMarket = {
   id: string;
@@ -105,6 +106,7 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
   const [loadingPulse, setLoadingPulse] = useState(false);
   const [saving, setSaving] = useState(false);
   const [claimHandle, setClaimHandle] = useState("");
+  useProductAnalytics({ area: "telegram", session: tonSession });
 
   useEffect(() => {
     const telegram = getTelegramWebApp();
@@ -240,7 +242,7 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
       const response = await fetch("/api/ton-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tonAddress: address, displayName: "TON " + shortAddress(address) }),
+        body: JSON.stringify({ tonAddress: address, displayName: "TON " + shortAddress(address), source: "TELEGRAM_MINI_APP" }),
       });
       const body = (await response.json()) as { ok: true; data: { session: UserSession } } | { ok: false; error: { message: string } };
       if (response.ok && body.ok) setTonSession(body.data.session);
@@ -388,6 +390,13 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
         setStatus({ tone: "error", text: body.error?.message ?? "Post was not accepted." });
         return;
       }
+      void trackProductEvent({
+        area: "telegram",
+        label: signalMode ? side : "post",
+        metadata: signalMode ? { marketId: selectedMarket?.id } : null,
+        session: tonSession,
+        type: signalMode ? "PULSE_SIGNAL" : "PULSE_POST",
+      });
       setPulseBody("");
       setStatus({ tone: "success", text: signalMode ? "Signal posted to Pulse." : "Post published to Pulse." });
       await loadPulse();
@@ -435,6 +444,14 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
         setStatus({ tone: "error", text: body.error?.message ?? "Margin request failed." });
         return;
       }
+      void trackProductEvent({
+        area: "telegram",
+        label: side,
+        metadata: { chainId, leverage: marginLeverage, marketId: selectedMarket.id },
+        session: tonSession,
+        type: "MARGIN_REQUEST",
+        value: collateral,
+      });
       setStatus({ tone: "success", text: "Margin request recorded. Complete the wallet transaction from the full desk when ready." });
     } catch {
       setStatus({ tone: "error", text: "Margin request failed. Try again." });
@@ -475,6 +492,14 @@ export function TelegramMiniApp({ marketCount, markets }: TelegramMiniAppProps) 
         setStatus({ tone: "error", text: body.ok ? "Vault intent failed." : body.error.message });
         return;
       }
+      void trackProductEvent({
+        area: "telegram",
+        label: vaultAsset,
+        metadata: { custody: "intent", tonVaultIntentId: body.data.intent.id },
+        session: tonSession,
+        type: "VAULT_DEPOSIT",
+        value: Number(vaultAmount),
+      });
       setStatus({ tone: "success", text: "TON vault intent recorded. Contract transfer opens after TON vault deployment." });
     } catch {
       setStatus({ tone: "error", text: "TON vault intent failed. Try again." });

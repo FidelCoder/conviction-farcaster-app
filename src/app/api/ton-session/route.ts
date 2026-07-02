@@ -10,11 +10,12 @@ export async function POST(request: Request) {
 
   const tonAddress = stringField(body, "tonAddress");
   const displayName = optionalStringField(body, "displayName");
+  const source = optionalStringField(body, "source");
 
   if (!tonAddressPattern.test(tonAddress)) return validationError("A valid TON wallet address is required.");
 
   try {
-    const session = await createTonWalletSession({ tonAddress, displayName });
+    const session = await createTonWalletSession({ tonAddress, displayName, source: source ?? "WEB_APP" });
     return NextResponse.json({ ok: true, data: { session } }, { status: 201 });
   } catch (error) {
     return apiError(error, "TON_SESSION_FAILED", "Core API did not accept the TON wallet session.");
