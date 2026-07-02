@@ -191,9 +191,11 @@ export default function ActivityView({
 
   useEffect(() => {
     let cancelled = false;
-    const params = new URLSearchParams({ limit: '40' });
+    const peopleMode = feedTab === 'people';
+    const params = new URLSearchParams({ limit: peopleMode ? '100' : '40' });
+    if (peopleMode) params.set('claimedOnly', 'true');
     if (session?.user.id) params.set('viewerUserId', session.user.id);
-    if (query.trim() && feedTab === 'people') params.set('query', query.trim());
+    if (query.trim() && peopleMode) params.set('query', query.trim());
 
     setNetworkStatus('Loading network...');
     fetch('/api/social/users?' + params.toString())

@@ -109,7 +109,11 @@ export function ThirdwebWalletBridge({
     void fetch("/api/browser-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ walletAddress: address }),
+      body: JSON.stringify({
+        walletAddress: address,
+        authProvider: "THIRDWEB_SMART_WALLET",
+        source: "WEB_APP",
+      }),
     })
       .then(async (response) => {
         const body = (await response.json()) as BrowserSessionResponse;

@@ -22,6 +22,7 @@ import {
   resolveEvmWalletProvider,
 } from "../lib/evm-wallet-provider";
 import { isThirdwebConfigured } from "../lib/thirdweb-client";
+import { trackProductEvent, useProductAnalytics } from "../lib/product-analytics";
 import Header from "../zip-ui/components/Header";
 import Sidebar from "../zip-ui/components/Sidebar";
 import StatusBar from "../zip-ui/components/StatusBar";
@@ -75,6 +76,7 @@ export function TerminalShell({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sessionWalletKind, setSessionWalletKind] = useState<SessionWalletKind | null>(null);
   const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
+  useProductAnalytics({ area: activeTab, session });
 
   const applySession = useCallback((nextSession: UserSession | null) => {
     setSession(nextSession);
@@ -223,7 +225,7 @@ export function TerminalShell({
       const response = await fetch("/api/browser-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: address }),
+        body: JSON.stringify({ walletAddress: address, authProvider: "EVM_EOA", source: "WEB_APP" }),
       });
       const body = (await response.json()) as BrowserSessionResponse;
 
@@ -237,6 +239,7 @@ export function TerminalShell({
       setStoredBrowserWalletSession(body.data.session);
       setStoredBrowserSessionWalletKind("eoa");
       onSessionChange?.(body.data.session);
+      void trackProductEvent({ area: activeTab, label: "eoa", session: body.data.session, type: "AUTH_CONNECT" });
       triggerAlert("success", "EVM wallet signed in and registered with core.");
       setWalletBalanceRefreshNonce((current) => current + 1);
     } catch {
@@ -251,6 +254,7 @@ export function TerminalShell({
     setSessionWalletKind(null);
     clearStoredBrowserWalletSession();
     onSessionChange?.(null);
+    void trackProductEvent({ area: activeTab, label: sessionWalletKind ?? "wallet", session, type: "AUTH_DISCONNECT" });
     triggerAlert("info", "Wallet session closed.");
   }
 
@@ -273,6 +277,7 @@ export function TerminalShell({
     setStoredBrowserWalletSession(nextSession);
     setStoredBrowserSessionWalletKind("smart");
     onSessionChange?.(nextSession);
+    void trackProductEvent({ area: activeTab, label: "smart", session: nextSession, type: "AUTH_CONNECT" });
     setWalletBalanceRefreshNonce((current) => current + 1);
   }
 
@@ -291,6 +296,7 @@ export function TerminalShell({
     setStoredBrowserWalletSession(nextSession);
     setStoredBrowserSessionWalletKind("ton");
     onSessionChange?.(nextSession);
+    void trackProductEvent({ area: activeTab, label: "ton", session: nextSession, type: "AUTH_CONNECT" });
   }
 
   const handleTonWalletActive = useCallback((address: string) => {
@@ -319,6 +325,7 @@ export function TerminalShell({
     applySession(nextSession);
     setStoredBrowserWalletSession(nextSession);
     onSessionChange?.(nextSession);
+    void trackProductEvent({ area: activeTab, label: nextSession.traderProfile?.handle ?? "profile", session: nextSession, type: "PROFILE_CLAIM" });
     triggerAlert("success", "Your .viction identity is active.");
   }
 

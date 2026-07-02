@@ -12,13 +12,19 @@ export async function POST(request: Request) {
   }
 
   const walletAddress = stringField(body, "walletAddress");
+  const authProvider = optionalStringField(body, "authProvider");
+  const source = optionalStringField(body, "source");
 
   if (!evmAddressPattern.test(walletAddress)) {
     return validationError("A valid EVM wallet address is required.");
   }
 
   try {
-    const session = await createBrowserWalletSession({ walletAddress });
+    const session = await createBrowserWalletSession({
+      walletAddress,
+      authProvider: authProvider === "THIRDWEB_SMART_WALLET" ? "THIRDWEB_SMART_WALLET" : "EVM_EOA",
+      source: source ?? "WEB_APP",
+    });
 
     return NextResponse.json({ ok: true, data: { session } }, { status: 201 });
   } catch (error) {
@@ -61,6 +67,12 @@ function stringField(record: Record<string, unknown>, key: string) {
   const value = record[key];
 
   return typeof value === "string" ? value.trim() : "";
+}
+
+function optionalStringField(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

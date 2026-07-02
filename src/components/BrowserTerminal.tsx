@@ -28,6 +28,7 @@ import type {
 } from "../lib/core-api";
 import { getMarketDiscoveryProfile, getRegionLabel, getTopicLabel } from "../lib/market-discovery";
 import { getMarketDisplayCase, getMarketPrice } from "../lib/market-display";
+import { trackProductEvent, useProductAnalytics } from "../lib/product-analytics";
 import {
   getNoWalletDetectedMessage,
   isMobileWalletEnvironment,
@@ -190,6 +191,7 @@ export function BrowserTerminal({
   const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSignInChoiceOpen, setIsSignInChoiceOpen] = useState(false);
+  useProductAnalytics({ area: activeTab, session });
   const isLandingTab = activeTab === "landing";
 
   const currentMarket =
@@ -415,7 +417,7 @@ export function BrowserTerminal({
       const response = await fetch("/api/browser-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: address }),
+        body: JSON.stringify({ walletAddress: address, authProvider: "EVM_EOA", source: "WEB_APP" }),
       });
       const body = (await response.json()) as BrowserSessionResponse;
 
@@ -428,6 +430,7 @@ export function BrowserTerminal({
       setSessionWalletKind("eoa");
       setStoredBrowserWalletSession(body.data.session);
       setStoredBrowserSessionWalletKind("eoa");
+      void trackProductEvent({ area: activeTab, label: "eoa", session: body.data.session, type: "AUTH_CONNECT" });
       triggerAlert("success", "EVM wallet signed in and registered with core.");
     } catch {
       triggerAlert("info", "Wallet connection was cancelled or failed.");
@@ -445,6 +448,7 @@ export function BrowserTerminal({
     applySession(null);
     setSessionWalletKind(null);
     clearStoredBrowserWalletSession();
+    void trackProductEvent({ area: activeTab, label: sessionWalletKind ?? "wallet", session, type: "AUTH_DISCONNECT" });
     triggerAlert("info", "Session closed.");
   }
 
@@ -453,6 +457,7 @@ export function BrowserTerminal({
     setSessionWalletKind("smart");
     setStoredBrowserWalletSession(nextSession);
     setStoredBrowserSessionWalletKind("smart");
+    void trackProductEvent({ area: activeTab, label: "smart", session: nextSession, type: "AUTH_CONNECT" });
   }
 
   const handleSmartWalletActive = useCallback((address: string) => {
@@ -479,6 +484,7 @@ export function BrowserTerminal({
     setSessionWalletKind("ton");
     setStoredBrowserWalletSession(nextSession);
     setStoredBrowserSessionWalletKind("ton");
+    void trackProductEvent({ area: activeTab, label: "ton", session: nextSession, type: "AUTH_CONNECT" });
     triggerAlert("success", "TON wallet signed in and registered with core.");
   }
 
@@ -506,11 +512,13 @@ export function BrowserTerminal({
   function handleProfileClaimed(nextSession: UserSession) {
     applySession(nextSession);
     setStoredBrowserWalletSession(nextSession);
+    void trackProductEvent({ area: activeTab, label: nextSession.traderProfile?.handle ?? "profile", session: nextSession, type: "PROFILE_CLAIM" });
     triggerAlert("success", "Your .viction identity is active.");
   }
 
   function handleOpenMargin(market: PredictionMarket) {
     setActiveMarket(market);
+    void trackProductEvent({ area: "markets", label: market.title, metadata: { marketId: market.id }, session, type: "MARKET_OPEN_MARGIN" });
     setActiveTab("margin-desk");
   }
 
@@ -557,6 +565,15 @@ export function BrowserTerminal({
         triggerAlert("info", body.ok ? "Margin request failed." : body.error.message);
         return;
       }
+
+      void trackProductEvent({
+        area: "margin-desk",
+        label: outcomeType,
+        metadata: { chainId, leverage, marketId: activeMarket.id, visibility },
+        session,
+        type: "MARGIN_REQUEST",
+        value: marginAmt,
+      });
 
       const provider = await resolveEvmWalletProvider();
 
@@ -702,6 +719,7 @@ export function BrowserTerminal({
         });
 
         recordVaultDepositTransaction(transaction, vaultId, amount);
+        void trackProductEvent({ area: "vaults", label: vault.name, metadata: { chainId: vault.chainId, vaultId }, session, type: "VAULT_DEPOSIT", value: amount });
         refreshWalletBalances();
         triggerAlert("success", "Vault deposit confirmed.");
         return transaction;
@@ -807,6 +825,7 @@ export function BrowserTerminal({
       });
 
       recordVaultDepositTransaction(transaction, vaultId, amount);
+      void trackProductEvent({ area: "vaults", label: vault.name, metadata: { chainId: vault.chainId, vaultId }, session, type: "VAULT_DEPOSIT", value: amount });
       refreshWalletBalances();
       triggerAlert("success", "Vault deposit confirmed.");
       return transaction;
@@ -941,6 +960,7 @@ export function BrowserTerminal({
         return null;
       }
 
+      void trackProductEvent({ area: "activity", label: input.mediaType ?? "text", session, type: "PULSE_POST" });
       triggerAlert("success", "Pulse post published.");
       return body.data.post;
     } catch {
@@ -996,6 +1016,7 @@ export function BrowserTerminal({
         return null;
       }
 
+      void trackProductEvent({ area: "activity", label: input.side, metadata: { marketId: input.marketId }, session, type: "PULSE_SIGNAL" });
       triggerAlert("success", "Signal published to Market Pulse.");
       return { id: body.data.signal.id, createdAt: body.data.signal.createdAt };
     } catch {

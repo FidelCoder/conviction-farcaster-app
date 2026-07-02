@@ -68,7 +68,7 @@ export function TonWalletBridge({
       const response = await fetch("/api/ton-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tonAddress: address, displayName: "TON " + shortAddress(address) }),
+        body: JSON.stringify({ tonAddress: address, displayName: "TON " + shortAddress(address), source: "WEB_APP" }),
       });
       const body = (await response.json()) as TonSessionResponse;
 
