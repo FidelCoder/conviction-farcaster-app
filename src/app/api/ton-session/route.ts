@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { CoreApiError, createTonWalletSession } from "../../../lib/core-api";
 
-const tonAddressPattern = /^(?:EQ|UQ|kQ|0Q)[A-Za-z0-9_-]{46,}$/;
+const tonAddressPattern = /^(?:(?:EQ|UQ|kQ|0Q)[A-Za-z0-9_-]{46,}|-?\d+:[a-fA-F0-9]{64})$/;
 
 export async function POST(request: Request) {
   const body = await parseBody(request);

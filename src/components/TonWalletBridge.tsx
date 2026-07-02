@@ -10,6 +10,8 @@ type TonWalletInfo = {
 };
 
 type TonConnectUI = {
+  connectionRestored?: Promise<boolean>;
+  connected?: boolean;
   connectWallet: () => Promise<TonWalletInfo | null>;
   disconnect: () => Promise<void>;
   onStatusChange: (callback: (wallet: TonWalletInfo | null) => void) => () => void;
@@ -109,9 +111,22 @@ export function TonWalletBridge({
       });
       setTonUi(ui);
 
-      if (ui.wallet?.account?.address) {
-        void syncTonSession(ui.wallet.account.address);
-      }
+      const syncWallet = () => {
+        const address = ui.wallet?.account?.address ?? null;
+        if (address) {
+          void syncTonSession(address);
+        }
+        return address;
+      };
+
+      syncWallet();
+      void ui.connectionRestored?.then((restored) => {
+        if (cancelled) return;
+        const address = syncWallet();
+        if (!restored && !address) onDisconnectSession();
+      }).catch(() => {
+        if (!cancelled) onStatus("info", "TON wallet session could not be restored. Connect again.");
+      });
 
       unsubscribe = ui.onStatusChange((wallet) => {
         const address = wallet?.account?.address ?? null;
@@ -130,17 +145,28 @@ export function TonWalletBridge({
       if (timer) window.clearTimeout(timer);
       unsubscribe?.();
     };
-  }, [onDisconnectSession, syncTonSession, tonUi]);
+  }, [onDisconnectSession, onStatus, syncTonSession, tonUi]);
 
   useEffect(() => {
+    function syncCurrentWallet() {
+      const address = tonUi?.wallet?.account?.address ?? null;
+      if (address) void syncTonSession(address);
+      return address;
+    }
+
     function handleConnectRequest() {
       if (!tonUi) {
         onStatus("info", "TON Connect is still loading. Try again in a moment.");
         return;
       }
-      void (tonUi.openModal ? tonUi.openModal() : tonUi.connectWallet()).catch(() => {
-        onStatus("info", "TON wallet connection was cancelled or failed.");
-      });
+
+      void (tonUi.openModal ? tonUi.openModal() : tonUi.connectWallet())
+        .then(() => {
+          window.setTimeout(syncCurrentWallet, 350);
+        })
+        .catch(() => {
+          onStatus("info", "TON wallet connection was cancelled or failed.");
+        });
     }
 
     function handleDisconnectRequest() {
@@ -149,14 +175,22 @@ export function TonWalletBridge({
       });
     }
 
+    function handleReturnToApp() {
+      window.setTimeout(syncCurrentWallet, 250);
+    }
+
     window.addEventListener("conviction-ton-connect", handleConnectRequest);
     window.addEventListener("conviction-ton-disconnect", handleDisconnectRequest);
+    window.addEventListener("focus", handleReturnToApp);
+    document.addEventListener("visibilitychange", handleReturnToApp);
 
     return () => {
       window.removeEventListener("conviction-ton-connect", handleConnectRequest);
       window.removeEventListener("conviction-ton-disconnect", handleDisconnectRequest);
+      window.removeEventListener("focus", handleReturnToApp);
+      document.removeEventListener("visibilitychange", handleReturnToApp);
     };
-  }, [onStatus, tonUi]);
+  }, [onStatus, syncTonSession, tonUi]);
 
 
 
