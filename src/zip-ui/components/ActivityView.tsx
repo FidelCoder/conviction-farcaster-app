@@ -5,6 +5,7 @@ import type { DiscoveredUser, SocialActor, UserSession } from '../../lib/core-ap
 import { isClaimedVictionHandle, isClaimedVictionProfile } from '../../lib/viction-profile';
 import {
   AlertTriangle,
+  ArrowLeft,
   ExternalLink,
   Heart,
   Instagram,
@@ -105,6 +106,10 @@ export default function ActivityView({
   session,
 }: ActivityViewProps) {
   const [newPostText, setNewPostText] = useState<string>('');
+  const [draftPostText, setDraftPostText] = useState('');
+  const [draftMarketId, setDraftMarketId] = useState('');
+  const [draftComposerSide, setDraftComposerSide] = useState<ComposerSide>('YES');
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [composerSide, setComposerSide] = useState<ComposerSide>('YES');
   const [composerStatus, setComposerStatus] = useState('');
   const [composerOpen, setComposerOpen] = useState(false);
@@ -136,6 +141,7 @@ export default function ActivityView({
 
   const realMarkets = markets.filter((market) => market.id !== 'empty-market-state');
   const selectedMarket = selectedMarketId ? realMarkets.find((market) => market.id === selectedMarketId) ?? null : null;
+  const hasPulseDraft = draftPostText.trim().length > 0;
   const composerMarketTopics = useMemo(() => getComposerMarketTopics(realMarkets), [realMarkets]);
   const composerMarketSuggestions = useMemo(
     () => getComposerMarketSuggestions(realMarkets, marketPickerQuery, marketPickerTopic, selectedMarket),
@@ -313,6 +319,9 @@ export default function ActivityView({
       }
 
       setComposerStatus('Published to Pulse.');
+      setDraftPostText('');
+      setDraftMarketId('');
+      setDraftSavedAt(null);
       setNewPostText('');
       setComposerOpen(false);
       setMarketPickerOpen(false);
@@ -354,6 +363,9 @@ export default function ActivityView({
     void post;
     setPublishedSignalId(signal.id);
     setComposerStatus('Published. Share the card while the market is hot.');
+    setDraftPostText('');
+    setDraftMarketId('');
+    setDraftSavedAt(null);
     setNewPostText('');
     setComposerOpen(false);
     setMarketPickerOpen(false);
@@ -487,6 +499,57 @@ export default function ActivityView({
     }, 0);
   };
 
+  const clearComposerState = () => {
+    setNewPostText('');
+    setSelectedMarketId('');
+    setMarketPickerQuery('');
+    setMarketPickerTopic('All');
+    setMarketPickerLimit(12);
+    setExpandedMarketCategories(false);
+  };
+
+  const closeComposer = () => {
+    const typedDraft = newPostText.trim();
+
+    if (typedDraft) {
+      setDraftPostText(newPostText);
+      setDraftMarketId(selectedMarketId);
+      setDraftComposerSide(composerSide);
+      setDraftSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      clearComposerState();
+      setComposerStatus('Draft saved. Resume it from Pulse when ready.');
+    } else {
+      clearComposerState();
+      setComposerStatus('');
+    }
+
+    setComposerOpen(false);
+    setMarketPickerOpen(false);
+  };
+
+  const resumePulseDraft = () => {
+    if (!hasPulseDraft) {
+      openComposer(false);
+      return;
+    }
+
+    setNewPostText(draftPostText);
+    setSelectedMarketId(draftMarketId);
+    setComposerSide(draftComposerSide);
+    setMarketPickerOpen(false);
+    setComposerStatus('Draft restored.');
+    setComposerOpen(true);
+    setTimeout(() => composerRef.current?.focus(), 0);
+  };
+
+  const discardPulseDraft = () => {
+    setDraftPostText('');
+    setDraftMarketId('');
+    setDraftComposerSide('YES');
+    setDraftSavedAt(null);
+    clearComposerState();
+    setComposerStatus('Draft discarded.');
+  };
   const primeComposerForMarket = (market: PredictionMarket, side: ComposerSide, prompt: string) => {
     if (!requireCommunityIdentity()) return;
 
@@ -634,10 +697,14 @@ export default function ActivityView({
             <PulseComposerLauncher
               connected={portfolio.connected}
               handle={communityHandle}
+              draftLabel={draftSavedAt ? 'Saved at ' + draftSavedAt : 'Draft saved'}
               hasCommunityIdentity={hasCommunityIdentity}
+              hasDraft={hasPulseDraft}
+              onDiscardDraft={discardPulseDraft}
               onOpenMarketComposer={() => openComposer(true)}
               onOpenTextComposer={() => openComposer(false)}
               onRequireWallet={onRequireWallet}
+              onResumeDraft={resumePulseDraft}
               selectedMarket={selectedMarket}
             />
 
@@ -971,7 +1038,7 @@ export default function ActivityView({
           marketPickerLimit={marketPickerLimit}
           markets={composerMarketSuggestions}
           newPostText={newPostText}
-          onClose={() => setComposerOpen(false)}
+          onClose={closeComposer}
           onExpandCategories={() => setExpandedMarketCategories((current) => !current)}
           onLoadMoreMarkets={() => setMarketPickerLimit((current) => current + 12)}
           onMarketPickerOpenChange={setMarketPickerOpen}
@@ -1151,22 +1218,30 @@ function TopTradersCard({ leaderboard, onOpen }: { leaderboard: LeaderboardItem[
 }
 function PulseComposerLauncher({
   connected,
+  draftLabel,
   handle,
   hasCommunityIdentity,
+  hasDraft,
+  onDiscardDraft,
   onOpenMarketComposer,
   onOpenTextComposer,
   onRequireWallet,
+  onResumeDraft,
   selectedMarket,
 }: {
   connected: boolean;
+  draftLabel: string;
   handle: string;
   hasCommunityIdentity: boolean;
+  hasDraft: boolean;
+  onDiscardDraft: () => void;
   onOpenMarketComposer: () => void;
   onOpenTextComposer: () => void;
   onRequireWallet: () => void;
+  onResumeDraft: () => void;
   selectedMarket: PredictionMarket | null;
 }) {
-  const primaryAction = !connected ? onRequireWallet : onOpenTextComposer;
+  const primaryAction = !connected ? onRequireWallet : hasDraft ? onResumeDraft : onOpenTextComposer;
   const statusLabel = !connected ? "Sign in to post" : hasCommunityIdentity ? "@" + handle : "Claim .viction name";
 
   return (
@@ -1204,6 +1279,18 @@ function PulseComposerLauncher({
           Post
         </button>
       </div>
+      {hasDraft ? (
+        <div className="mt-4 flex flex-col gap-3 rounded border border-deep-orange/30 bg-deep-orange/10 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="min-w-0">
+            <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange">Draft</span>
+            <span className="mt-1 block text-sm text-[#f3e8d5]">{draftLabel}. Keep writing or discard it.</span>
+          </span>
+          <span className="grid grid-cols-2 gap-2 sm:flex sm:flex-shrink-0">
+            <button className="inline-flex min-h-9 items-center justify-center rounded bg-deep-orange px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-black hover:bg-white" onClick={onResumeDraft} type="button">Resume</button>
+            <button className="inline-flex min-h-9 items-center justify-center rounded border border-[#262626] bg-[#0A0A0A] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white" onClick={onDiscardDraft} type="button">Discard</button>
+          </span>
+        </div>
+      ) : null}
       {selectedMarket ? (
         <button
           className="mt-4 flex w-full items-center justify-between gap-3 rounded border border-deep-orange/25 bg-deep-orange/10 px-3 py-2 text-left transition-colors hover:border-deep-orange/60"
@@ -1309,20 +1396,22 @@ function PulseComposerModal({
           </div>
           <div className="flex flex-shrink-0 items-center gap-2">
             <button
+              aria-label={newPostText.trim() ? 'Save draft and close composer' : 'Back to Pulse'}
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-[#262626] bg-[#0A0A0A] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
+              onClick={onClose}
+              type="button"
+            >
+              <ArrowLeft size={13} />
+              <span>{newPostText.trim() ? 'Save draft' : 'Back'}</span>
+            </button>
+            <button
               className="inline-flex min-h-9 items-center justify-center rounded-full bg-deep-orange px-4 font-sans text-[11px] font-bold uppercase tracking-widest text-black transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
               disabled={disabled || !newPostText.trim() || pending}
               type="submit"
             >
               {pending ? "Publishing" : "Publish"}
             </button>
-            <button
-              aria-label="Close composer"
-              className="grid h-9 w-9 flex-shrink-0 place-items-center rounded border border-[#262626] bg-[#0A0A0A] text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
-              onClick={onClose}
-              type="button"
-            >
-              <X size={16} />
-            </button>
+
           </div>
         </div>
 
