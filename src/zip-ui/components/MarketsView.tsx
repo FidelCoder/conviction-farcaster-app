@@ -10,7 +10,7 @@ interface MarketsViewProps {
   walletConnected?: boolean;
 }
 
-type SortOrder = 'trending' | 'relevance' | 'conviction' | 'odds' | 'volume';
+type SortOrder = 'balanced' | 'trending' | 'relevance' | 'conviction' | 'odds' | 'volume';
 
 const FEATURED_TOPICS = ['All', 'Trending', 'African Football', 'World Cup', 'Football', 'Sports', 'Cricket', 'Rugby', 'Breaking', 'Politics', 'Crypto', 'Esports', 'Iran', 'Finance', 'Geopolitics', 'Tech', 'Culture', 'Economy', 'Weather', 'Mentions', 'Elections'];
 const FEATURED_REGIONS = ['All', 'Global', 'Africa', 'Asia', 'Europe', 'Latin America', 'Middle East', 'United States', 'Crypto-native'];
@@ -22,7 +22,7 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedTopic, setSelectedTopic] = useState<string>('All');
   const [selectedRegion, setSelectedRegion] = useState<string>('All');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('trending');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('balanced');
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleLimit, setVisibleLimit] = useState(walletConnected ? CONNECTED_INITIAL_LIMIT : GUEST_MARKET_LIMIT);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -62,8 +62,7 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
 
   const filteredMarkets = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-
-    return markets
+    const baseMarkets = markets
       .filter((market) => selectedCategory === 'All' || market.category === selectedCategory)
       .filter((market) => {
         const topics = getMarketTopics(market);
@@ -87,8 +86,13 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
           .join(' ')
           .toLowerCase()
           .includes(query);
-      })
-      .sort((a, b) => compareMarkets(a, b, sortOrder, searchQuery, selectedTopic, selectedRegion));
+      });
+
+    if (sortOrder === 'balanced' && query.length === 0) {
+      return balanceMarketMix(baseMarkets);
+    }
+
+    return [...baseMarkets].sort((a, b) => compareMarkets(a, b, sortOrder, searchQuery, selectedTopic, selectedRegion));
   }, [markets, searchQuery, selectedCategory, selectedRegion, selectedTopic, sortOrder]);
 
   const visibleMarkets = filteredMarkets.slice(0, visibleLimit);
@@ -546,19 +550,98 @@ function compareMarkets(
 }
 
 function getNextSortOrder(current: SortOrder): SortOrder {
+  if (current === 'balanced') return 'trending';
   if (current === 'trending') return 'relevance';
   if (current === 'relevance') return 'conviction';
   if (current === 'conviction') return 'odds';
   if (current === 'odds') return 'volume';
-  return 'trending';
+  return 'balanced';
 }
 
 function getSortLabel(sortOrder: SortOrder) {
+  if (sortOrder === 'balanced') return 'No Sort';
   if (sortOrder === 'conviction') return 'Conviction';
   if (sortOrder === 'odds') return 'YES Chance';
   if (sortOrder === 'volume') return 'Volume';
   if (sortOrder === 'relevance') return 'Relevance';
   return 'Trending';
+}
+
+function balanceMarketMix(markets: PredictionMarket[]) {
+  if (markets.length <= 1) return markets;
+
+  const buckets = new Map<string, PredictionMarket[]>();
+
+  markets.forEach((market) => {
+    const bucket = getMarketBalanceBucket(market);
+    const items = buckets.get(bucket) ?? [];
+    items.push(market);
+    buckets.set(bucket, items);
+  });
+
+  const orderedBuckets = Array.from(buckets.entries()).sort((a, b) => {
+    const priorityDelta = getBalanceBucketPriority(a[0]) - getBalanceBucketPriority(b[0]);
+    if (priorityDelta !== 0) return priorityDelta;
+    return a[0].localeCompare(b[0]);
+  });
+  const balanced: PredictionMarket[] = [];
+  let cursor = 0;
+
+  while (balanced.length < markets.length) {
+    let added = false;
+
+    for (const [, bucketMarkets] of orderedBuckets) {
+      const next = bucketMarkets[cursor];
+      if (!next) continue;
+
+      balanced.push(next);
+      added = true;
+    }
+
+    if (!added) break;
+    cursor += 1;
+  }
+
+  return balanced;
+}
+
+function getMarketBalanceBucket(market: PredictionMarket) {
+  const topics = getMarketTopics(market);
+
+  if (topics.includes('Politics')) return 'Politics';
+  if (topics.includes('Crypto')) return 'Crypto';
+  if (topics.includes('Tech')) return 'Tech';
+  if (topics.includes('Finance') || topics.includes('Economy')) return 'Finance';
+  if (topics.includes('Geopolitics') || topics.includes('Iran')) return 'Geopolitics';
+  if (topics.includes('Esports')) return 'Esports';
+  if (topics.includes('Culture')) return 'Culture';
+  if (topics.includes('Weather')) return 'Weather';
+  if (topics.includes('African Football')) return 'African Football';
+  if (topics.includes('World Cup')) return 'World Cup';
+  if (topics.includes('Football')) return 'Football';
+  if (topics.includes('Sports')) return 'Sports';
+
+  return market.discoveryTopic ?? inferMarketTopic(market);
+}
+
+function getBalanceBucketPriority(bucket: string) {
+  const priorities = [
+    'Politics',
+    'Crypto',
+    'Tech',
+    'Finance',
+    'Geopolitics',
+    'Esports',
+    'Culture',
+    'Weather',
+    'African Football',
+    'World Cup',
+    'Football',
+    'Sports',
+  ];
+  const index = priorities.indexOf(bucket);
+
+  return index === -1 ? priorities.length : index;
 }
 
 function getTrendingScore(market: PredictionMarket, selectedTopic = 'All', selectedRegion = 'All') {
