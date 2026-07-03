@@ -613,8 +613,8 @@ export default function ActivityView({
 
   return (
     <main className="flex-1 bg-grid-tech overflow-y-auto relative z-10 w-full min-h-[calc(100vh-64px)]">
-      <div className="max-w-[1280px] mx-auto px-4 md:px-10 py-8 md:py-12 pb-32">
-        <header className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="mx-auto w-full max-w-[1320px] px-4 py-6 pb-32 md:px-8 md:py-10">
+        <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange mb-2">Prediction social</p>
             <h1 className="text-4xl font-sans font-bold text-white mb-2">Market Pulse</h1>
@@ -629,8 +629,8 @@ export default function ActivityView({
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-8 flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-7 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="flex min-w-0 flex-col gap-4">
             <PulseComposerLauncher
               connected={portfolio.connected}
               handle={communityHandle}
@@ -706,13 +706,13 @@ export default function ActivityView({
             <div className="flex flex-col gap-4">
               {filteredFeed.length > 0 ? filteredFeed.map((item) => {
                 const isSystem = item.type === 'system';
-                const market = item.marketId ? markets.find((entry) => entry.id === item.marketId) : null;
+                const market = item.marketId ? markets.find((entry) => entry.id === item.marketId) ?? null : null;
                 const replies = item.replies ?? [];
                 const itemParticipants = item.signalId ? participants[item.signalId] : undefined;
 
                 return (
                   <article
-                    className="group relative rounded-lg border border-[#262626] bg-surface-card p-5 transition-colors hover:bg-[#1A1A1A]"
+                    className="group relative rounded-xl border border-[#262626] bg-[#151515] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.18)] transition-colors hover:border-[#3a302b] hover:bg-[#181818] sm:p-5"
                     key={item.id}
                   >
                     <div className={`absolute left-0 top-0 hidden h-[2px] w-full rounded-t-lg opacity-70 group-hover:block ${isSystem ? 'bg-deep-orange' : 'bg-electric-purple'}`} />
@@ -756,52 +756,21 @@ export default function ActivityView({
                         <SignalMeta item={item} />
 
                         {item.marketTitle ? (
-                          <div className="mb-4 rounded border border-[#262626] bg-[#0A0A0A] p-3">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                              <div>
-                                <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange">Linked market</p>
-                                <strong className="mt-1 block text-sm leading-snug text-white">{item.marketTitle}</strong>
-                                <span className="mt-1 block font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/60">
-                                  {item.marketPrice ?? (market ? formatChance(market.currentOdds) : 'Odds pending')}
-                                </span>
-                              </div>
-                              {market ? (
-                                <div className="flex flex-wrap gap-2">
-                                  <button
-                                    className="rounded border border-deep-orange/40 bg-deep-orange/10 px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange transition-colors hover:bg-deep-orange hover:text-black"
-                                    onClick={() => setRoomMarket(market)}
-                                    type="button"
-                                  >
-                                    Open room
-                                  </button>
-                                  <button
-                                    className="inline-flex items-center gap-1.5 rounded border border-[#262626] bg-[#111] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
-                                    onClick={() => setShareTargetMarket(market)}
-                                    type="button"
-                                  >
-                                    <Share2 size={12} />
-                                    Share
-                                  </button>
-                                  <button
-                                    className="inline-flex items-center gap-1.5 rounded border border-[#262626] bg-[#111] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-deep-orange hover:text-deep-orange"
-                                    onClick={() => challengeActivityItem(item, market)}
-                                    type="button"
-                                  >
-                                    <MessageSquare size={12} />
-                                    Counter
-                                  </button>
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
+                          <PulseLinkedMarketCard
+                            item={item}
+                            market={market}
+                            onChallenge={() => market ? challengeActivityItem(item, market) : undefined}
+                            onOpenRoom={() => market ? setRoomMarket(market) : undefined}
+                            onShare={() => market ? setShareTargetMarket(market) : undefined}
+                          />
                         ) : null}
 
                         {!isSystem ? (
                           <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-[#ccc3d8] font-mono text-[10px] uppercase font-bold tracking-widest">
                             {item.signalId || item.postId ? (
                               <>
-                                <FeedAction active={item.likedByUser} busy={pendingActionId === 'like-' + item.id} count={item.likes} icon="heart" label="Like" onClick={() => void toggleLike(item)} />
-                                <FeedAction active={item.repostedByUser} busy={pendingActionId === 'repost-' + item.id} count={item.repeats} icon="repeat" label="Repost" onClick={() => void toggleRepost(item)} />
+                                <FeedAction active={item.likedByUser} busy={pendingActionId === 'like-' + item.id} compact count={item.likes} icon="heart" label="Like" onClick={() => void toggleLike(item)} />
+                                <FeedAction active={item.repostedByUser} busy={pendingActionId === 'repost-' + item.id} compact count={item.repeats} icon="repeat" label="Repost" onClick={() => void toggleRepost(item)} />
                               </>
                             ) : null}
                             <button
@@ -814,17 +783,27 @@ export default function ActivityView({
                               type="button"
                             >
                               <MessageSquare size={14} />
-                              <span>Thread ({item.commentsCount})</span>
+                              <span>{item.commentsCount}</span>
                             </button>
                             {market ? (
-                              <button
-                                className="flex items-center gap-1.5 transition-colors hover:text-deep-orange"
-                                onClick={() => challengeActivityItem(item, market)}
-                                type="button"
-                              >
-                                <Radio size={14} />
-                                <span>Counter</span>
-                              </button>
+                              <>
+                                <button
+                                  className="flex items-center gap-1.5 transition-colors hover:text-deep-orange"
+                                  onClick={() => challengeActivityItem(item, market)}
+                                  type="button"
+                                >
+                                  <Radio size={14} />
+                                  <span>Counter</span>
+                                </button>
+                                <button
+                                  className="ml-auto flex items-center gap-1.5 transition-colors hover:text-white"
+                                  onClick={() => setShareTargetMarket(market)}
+                                  type="button"
+                                >
+                                  <Share2 size={14} />
+                                  <span className="sr-only">Share</span>
+                                </button>
+                              </>
                             ) : null}
                           </div>
                         ) : null}
@@ -875,53 +854,25 @@ export default function ActivityView({
             )}
           </div>
 
-          <aside className="lg:col-span-4 flex flex-col gap-6">
+          <aside className="hidden xl:flex xl:flex-col xl:gap-5">
+            <PulseRailSearch query={query} onQueryChange={setQuery} />
             <section className="rounded-lg border border-[#262626] bg-[#161616] p-5">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">News lanes</p>
-                  <h2 className="text-lg font-bold text-white">Markets people are watching</h2>
+                  <h2 className="text-lg font-bold text-white">Watching</h2>
                 </div>
                 <Newspaper className="text-deep-orange" size={18} />
               </div>
               <div className="grid gap-3">
                 {realMarkets.length > 0 ? realMarkets.slice(0, 5).map((market) => (
-                  <article
-                    className="rounded border border-[#262626] bg-[#0A0A0A] p-3 transition-colors hover:border-deep-orange/50 hover:bg-deep-orange/5"
+                  <WatchMarketRow
                     key={market.id}
-                  >
-                    <button className="w-full text-left" onClick={() => setRoomMarket(market)} type="button">
-                      <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/55">
-                        {market.discoveryTopic ?? market.category}
-                      </span>
-                      <strong className="mt-1 line-clamp-2 block text-sm leading-snug text-white">{market.title}</strong>
-                      <small className="mt-2 block font-mono text-[10px] text-deep-orange">YES {formatChance(market.currentOdds)}</small>
-                    </button>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        className="inline-flex items-center gap-1.5 rounded border border-[#262626] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white"
-                        onClick={() => setShareTargetMarket(market)}
-                        type="button"
-                      >
-                        <Share2 size={11} />
-                        Share
-                      </button>
-                      <button
-                        className="inline-flex items-center gap-1.5 rounded border border-deep-orange/40 bg-deep-orange/10 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange hover:bg-deep-orange hover:text-black"
-                        onClick={() => setRoomMarket(market)}
-                        type="button"
-                      >
-                        Room
-                      </button>
-                      <button
-                        className="inline-flex items-center gap-1.5 rounded border border-[#262626] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white"
-                        onClick={() => primeComposerForMarket(market, 'YES', 'My YES case: ')}
-                        type="button"
-                      >
-                        Call
-                      </button>
-                    </div>
-                  </article>
+                    market={market}
+                    onCall={() => primeComposerForMarket(market, 'YES', 'My YES case: ')}
+                    onOpen={() => setRoomMarket(market)}
+                    onShare={() => setShareTargetMarket(market)}
+                  />
                 )) : (
                   <p className="rounded border border-[#262626] bg-[#0A0A0A] p-4 text-sm text-[#ccc3d8]">
                     Market data is reconnecting. No placeholder watchlist is shown.
@@ -988,42 +939,7 @@ export default function ActivityView({
               onRequireWallet={onRequireWallet}
             />
 
-            <section className="bg-[#161616] border border-[#262626] rounded-lg overflow-hidden relative">
-              <div className="w-full h-[2px] bg-deep-orange" />
-              <div className="p-5 border-b border-[#262626] flex justify-between items-center bg-[#111111]">
-                <h2 className="font-mono text-sm font-bold text-white flex items-center gap-2">
-                  <Trophy size={16} className="text-deep-orange" />
-                  <span>Leaderboard</span>
-                </h2>
-                <Sparkles size={14} className="text-deep-orange animate-pulse" />
-              </div>
-
-              <div className="flex flex-col">
-                {leaderboard.slice(0, 5).map((trader) => (
-                  <div
-                    key={trader.rank}
-                    className="flex items-center justify-between p-4 hover:bg-[#1A1A1A] transition-colors border-b border-[#262626]/40 group text-xs font-mono"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-[#ccc3d8]/60 font-extrabold w-4 text-center">{trader.rank}</span>
-                      <div className="w-8 h-8 rounded-full bg-[#1c1b1b] border border-[#262626] flex items-center justify-center font-bold text-white uppercase font-mono text-[10px]">
-                        {trader.letter || 'T'}
-                      </div>
-                      <span className="font-medium text-white group-hover:text-deep-orange transition-colors">@{trader.name}</span>
-                    </div>
-                    <span className="text-[#10B981] font-bold">+${(trader.pnl / 1000).toFixed(1)}k</span>
-                  </div>
-                ))}
-
-                <button
-                  onClick={() => setShowFullLeaderboardModal(true)}
-                  className="block p-4 text-center font-mono text-[10px] text-[#ccc3d8] hover:text-white hover:bg-[#1A1A1A] transition-colors uppercase tracking-widest font-extrabold cursor-pointer border-none bg-transparent"
-                  type="button"
-                >
-                  View Full Leaderboard
-                </button>
-              </div>
-            </section>
+            <TopTradersCard leaderboard={leaderboard} onOpen={() => setShowFullLeaderboardModal(true)} />
           </aside>
         </div>
       </div>
@@ -1172,6 +1088,67 @@ export default function ActivityView({
 const QUICK_PULSE_STICKERS = ['🔥', '📈', '🧠', '⚡', '🏆', '👀', '💎', '🛰️'];
 
 
+function PulseRailSearch({ query, onQueryChange }: { query: string; onQueryChange: (value: string) => void }) {
+  return (
+    <label className="relative block">
+      <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#e7c8b5]/75" size={18} />
+      <input
+        className="h-12 w-full rounded-xl border border-[#262626] bg-[#050505] pl-12 pr-4 text-sm text-white outline-none transition-colors placeholder:text-[#cbbdb5]/65 focus:border-deep-orange"
+        onChange={(event) => onQueryChange(event.target.value)}
+        placeholder="Search markets or users..."
+        type="search"
+        value={query}
+      />
+    </label>
+  );
+}
+
+function WatchMarketRow({ market, onCall, onOpen, onShare }: { market: PredictionMarket; onCall: () => void; onOpen: () => void; onShare: () => void }) {
+  const imageUrl = getMarketImageUrl(market);
+  return (
+    <article className="group rounded-lg border border-transparent bg-transparent p-2 transition-colors hover:border-[#262626] hover:bg-[#0A0A0A]">
+      <button className="flex w-full items-center gap-3 text-left" onClick={onOpen} type="button">
+        <span className="grid h-11 w-11 flex-shrink-0 place-items-center overflow-hidden rounded border border-[#262626] bg-[#101010] font-mono text-[10px] font-bold uppercase text-[#ccc3d8]">
+          {imageUrl ? <img alt="" className="h-full w-full object-cover" loading="lazy" src={imageUrl} /> : (market.discoveryTopic ?? market.category ?? "MK").slice(0, 2)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <strong className="line-clamp-2 text-sm leading-snug text-white transition-colors group-hover:text-deep-orange">{shortenMarketTitle(market.title)}</strong>
+          <span className="mt-1 block font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/55">{market.discoveryTopic ?? market.category}</span>
+        </span>
+        <span className="flex-shrink-0 font-mono text-sm font-bold text-emerald-300">{formatChance(market.currentOdds)}</span>
+      </button>
+      <div className="mt-2 hidden gap-2 pl-14 group-hover:flex">
+        <button className="rounded border border-[#262626] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white" onClick={onShare} type="button">Share</button>
+        <button className="rounded border border-deep-orange/40 bg-deep-orange/10 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange hover:bg-deep-orange hover:text-black" onClick={onOpen} type="button">Room</button>
+        <button className="rounded border border-[#262626] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white" onClick={onCall} type="button">Call</button>
+      </div>
+    </article>
+  );
+}
+
+function TopTradersCard({ leaderboard, onOpen }: { leaderboard: LeaderboardItem[]; onOpen: () => void }) {
+  return (
+    <section className="rounded-xl border border-[#262626] bg-[#161616] p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-white">Top Traders</h2>
+        <Trophy className="text-deep-orange" size={16} />
+      </div>
+      <div className="grid gap-3">
+        {leaderboard.slice(0, 5).map((trader) => (
+          <button className="flex items-center justify-between gap-3 rounded border border-transparent p-1 text-left transition-colors hover:border-[#262626] hover:bg-[#0A0A0A]" key={trader.rank} onClick={onOpen} type="button">
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="w-4 text-center font-mono text-xs font-bold text-[#ccc3d8]/65">{trader.rank}</span>
+              <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full border border-[#262626] bg-[#222] font-mono text-[10px] font-bold uppercase text-white">{trader.letter || "T"}</span>
+              <span className="truncate text-sm font-bold text-white">@{trader.name}</span>
+            </span>
+            <span className="font-mono text-xs font-bold text-emerald-300">+${(trader.pnl / 1000).toFixed(1)}k</span>
+          </button>
+        ))}
+      </div>
+      <button className="mt-4 w-full rounded border border-[#262626] bg-[#0A0A0A] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-deep-orange hover:text-deep-orange" onClick={onOpen} type="button">View leaderboard</button>
+    </section>
+  );
+}
 function PulseComposerLauncher({
   connected,
   handle,
@@ -1190,49 +1167,46 @@ function PulseComposerLauncher({
   selectedMarket: PredictionMarket | null;
 }) {
   const primaryAction = !connected ? onRequireWallet : onOpenTextComposer;
-  const statusLabel = !connected ? 'Sign in to post' : hasCommunityIdentity ? '@' + handle : 'Claim .viction name';
+  const statusLabel = !connected ? "Sign in to post" : hasCommunityIdentity ? "@" + handle : "Claim .viction name";
 
   return (
-    <section className="rounded-lg border border-[#262626] bg-surface-card p-3 sm:p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <section className="rounded-xl border border-[#262626] bg-[#111111] p-4 shadow-[0_18px_70px_rgba(0,0,0,0.2)] sm:p-5">
+      <button
+        className="flex min-h-28 w-full items-start gap-3 rounded-lg text-left transition-colors hover:bg-[#151515] sm:min-h-32"
+        onClick={primaryAction}
+        type="button"
+      >
+        <span className="grid h-12 w-12 flex-shrink-0 place-items-center overflow-hidden rounded-full border border-deep-orange/30 bg-deep-orange/10 text-deep-orange">
+          <Radio size={18} />
+        </span>
+        <span className="min-w-0 flex-1 pt-1">
+          <span className="block text-xl font-bold text-[#f4dfd2]">Share your market take...</span>
+          <span className="mt-2 block text-sm text-[#ccc3d8]/70">Post news, sources, memes, or trade ideas with your .viction identity.</span>
+        </span>
+        <span className="hidden rounded border border-emerald-500/20 bg-emerald-500/5 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-emerald-300 sm:inline-flex">
+          {statusLabel}
+        </span>
+      </button>
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#262626] pt-4">
+        <div className="flex items-center gap-2 text-[#f0b28e]">
+          <button aria-label="Add media" className="grid h-9 w-9 place-items-center rounded border border-transparent hover:border-[#262626] hover:bg-[#0A0A0A]" onClick={primaryAction} type="button">
+            <PlayCircle size={17} />
+          </button>
+          <button aria-label="Attach market" className="grid h-9 w-9 place-items-center rounded border border-transparent hover:border-[#262626] hover:bg-[#0A0A0A] disabled:cursor-not-allowed disabled:opacity-50" disabled={!connected} onClick={onOpenMarketComposer} type="button">
+            <Radio size={17} />
+          </button>
+        </div>
         <button
-          className="flex min-w-0 flex-1 items-center gap-3 rounded border border-[#262626] bg-[#0A0A0A] p-3 text-left transition-colors hover:border-deep-orange/60 hover:bg-deep-orange/5"
+          className="inline-flex min-h-9 items-center justify-center rounded-full bg-deep-orange px-6 font-sans text-xs font-bold uppercase tracking-widest text-black transition-colors hover:bg-white"
           onClick={primaryAction}
           type="button"
         >
-          <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full border border-deep-orange/30 bg-deep-orange/10 text-deep-orange">
-            <Radio size={17} />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-bold text-white">Post to Pulse</span>
-            <span className="mt-0.5 block truncate text-xs text-[#ccc3d8]/70">Share a take, source, meme, or trade idea.</span>
-          </span>
-          <span className="ml-auto hidden rounded border border-emerald-500/20 bg-emerald-500/5 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-emerald-300 sm:inline-flex">
-            {statusLabel}
-          </span>
+          Post
         </button>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-shrink-0">
-          <button
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded bg-deep-orange px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-black transition-colors hover:bg-white"
-            onClick={primaryAction}
-            type="button"
-          >
-            <Send size={13} />
-            Post
-          </button>
-          <button
-            className="inline-flex min-h-10 items-center justify-center rounded border border-[#262626] bg-[#0A0A0A] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-deep-orange hover:text-deep-orange disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!connected}
-            onClick={onOpenMarketComposer}
-            type="button"
-          >
-            Market call
-          </button>
-        </div>
       </div>
       {selectedMarket ? (
         <button
-          className="mt-3 flex w-full items-center justify-between gap-3 rounded border border-deep-orange/25 bg-deep-orange/10 px-3 py-2 text-left transition-colors hover:border-deep-orange/60"
+          className="mt-4 flex w-full items-center justify-between gap-3 rounded border border-deep-orange/25 bg-deep-orange/10 px-3 py-2 text-left transition-colors hover:border-deep-orange/60"
           onClick={onOpenMarketComposer}
           type="button"
         >
@@ -1246,7 +1220,7 @@ function PulseComposerLauncher({
         </button>
       ) : null}
       {connected && !hasCommunityIdentity ? (
-        <div className="mt-3 flex flex-col gap-2 rounded border border-deep-orange/30 bg-deep-orange/10 p-3 text-sm text-[#f3e8d5] sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-col gap-2 rounded border border-deep-orange/30 bg-deep-orange/10 p-3 text-sm text-[#f3e8d5] sm:flex-row sm:items-center sm:justify-between">
           <span>Claim a .viction name before joining Pulse.</span>
           <Link className="inline-flex min-h-9 items-center justify-center rounded bg-deep-orange px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-black hover:bg-white" href="/me/profile">
             Claim name
@@ -1256,7 +1230,6 @@ function PulseComposerLauncher({
     </section>
   );
 }
-
 function PulseComposerModal({
   communityHandle,
   composerRef,
@@ -1321,7 +1294,7 @@ function PulseComposerModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <form
-        className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-[#262626] bg-[#151515] shadow-2xl sm:rounded-xl"
+        className="mb-20 flex max-h-[calc(100vh-6.25rem)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-[#262626] bg-[#151515] shadow-2xl sm:mb-0 sm:max-h-[94vh] sm:rounded-xl"
         onSubmit={onSubmit}
       >
         <div className="flex items-start justify-between gap-3 border-b border-[#262626] bg-[#101010] p-4">
@@ -1334,14 +1307,23 @@ function PulseComposerModal({
               <span className="mt-0.5 block text-sm text-[#ccc3d8]/75">Write first. Attach a market only when it strengthens the post.</span>
             </span>
           </div>
-          <button
-            aria-label="Close composer"
-            className="grid h-9 w-9 flex-shrink-0 place-items-center rounded border border-[#262626] bg-[#0A0A0A] text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
-            onClick={onClose}
-            type="button"
-          >
-            <X size={16} />
-          </button>
+          <div className="flex flex-shrink-0 items-center gap-2">
+            <button
+              className="inline-flex min-h-9 items-center justify-center rounded-full bg-deep-orange px-4 font-sans text-[11px] font-bold uppercase tracking-widest text-black transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={disabled || !newPostText.trim() || pending}
+              type="submit"
+            >
+              {pending ? "Publishing" : "Publish"}
+            </button>
+            <button
+              aria-label="Close composer"
+              className="grid h-9 w-9 flex-shrink-0 place-items-center rounded border border-[#262626] bg-[#0A0A0A] text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
+              onClick={onClose}
+              type="button"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
@@ -1452,7 +1434,7 @@ function PulseComposerModal({
           </section>
         </div>
 
-        <div className="border-t border-[#262626] bg-[#101010] p-3 sm:p-4">
+        <div className="sticky bottom-0 border-t border-[#262626] bg-[#101010] p-3 shadow-[0_-18px_35px_rgba(0,0,0,0.35)] sm:p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="min-h-4 text-xs text-[#ccc3d8]/65 sm:max-w-md">{composerStatus || (selectedMarket ? 'Market call ready.' : 'General post ready.')}</p>
             <button
@@ -1471,6 +1453,53 @@ function PulseComposerModal({
 }
 
 
+function PulseLinkedMarketCard({
+  item,
+  market,
+  onChallenge,
+  onOpenRoom,
+  onShare,
+}: {
+  item: ActivityItem;
+  market: PredictionMarket | null;
+  onChallenge: () => void | undefined;
+  onOpenRoom: () => void | undefined;
+  onShare: () => void | undefined;
+}) {
+  const imageUrl = market ? getMarketImageUrl(market) : null;
+  const chance = item.marketPrice ?? (market ? formatChance(market.currentOdds) : "Odds pending");
+  const category = market?.discoveryTopic ?? market?.category ?? item.topic ?? "Market";
+  return (
+    <div className="mb-4 overflow-hidden rounded-lg border border-[#303030] bg-[#050505]">
+      <button className="grid w-full grid-cols-[5.5rem_minmax(0,1fr)] text-left sm:grid-cols-[7rem_minmax(0,1fr)_auto]" disabled={!market} onClick={onOpenRoom} type="button">
+        <span className="grid min-h-24 place-items-center overflow-hidden border-r border-[#262626] bg-[#101010] font-mono text-[10px] font-bold uppercase text-[#ccc3d8]">
+          {imageUrl ? <img alt="" className="h-full w-full object-cover" loading="lazy" src={imageUrl} /> : category.slice(0, 2)}
+        </span>
+        <span className="min-w-0 px-4 py-3">
+          <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange">{category}</span>
+          <strong className="mt-1 line-clamp-2 block text-sm leading-snug text-white sm:text-base">{item.marketTitle}</strong>
+          <span className={"mt-3 inline-flex rounded px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest " + (item.signalSide === "NO" ? "bg-red-500/15 text-red-300" : "bg-emerald-500/15 text-emerald-300")}>
+            {item.signalSide ? item.signalSide + " signal" : "Market signal"}
+          </span>
+        </span>
+        <span className="hidden min-w-[5.25rem] flex-col items-end justify-center border-l border-[#262626] px-3 sm:flex">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/60">Probability</span>
+          <strong className="mt-1 font-mono text-lg text-emerald-300">{chance}</strong>
+        </span>
+      </button>
+      <div className="flex items-center justify-between gap-2 border-t border-[#262626] px-3 py-2 sm:justify-end">
+        <span className="font-mono text-xs font-bold text-emerald-300 sm:hidden">{chance}</span>
+        {market ? (
+          <span className="flex flex-wrap justify-end gap-2">
+            <button className="rounded border border-deep-orange/40 bg-deep-orange/10 px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange hover:bg-deep-orange hover:text-black" onClick={onOpenRoom} type="button">Room</button>
+            <button className="rounded border border-[#262626] px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white" onClick={onShare} type="button">Share</button>
+            <button className="hidden rounded border border-[#262626] px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-deep-orange hover:text-deep-orange sm:inline-flex" onClick={onChallenge} type="button">Counter</button>
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 function PulseThreadModal({
   connected,
   hasCommunityIdentity,
@@ -2389,6 +2418,7 @@ function SignalMeta({ item }: { item: ActivityItem }) {
 function FeedAction({
   active,
   busy,
+  compact,
   count,
   icon,
   label,
@@ -2396,6 +2426,7 @@ function FeedAction({
 }: {
   active?: boolean;
   busy?: boolean;
+  compact?: boolean;
   count: number;
   icon: 'heart' | 'repeat';
   label: string;
@@ -2411,7 +2442,7 @@ function FeedAction({
       type="button"
     >
       <Icon size={14} className={active && icon === 'heart' ? 'fill-current' : ''} />
-      <span>{label} ({count})</span>
+      <span>{compact ? count : label + ' (' + count + ')'}</span>
     </button>
   );
 }
@@ -2951,6 +2982,13 @@ function getPrimaryComposerTopic(market: PredictionMarket) {
 
 function marketMatchesComposerTopic(market: PredictionMarket, topic: string) {
   return getMarketTopicLabels(market).includes(topic);
+}
+
+function shortenMarketTitle(title: string) {
+  return title
+    .replace(/^Will\s+/i, "")
+    .replace(/\?$/, "")
+    .trim() || title;
 }
 
 function getMarketSearchText(market: PredictionMarket) {
