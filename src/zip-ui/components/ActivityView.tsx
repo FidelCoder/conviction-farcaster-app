@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityItem, LeaderboardItem, PredictionMarket, UserPortfolio } from '../types';
+import { ActivityItem, ActivityReplyItem, LeaderboardItem, PredictionMarket, UserPortfolio } from '../types';
 import type { DiscoveredUser, SocialActor, UserSession } from '../../lib/core-api';
 import { isClaimedVictionHandle, isClaimedVictionProfile } from '../../lib/viction-profile';
 import {
@@ -107,11 +107,14 @@ export default function ActivityView({
   const [newPostText, setNewPostText] = useState<string>('');
   const [composerSide, setComposerSide] = useState<ComposerSide>('YES');
   const [composerStatus, setComposerStatus] = useState('');
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [marketPickerOpen, setMarketPickerOpen] = useState(false);
   const [publishedSignalId, setPublishedSignalId] = useState<string | null>(null);
   const [shareTargetMarket, setShareTargetMarket] = useState<PredictionMarket | null>(null);
   const [roomMarket, setRoomMarket] = useState<PredictionMarket | null>(null);
   const [replyText, setReplyText] = useState<string>('');
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
+  const [threadItem, setThreadItem] = useState<ActivityItem | null>(null);
   const [feedTab, setFeedTab] = useState<FeedTab>('for-you');
   const [participants, setParticipants] = useState<ParticipantsStore>({});
   const [query, setQuery] = useState('');
@@ -311,6 +314,8 @@ export default function ActivityView({
 
       setComposerStatus('Published to Pulse.');
       setNewPostText('');
+      setComposerOpen(false);
+      setMarketPickerOpen(false);
       onTimelineRefresh?.();
       return;
     }
@@ -350,6 +355,8 @@ export default function ActivityView({
     setPublishedSignalId(signal.id);
     setComposerStatus('Published. Share the card while the market is hot.');
     setNewPostText('');
+    setComposerOpen(false);
+    setMarketPickerOpen(false);
     onTimelineRefresh?.();
   };
 
@@ -455,7 +462,25 @@ export default function ActivityView({
     return true;
   };
 
+  const openComposer = (withMarketPicker = false) => {
+    if (!portfolio.connected) {
+      onRequireWallet();
+      return;
+    }
+
+    setMarketPickerOpen(withMarketPicker);
+    setComposerOpen(true);
+    if (!hasCommunityIdentity) {
+      setComposerStatus('Claim your .viction name to join Market Pulse.');
+    } else if (!composerStatus) {
+      setComposerStatus('');
+    }
+
+    setTimeout(() => composerRef.current?.focus(), 0);
+  };
+
   const focusComposer = () => {
+    setComposerOpen(true);
     setTimeout(() => {
       composerRef.current?.focus();
       composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -468,6 +493,7 @@ export default function ActivityView({
     setSelectedMarketId(market.id);
     setMarketPickerTopic(getPrimaryComposerTopic(market));
     setMarketPickerQuery('');
+    setMarketPickerOpen(false);
     setComposerSide(side);
     setPublishedSignalId(null);
     setNewPostText((current) => {
@@ -605,118 +631,24 @@ export default function ActivityView({
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 flex flex-col gap-4">
-            <section className="overflow-hidden rounded-lg border border-[#262626] bg-surface-card p-4 sm:p-5">
-              <div className="mb-4 flex items-start gap-3">
-                <div className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full border border-deep-orange/30 bg-deep-orange/10 text-deep-orange">
-                  <Radio size={18} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-white">Post to Pulse</h2>
-                  <p className="text-sm text-[#ccc3d8]/80">Share a market take, source, meme, or trade idea with your .viction identity.</p>
-                </div>
-              </div>
+            <PulseComposerLauncher
+              connected={portfolio.connected}
+              handle={communityHandle}
+              hasCommunityIdentity={hasCommunityIdentity}
+              onOpenMarketComposer={() => openComposer(true)}
+              onOpenTextComposer={() => openComposer(false)}
+              onRequireWallet={onRequireWallet}
+              selectedMarket={selectedMarket}
+            />
 
-              <CommunityIdentityNotice
-                connected={portfolio.connected}
-                handle={communityHandle}
-                onRequireWallet={onRequireWallet}
+            {publishedSignalId && selectedMarket ? (
+              <ProofSharePanel
+                market={selectedMarket}
+                onOpenRoom={() => setRoomMarket(selectedMarket)}
+                signalId={publishedSignalId}
+                side={composerSide}
               />
-
-              <form className="grid gap-3" onSubmit={handlePostSubmit}>
-                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
-                  <div className="grid gap-2">
-                    <textarea
-                      ref={composerRef}
-                      className="min-h-28 min-w-0 resize-y rounded border border-[#262626] bg-[#0A0A0A] p-3 text-sm leading-relaxed text-white outline-none transition-colors placeholder:text-[#ccc3d8]/45 focus:border-deep-orange"
-                      disabled={!portfolio.connected || !hasCommunityIdentity}
-                      maxLength={500}
-                      onChange={(event) => setNewPostText(event.target.value)}
-                      placeholder={getComposerPlaceholder(portfolio.connected, hasCommunityIdentity)}
-                      value={newPostText}
-                    />
-                    <div className="flex flex-wrap gap-1.5" aria-label="Quick Pulse stickers">
-                      {QUICK_PULSE_STICKERS.map((sticker) => (
-                        <button
-                          className="grid h-8 w-8 place-items-center rounded border border-[#262626] bg-[#0A0A0A] text-base transition-colors hover:border-deep-orange hover:bg-deep-orange/10 disabled:cursor-not-allowed disabled:opacity-40"
-                          disabled={!portfolio.connected || !hasCommunityIdentity || newPostText.length + sticker.length > 500}
-                          key={sticker}
-                          onClick={() => setNewPostText((current) => (current + ' ' + sticker).trimStart())}
-                          title={sticker}
-                          type="button"
-                        >
-                          {sticker}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="grid min-w-0 gap-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['YES', 'NO'] as ComposerSide[]).map((side) => (
-                        <button
-                          aria-pressed={composerSide === side}
-                          className={`min-h-10 rounded border px-3 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
-                            composerSide === side
-                              ? side === 'YES'
-                                ? 'border-deep-orange bg-deep-orange text-black'
-                                : 'border-[#EF4444] bg-[#EF4444] text-white'
-                              : 'border-[#262626] bg-[#0A0A0A] text-[#ccc3d8] hover:border-white/30'
-                          }`}
-                          key={side}
-                          onClick={() => setComposerSide(side)}
-                          type="button"
-                        >
-                          {side}
-                        </button>
-                      ))}
-                    </div>
-                    <MarketSignalPicker
-                      disabled={!portfolio.connected || !hasCommunityIdentity}
-                      markets={composerMarketSuggestions}
-                      onSelectMarket={setSelectedMarketId}
-                      expandedCategories={expandedMarketCategories}
-                      marketLimit={marketPickerLimit}
-                      onExpandCategories={() => setExpandedMarketCategories((current) => !current)}
-                      onLoadMore={() => setMarketPickerLimit((current) => current + 12)}
-                      onQueryChange={(value) => {
-                        setMarketPickerLimit(12);
-                        setMarketPickerQuery(value);
-                      }}
-                      onTopicChange={(topic) => {
-                        setMarketPickerLimit(12);
-                        setMarketPickerTopic(topic);
-                      }}
-                      query={marketPickerQuery}
-                      selectedMarket={selectedMarket}
-                      selectedTopic={marketPickerTopic}
-                      topics={composerMarketTopics}
-                      totalMarkets={realMarkets.length}
-                    />
-                    <button
-                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded bg-deep-orange px-4 py-2 font-sans text-xs font-bold uppercase tracking-widest text-black transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={!portfolio.connected || !hasCommunityIdentity || !newPostText.trim() || pendingActionId === 'compose'}
-                      type="submit"
-                    >
-                      <Send size={14} />
-                      {hasCommunityIdentity ? 'Publish' : 'Claim name'}
-                    </button>
-                  </div>
-                </div>
-                {composerStatus ? (
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]/65">{composerStatus}</p>
-                ) : null}
-              </form>
-
-              {publishedSignalId && selectedMarket ? (
-                <ProofSharePanel
-                  market={selectedMarket}
-                  onOpenRoom={() => setRoomMarket(selectedMarket)}
-                  signalId={publishedSignalId}
-                  side={composerSide}
-                />
-              ) : null}
-            </section>
-
-            <NetworkInviteCard handle={communityHandle} connected={portfolio.connected} onRequireWallet={onRequireWallet} />
+            ) : null}
 
             <section className="rounded-lg border border-[#262626] bg-[#111111] p-3">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -817,7 +749,9 @@ export default function ActivityView({
                           />
                         </div>
 
-                        <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-[#ccc3d8]">{item.text}</p>
+                        <button className="mb-3 block w-full text-left" onClick={() => setThreadItem(item)} type="button">
+                          <span className="whitespace-pre-wrap text-sm leading-relaxed text-[#ccc3d8] transition-colors hover:text-white">{item.text}</span>
+                        </button>
 
                         <SignalMeta item={item} />
 
@@ -873,11 +807,14 @@ export default function ActivityView({
                             <button
                               aria-expanded={activeReplyId === item.id}
                               className="flex items-center gap-1.5 transition-colors hover:text-white"
-                              onClick={() => setActiveReplyId(activeReplyId === item.id ? null : item.id)}
+                              onClick={() => {
+                                setThreadItem(item);
+                                setActiveReplyId(item.id);
+                              }}
                               type="button"
                             >
                               <MessageSquare size={14} />
-                              <span>Reply ({item.commentsCount})</span>
+                              <span>Thread ({item.commentsCount})</span>
                             </button>
                             {market ? (
                               <button
@@ -904,16 +841,7 @@ export default function ActivityView({
                           />
                         ) : null}
 
-                        {replies.length > 0 ? (
-                          <div className="mt-4 grid gap-2 border-l border-[#262626] pl-4">
-                            {replies.slice(-4).map((reply) => (
-                              <div key={reply.id} className="rounded bg-[#0A0A0A] p-3 text-xs text-[#ccc3d8]">
-                                <strong className="mr-2 font-mono text-white">@{reply.author}</strong>
-                                <span>{reply.text}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
+                        {replies.length > 0 ? <PulseThreadReplies replies={replies} /> : null}
 
                         {activeReplyId === item.id ? (
                           <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={(event) => void submitReply(event, item)}>
@@ -1050,6 +978,10 @@ export default function ActivityView({
               )}
             </section>
 
+            <div className="hidden lg:block">
+              <NetworkInviteCard handle={communityHandle} connected={portfolio.connected} onRequireWallet={onRequireWallet} />
+            </div>
+
             <PulseFlowCard
               connected={portfolio.connected}
               hasCommunityIdentity={hasCommunityIdentity}
@@ -1095,6 +1027,60 @@ export default function ActivityView({
           </aside>
         </div>
       </div>
+
+      {threadItem ? (
+        <PulseThreadModal
+          connected={portfolio.connected}
+          hasCommunityIdentity={hasCommunityIdentity}
+          item={threadItem}
+          onClose={() => setThreadItem(null)}
+          onReply={(event) => void submitReply(event, threadItem)}
+          pending={pendingActionId === 'reply-' + threadItem.id}
+          replyText={replyText}
+          setActiveReplyId={setActiveReplyId}
+          setReplyText={setReplyText}
+        />
+      ) : null}
+
+      {composerOpen ? (
+        <PulseComposerModal
+          communityHandle={communityHandle}
+          composerRef={composerRef}
+          composerSide={composerSide}
+          composerStatus={composerStatus}
+          disabled={!portfolio.connected || !hasCommunityIdentity}
+          expandedCategories={expandedMarketCategories}
+          hasCommunityIdentity={hasCommunityIdentity}
+          marketPickerOpen={marketPickerOpen}
+          marketPickerLimit={marketPickerLimit}
+          markets={composerMarketSuggestions}
+          newPostText={newPostText}
+          onClose={() => setComposerOpen(false)}
+          onExpandCategories={() => setExpandedMarketCategories((current) => !current)}
+          onLoadMoreMarkets={() => setMarketPickerLimit((current) => current + 12)}
+          onMarketPickerOpenChange={setMarketPickerOpen}
+          onPostTextChange={setNewPostText}
+          onQueryChange={(value) => {
+            setMarketPickerLimit(12);
+            setMarketPickerQuery(value);
+          }}
+          onRequireWallet={onRequireWallet}
+          onSelectMarket={setSelectedMarketId}
+          onSideChange={setComposerSide}
+          onSubmit={handlePostSubmit}
+          onTopicChange={(topic) => {
+            setMarketPickerLimit(12);
+            setMarketPickerTopic(topic);
+          }}
+          pending={pendingActionId === 'compose'}
+          portfolioConnected={portfolio.connected}
+          query={marketPickerQuery}
+          selectedMarket={selectedMarket}
+          selectedTopic={marketPickerTopic}
+          topics={composerMarketTopics}
+          totalMarkets={realMarkets.length}
+        />
+      ) : null}
 
       {shareTargetMarket ? (
         <ShareCardModal market={shareTargetMarket} onClose={() => setShareTargetMarket(null)} />
@@ -1184,6 +1170,424 @@ export default function ActivityView({
 
 
 const QUICK_PULSE_STICKERS = ['🔥', '📈', '🧠', '⚡', '🏆', '👀', '💎', '🛰️'];
+
+
+function PulseComposerLauncher({
+  connected,
+  handle,
+  hasCommunityIdentity,
+  onOpenMarketComposer,
+  onOpenTextComposer,
+  onRequireWallet,
+  selectedMarket,
+}: {
+  connected: boolean;
+  handle: string;
+  hasCommunityIdentity: boolean;
+  onOpenMarketComposer: () => void;
+  onOpenTextComposer: () => void;
+  onRequireWallet: () => void;
+  selectedMarket: PredictionMarket | null;
+}) {
+  const primaryAction = !connected ? onRequireWallet : onOpenTextComposer;
+  const statusLabel = !connected ? 'Sign in to post' : hasCommunityIdentity ? '@' + handle : 'Claim .viction name';
+
+  return (
+    <section className="rounded-lg border border-[#262626] bg-surface-card p-3 sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button
+          className="flex min-w-0 flex-1 items-center gap-3 rounded border border-[#262626] bg-[#0A0A0A] p-3 text-left transition-colors hover:border-deep-orange/60 hover:bg-deep-orange/5"
+          onClick={primaryAction}
+          type="button"
+        >
+          <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full border border-deep-orange/30 bg-deep-orange/10 text-deep-orange">
+            <Radio size={17} />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-white">Post to Pulse</span>
+            <span className="mt-0.5 block truncate text-xs text-[#ccc3d8]/70">Share a take, source, meme, or trade idea.</span>
+          </span>
+          <span className="ml-auto hidden rounded border border-emerald-500/20 bg-emerald-500/5 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-emerald-300 sm:inline-flex">
+            {statusLabel}
+          </span>
+        </button>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-shrink-0">
+          <button
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded bg-deep-orange px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-black transition-colors hover:bg-white"
+            onClick={primaryAction}
+            type="button"
+          >
+            <Send size={13} />
+            Post
+          </button>
+          <button
+            className="inline-flex min-h-10 items-center justify-center rounded border border-[#262626] bg-[#0A0A0A] px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] transition-colors hover:border-deep-orange hover:text-deep-orange disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!connected}
+            onClick={onOpenMarketComposer}
+            type="button"
+          >
+            Market call
+          </button>
+        </div>
+      </div>
+      {selectedMarket ? (
+        <button
+          className="mt-3 flex w-full items-center justify-between gap-3 rounded border border-deep-orange/25 bg-deep-orange/10 px-3 py-2 text-left transition-colors hover:border-deep-orange/60"
+          onClick={onOpenMarketComposer}
+          type="button"
+        >
+          <span className="min-w-0">
+            <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange">Attached market</span>
+            <span className="mt-1 block truncate text-xs font-bold text-white">{selectedMarket.title}</span>
+          </span>
+          <span className="flex-shrink-0 rounded border border-[#262626] bg-[#0A0A0A] px-2 py-1 font-mono text-[10px] font-bold text-emerald-300">
+            {formatChance(selectedMarket.currentOdds)}
+          </span>
+        </button>
+      ) : null}
+      {connected && !hasCommunityIdentity ? (
+        <div className="mt-3 flex flex-col gap-2 rounded border border-deep-orange/30 bg-deep-orange/10 p-3 text-sm text-[#f3e8d5] sm:flex-row sm:items-center sm:justify-between">
+          <span>Claim a .viction name before joining Pulse.</span>
+          <Link className="inline-flex min-h-9 items-center justify-center rounded bg-deep-orange px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-black hover:bg-white" href="/me/profile">
+            Claim name
+          </Link>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function PulseComposerModal({
+  communityHandle,
+  composerRef,
+  composerSide,
+  composerStatus,
+  disabled,
+  expandedCategories,
+  hasCommunityIdentity,
+  marketPickerLimit,
+  marketPickerOpen,
+  markets,
+  newPostText,
+  onClose,
+  onExpandCategories,
+  onLoadMoreMarkets,
+  onMarketPickerOpenChange,
+  onPostTextChange,
+  onQueryChange,
+  onRequireWallet,
+  onSelectMarket,
+  onSideChange,
+  onSubmit,
+  onTopicChange,
+  pending,
+  portfolioConnected,
+  query,
+  selectedMarket,
+  selectedTopic,
+  topics,
+  totalMarkets,
+}: {
+  communityHandle: string;
+  composerRef: React.RefObject<HTMLTextAreaElement | null>;
+  composerSide: ComposerSide;
+  composerStatus: string;
+  disabled: boolean;
+  expandedCategories: boolean;
+  hasCommunityIdentity: boolean;
+  marketPickerLimit: number;
+  marketPickerOpen: boolean;
+  markets: PredictionMarket[];
+  newPostText: string;
+  onClose: () => void;
+  onExpandCategories: () => void;
+  onLoadMoreMarkets: () => void;
+  onMarketPickerOpenChange: (open: boolean) => void;
+  onPostTextChange: (value: string) => void;
+  onQueryChange: (value: string) => void;
+  onRequireWallet: () => void;
+  onSelectMarket: (marketId: string) => void;
+  onSideChange: (side: ComposerSide) => void;
+  onSubmit: (event: React.FormEvent) => void;
+  onTopicChange: (value: string) => void;
+  pending: boolean;
+  portfolioConnected: boolean;
+  query: string;
+  selectedMarket: PredictionMarket | null;
+  selectedTopic: string;
+  topics: Array<{ label: string; count: number }>;
+  totalMarkets: number;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <form
+        className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-[#262626] bg-[#151515] shadow-2xl sm:rounded-xl"
+        onSubmit={onSubmit}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-[#262626] bg-[#101010] p-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full border border-deep-orange/30 bg-deep-orange/10 text-deep-orange">
+              <Radio size={18} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-lg font-bold text-white">Post to Pulse</span>
+              <span className="mt-0.5 block text-sm text-[#ccc3d8]/75">Write first. Attach a market only when it strengthens the post.</span>
+            </span>
+          </div>
+          <button
+            aria-label="Close composer"
+            className="grid h-9 w-9 flex-shrink-0 place-items-center rounded border border-[#262626] bg-[#0A0A0A] text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
+            onClick={onClose}
+            type="button"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          <CommunityIdentityNotice connected={portfolioConnected} handle={communityHandle} onRequireWallet={onRequireWallet} />
+
+          <textarea
+            ref={composerRef}
+            className="min-h-36 w-full resize-none rounded border border-[#262626] bg-[#050505] p-3 text-base leading-relaxed text-white outline-none transition-colors placeholder:text-[#ccc3d8]/45 focus:border-deep-orange disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-44 sm:text-sm"
+            disabled={disabled}
+            maxLength={500}
+            onChange={(event) => onPostTextChange(event.target.value)}
+            placeholder={getComposerPlaceholder(portfolioConnected, hasCommunityIdentity)}
+            value={newPostText}
+          />
+
+          <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1" aria-label="Quick Pulse stickers">
+            {QUICK_PULSE_STICKERS.map((sticker) => (
+              <button
+                className="grid h-9 w-9 flex-shrink-0 place-items-center rounded border border-[#262626] bg-[#0A0A0A] text-base transition-colors hover:border-deep-orange hover:bg-deep-orange/10 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={disabled || newPostText.length + sticker.length > 500}
+                key={sticker}
+                onClick={() => onPostTextChange((newPostText + ' ' + sticker).trimStart())}
+                title={sticker}
+                type="button"
+              >
+                {sticker}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {(['YES', 'NO'] as ComposerSide[]).map((side) => (
+              <button
+                aria-pressed={composerSide === side}
+                className={
+                  'min-h-11 rounded border px-3 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ' +
+                  (composerSide === side
+                    ? side === 'YES'
+                      ? 'border-deep-orange bg-deep-orange text-black'
+                      : 'border-[#EF4444] bg-[#EF4444] text-white'
+                    : 'border-[#262626] bg-[#0A0A0A] text-[#ccc3d8] hover:border-white/30')
+                }
+                disabled={disabled}
+                key={side}
+                onClick={() => onSideChange(side)}
+                type="button"
+              >
+                {side}
+              </button>
+            ))}
+          </div>
+
+          <section className="mt-4 rounded border border-[#262626] bg-[#0A0A0A] p-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]/70">Market signal</p>
+                {selectedMarket ? (
+                  <p className="mt-1 line-clamp-2 text-sm font-bold text-white">{selectedMarket.title}</p>
+                ) : (
+                  <p className="mt-1 text-sm text-[#ccc3d8]/65">General Pulse post. Attach a market when needed.</p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-shrink-0">
+                {selectedMarket ? (
+                  <button
+                    className="rounded border border-[#262626] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8] hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={disabled}
+                    onClick={() => onSelectMarket('')}
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+                <button
+                  className="rounded border border-deep-orange/40 bg-deep-orange/10 px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange hover:bg-deep-orange hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={disabled}
+                  onClick={() => onMarketPickerOpenChange(!marketPickerOpen)}
+                  type="button"
+                >
+                  {marketPickerOpen ? 'Hide markets' : selectedMarket ? 'Change market' : 'Attach market'}
+                </button>
+              </div>
+            </div>
+
+            {marketPickerOpen ? (
+              <div className="mt-3">
+                <MarketSignalPicker
+                  disabled={disabled}
+                  expandedCategories={expandedCategories}
+                  marketLimit={marketPickerLimit}
+                  markets={markets}
+                  onExpandCategories={onExpandCategories}
+                  onLoadMore={onLoadMoreMarkets}
+                  onQueryChange={onQueryChange}
+                  onSelectMarket={(marketId) => {
+                    onSelectMarket(marketId);
+                    if (marketId) onMarketPickerOpenChange(false);
+                  }}
+                  onTopicChange={onTopicChange}
+                  query={query}
+                  selectedMarket={selectedMarket}
+                  selectedTopic={selectedTopic}
+                  topics={topics}
+                  totalMarkets={totalMarkets}
+                />
+              </div>
+            ) : null}
+          </section>
+        </div>
+
+        <div className="border-t border-[#262626] bg-[#101010] p-3 sm:p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="min-h-4 text-xs text-[#ccc3d8]/65 sm:max-w-md">{composerStatus || (selectedMarket ? 'Market call ready.' : 'General post ready.')}</p>
+            <button
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded bg-deep-orange px-5 font-sans text-xs font-bold uppercase tracking-widest text-black transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              disabled={disabled || !newPostText.trim() || pending}
+              type="submit"
+            >
+              <Send size={14} />
+              {pending ? 'Publishing' : 'Publish'}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+
+function PulseThreadModal({
+  connected,
+  hasCommunityIdentity,
+  item,
+  onClose,
+  onReply,
+  pending,
+  replyText,
+  setActiveReplyId,
+  setReplyText,
+}: {
+  connected: boolean;
+  hasCommunityIdentity: boolean;
+  item: ActivityItem;
+  onClose: () => void;
+  onReply: (event: React.FormEvent) => void;
+  pending: boolean;
+  replyText: string;
+  setActiveReplyId: (value: string | null) => void;
+  setReplyText: (value: string) => void;
+}) {
+  const replies = item.replies ?? [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <section className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-[#262626] bg-[#151515] shadow-2xl sm:rounded-xl">
+        <header className="flex items-start justify-between gap-3 border-b border-[#262626] bg-[#101010] p-4">
+          <div className="min-w-0">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Pulse thread</p>
+            <h2 className="mt-1 truncate text-lg font-bold text-white">@{normalizeVictionLabel(item.username, 'profile-pending')}</h2>
+          </div>
+          <button
+            aria-label="Close thread"
+            className="grid h-9 w-9 flex-shrink-0 place-items-center rounded border border-[#262626] bg-[#0A0A0A] text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
+            onClick={onClose}
+            type="button"
+          >
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          <article className="rounded border border-[#262626] bg-[#0A0A0A] p-4">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-full border border-[#282828] bg-[#252525] font-mono text-xs font-bold uppercase text-white">
+                {item.avatarUrl ? <img alt="" className="h-full w-full object-cover" src={item.avatarUrl} /> : item.username.slice(0, 2).toUpperCase()}
+              </span>
+              <span className="min-w-0">
+                <strong className="block truncate font-mono text-sm text-white">@{normalizeVictionLabel(item.username, 'profile-pending')}</strong>
+                <span className="font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/55">{item.topic ?? getKindLabel(item.kind)} · {item.time}</span>
+              </span>
+            </div>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#ccc3d8]">{item.text}</p>
+            <SignalMeta item={item} />
+            {item.marketTitle ? (
+              <div className="mt-3 rounded border border-[#262626] bg-[#050505] p-3">
+                <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-deep-orange">Linked market</p>
+                <strong className="mt-1 block text-sm text-white">{item.marketTitle}</strong>
+                <span className="mt-1 block font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/60">{item.marketPrice ?? 'Odds pending'}</span>
+              </div>
+            ) : null}
+          </article>
+
+          {replies.length > 0 ? (
+            <div className="mt-4">
+              <PulseThreadReplies replies={replies} />
+            </div>
+          ) : (
+            <p className="mt-4 rounded border border-[#262626] bg-[#0A0A0A] p-4 text-sm text-[#ccc3d8]/70">No replies yet. Start the thread with a useful source or counterpoint.</p>
+          )}
+        </div>
+
+        <form className="border-t border-[#262626] bg-[#101010] p-3 sm:p-4" onSubmit={onReply}>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              className="min-h-11 flex-1 rounded border border-[#262626] bg-[#050505] px-3 text-sm text-white outline-none focus:border-deep-orange disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!connected || !hasCommunityIdentity}
+              onChange={(event) => setReplyText(event.target.value)}
+              onFocus={() => setActiveReplyId(item.id)}
+              placeholder={getReplyPlaceholder(connected, hasCommunityIdentity)}
+              value={replyText}
+            />
+            <button
+              className="inline-flex min-h-11 items-center justify-center rounded bg-deep-orange px-4 font-sans text-xs font-bold uppercase tracking-widest text-black hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!connected || !hasCommunityIdentity || !replyText.trim() || pending}
+              type="submit"
+            >
+              Reply
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function PulseThreadReplies({ replies }: { replies: ActivityReplyItem[] }) {
+  return (
+    <div className="mt-4 grid gap-3 border-l border-[#262626] pl-4">
+      {replies.slice(-4).map((reply) => {
+        const author = formatReplyAuthor(reply.author);
+        return (
+          <article className="relative rounded border border-[#262626] bg-[#0A0A0A] p-3" key={reply.id}>
+            <span className="absolute -left-[1.35rem] top-4 grid h-6 w-6 place-items-center rounded-full border border-[#262626] bg-[#181818] font-mono text-[9px] font-bold uppercase text-white">
+              {author.slice(0, 2)}
+            </span>
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <strong className="font-mono text-xs text-white">@{author}</strong>
+              <span className="font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/50">{reply.time}</span>
+            </div>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#ccc3d8]">{reply.text}</p>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
 
 function MarketSignalPicker({
   disabled,
@@ -2741,7 +3145,7 @@ async function postSignalReply({ signalId, userId, body }: { signalId: string; u
 
     return {
       id: reply.id,
-      author: reply.author?.username ?? reply.author?.handle ?? reply.author?.displayName ?? 'trader',
+      author: getReplyActorName(reply.author),
       text: reply.body,
       time: formatReplyTime(reply.createdAt),
     };
@@ -2765,7 +3169,7 @@ async function postPulseReply({ postId, userId, body }: { postId: string; userId
 
     return {
       id: reply.id,
-      author: reply.author?.username ?? reply.author?.handle ?? reply.author?.displayName ?? 'trader',
+      author: getReplyActorName(reply.author),
       text: reply.body,
       time: formatReplyTime(reply.createdAt),
     };
@@ -2850,6 +3254,17 @@ async function fetchSignalParticipants(signalId: string): Promise<SignalParticip
 
 function emptyParticipants(): SignalParticipants {
   return { reactions: [], bookmarks: [], commenters: [] };
+}
+
+
+function formatReplyAuthor(value: string) {
+  const clean = value.trim().replace(/^@/, '');
+  if (!clean || /^0x[a-f0-9]{8,}/i.test(clean) || clean.includes('...')) return 'profile-pending.viction';
+  return normalizeVictionLabel(clean, 'profile-pending');
+}
+
+function getReplyActorName(actor?: { username: string | null; handle: string | null; displayName: string | null }) {
+  return normalizeVictionLabel(actor?.handle ?? actor?.username ?? actor?.displayName, 'profile-pending');
 }
 
 function formatActorList(actors: SocialActor[]) {

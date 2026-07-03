@@ -1415,7 +1415,7 @@ function mapTimelineEventsToActivity(events: SocialTimelineEvent[], fallbackFeed
         marketTitle: event.position.market?.title ?? "Market unavailable",
         replies: event.position.replies.map((reply) => ({
           id: reply.id,
-          author: getActorUsername(reply.author),
+          author: getReplyDisplayName(reply.author),
           text: reply.body,
           time: formatRelativeTime(reply.createdAt),
         })),
@@ -1460,7 +1460,7 @@ function mapTimelineEventsToActivity(events: SocialTimelineEvent[], fallbackFeed
         repostedByUser: event.post.viewer?.bookmarked ?? false,
         replies: (event.post.recentReplies ?? []).map((reply) => ({
           id: reply.id,
-          author: getActorUsername(reply.author),
+          author: getReplyDisplayName(reply.author),
           text: reply.body,
           time: formatRelativeTime(reply.createdAt),
         })),
@@ -1512,7 +1512,7 @@ function mapSocialFeedItemToActivity(item: SocialFeedItem): ActivityItem {
     marketTitle: item.market?.title ?? "Market unavailable",
     replies: item.recentReplies.map((reply) => ({
       id: reply.id,
-      author: reply.author.username ?? reply.author.handle ?? reply.author.displayName ?? "trader",
+      author: getReplyDisplayName(reply.author),
       text: reply.body,
       time: formatRelativeTime(reply.createdAt),
     })),
@@ -1559,6 +1559,10 @@ function getActorUsername(actor: { handle?: string | null; username?: string | n
 
 function getActorDisplayName(actor: { handle?: string | null; username?: string | null; displayName?: string | null; userId: string }) {
   return normalizeVictionIdentity(actor.handle ?? actor.displayName ?? actor.username, actor.userId);
+}
+
+function getReplyDisplayName(actor: { handle?: string | null; username?: string | null; displayName?: string | null; userId: string }) {
+  return normalizeVictionIdentity(actor.handle ?? actor.username ?? actor.displayName, actor.userId);
 }
 
 function getSocialUsername(item: SocialFeedItem) {
