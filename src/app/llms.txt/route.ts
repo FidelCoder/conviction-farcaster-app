@@ -14,7 +14,6 @@ const body = [
   "## Important Pages",
   "- Home: https://convictionmarkets.xyz/",
   "- Markets: https://convictionmarkets.xyz/markets",
-  "- Margin desk: https://convictionmarkets.xyz/margin-desk",
   "- Vaults: https://convictionmarkets.xyz/vaults",
   "- Activity: https://convictionmarkets.xyz/activity",
   "- Docs: https://convictionmarkets.xyz/docs",

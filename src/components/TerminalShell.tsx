@@ -367,7 +367,7 @@ export function TerminalShell({
         mobileOpen={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
         onOpenRequest={() => {
-          window.location.href = "/margin-desk";
+          window.location.href = "/markets";
         }}
         portfolio={portfolio}
         session={session}

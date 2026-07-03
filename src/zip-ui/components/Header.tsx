@@ -37,7 +37,6 @@ export default function Header({
   const accountLabel = session?.traderProfile?.handle ?? (portfolio.connected ? "Conviction wallet" : "Guest");
   const tabs = [
     { id: "markets", label: "Markets", href: "/markets" },
-    { id: "margin-desk", label: "Margin", href: "/margin-desk" },
     { id: "vaults", label: "Vaults", href: "/vaults" },
     { id: "activity", label: "Pulse", href: "/activity" },
     ...(portfolio.connected ? [{ id: "portfolio", label: "Portfolio", href: "/me" }] : []),
@@ -90,7 +89,7 @@ export default function Header({
   }
 
   function handleNavTab(tab: { id: string; href: string }) {
-    const localTabs = new Set(["landing", "markets", "margin-desk", "vaults", "activity"]);
+    const localTabs = new Set(["landing", "markets", "vaults", "activity"]);
 
     if (localTabs.has(tab.id)) {
       setActiveTab(tab.id);

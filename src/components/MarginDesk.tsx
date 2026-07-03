@@ -496,9 +496,6 @@ export function MarginDesk({ execution, markets }: MarginDeskProps) {
           </Link>
           <nav aria-label="Primary margin navigation">
             <Link href="/markets">Markets</Link>
-            <Link aria-current="page" href="/margin-desk">
-              Margin
-            </Link>
             <Link href="/social">Social</Link>
             <Link href="/me">Portfolio</Link>
           </nav>

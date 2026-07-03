@@ -2,7 +2,6 @@ import { UserSession } from "../../lib/core-api";
 import { UserPortfolio } from "../types";
 import {
   TrendingUp,
-  Wallet,
   Lock,
   History,
   HelpCircle,
@@ -40,7 +39,6 @@ export default function Sidebar({
   const primaryNavigation = [
     { href: "/", id: "landing", label: "Home", icon: Home },
     { href: "/markets", id: "markets", label: "Markets", icon: TrendingUp },
-    { href: "/margin-desk", id: "margin-desk", label: "Margin Desk", icon: Wallet },
     { href: "/vaults", id: "vaults", label: "Vaults", icon: Lock },
     { href: "/activity", id: "activity", label: "Pulse", icon: History },
     ...(portfolio.connected ? [{ href: "/me", id: "portfolio", label: "Portfolio", icon: Briefcase }] : []),
@@ -107,7 +105,7 @@ export default function Sidebar({
           </div>
         </button>
 
-        {/* Create Request button inside profiles panel */}
+        {/* Primary market action */}
         <button
           onClick={() => {
             onOpenRequest();
@@ -115,7 +113,7 @@ export default function Sidebar({
           }}
           className="w-full bg-deep-orange text-black font-sans font-bold text-xs py-2.5 rounded hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer"
         >
-          <span>Open Request</span>
+          <span>Find Markets</span>
           <ArrowRight size={14} />
         </button>
       </div>

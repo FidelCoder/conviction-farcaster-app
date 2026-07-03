@@ -9,7 +9,7 @@ export const metadata = createMiniAppPageMetadata({
     "Use vault-backed liquidity to get more exposure to prediction markets and event outcomes.",
   imagePath: getMiniAppImagePath("home"),
   targetPath: "/margin-desk",
-  buttonTitle: "Open margin desk",
+  buttonTitle: "Open market margin",
 });
 
 export default async function MarginDeskPage() {

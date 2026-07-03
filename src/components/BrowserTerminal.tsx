@@ -1072,7 +1072,7 @@ export function BrowserTerminal({
           activeTab={activeTab}
           mobileOpen={isMobileMenuOpen}
           onCloseMobile={() => setIsMobileMenuOpen(false)}
-          onOpenRequest={() => setActiveTab("margin-desk")}
+          onOpenRequest={() => setActiveTab("markets")}
           portfolio={portfolio}
           session={session}
           setActiveTab={setActiveTab}

@@ -115,7 +115,6 @@ export function MarketDiscoveryBoard({ markets }: MarketDiscoveryBoardProps) {
             <Link aria-current="page" href="/markets">
               Markets
             </Link>
-            <Link href="/margin-desk">Margin</Link>
             <Link href="/social">Social</Link>
             <Link href="/me">Portfolio</Link>
           </nav>
@@ -131,10 +130,6 @@ export function MarketDiscoveryBoard({ markets }: MarketDiscoveryBoardProps) {
             value={query}
           />
         </label>
-
-        <Link className="browse-open-margin" href="/margin-desk">
-          Open margin
-        </Link>
       </section>
 
       <nav className="browse-category-strip" aria-label="Market categories">
