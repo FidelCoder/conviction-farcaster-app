@@ -127,90 +127,108 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
     setVisibleLimit((current) => current + 18);
   }
 
+  const topicPills = useMemo(
+    () => ['All', ...curatedTopics].slice(0, 14),
+    [curatedTopics],
+  );
+  const regionPills = useMemo(
+    () => ['All', ...curatedRegions].slice(0, 10),
+    [curatedRegions],
+  );
+
   return (
-    <main className="flex-1 bg-grid-tech min-h-[calc(100vh-64px)] pb-32">
-      <div className="max-w-[1280px] mx-auto px-4 md:px-10 py-8">
-        <header className="mb-6 border-b border-[#262626] pb-4">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div>
-              <p className="mb-2 inline-flex items-center gap-2 rounded border border-deep-orange/30 bg-deep-orange/10 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">
+    <main className="min-h-[calc(100vh-64px)] flex-1 bg-[#080808] bg-grid-tech pb-32">
+      <div className="mx-auto max-w-[1440px] px-4 py-7 md:px-8 lg:px-10">
+        <header className="mb-7 border-b border-[#262626] pb-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="mb-3 inline-flex items-center gap-2 rounded border border-deep-orange/25 bg-deep-orange/10 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">
                 <Sparkles size={12} />
                 Market discovery
               </p>
-              <h1 className="text-3xl md:text-4xl font-sans font-bold text-white mb-2">Active Markets</h1>
+              <h1 className="text-4xl font-black tracking-tight text-white md:text-5xl">Active Markets</h1>
             </div>
 
-            <div className="grid w-full gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(12rem,1fr)_auto_auto_auto_auto] xl:max-w-5xl">
-              <label className="relative flex min-w-0 items-center rounded border border-[#262626] bg-[#201f1f] px-3 py-1.5 transition-colors focus-within:border-deep-orange">
-                <Search size={14} className="mr-2 text-[#ccc3d8]" />
+            <div className="grid w-full gap-3 lg:max-w-3xl lg:grid-cols-[minmax(16rem,1fr)_auto_auto]">
+              <label className="relative flex min-w-0 items-center rounded border border-[#2b2b2b] bg-[#111111] px-4 py-3 transition-colors focus-within:border-deep-orange">
+                <Search size={16} className="mr-3 text-[#c9b8ad]" />
                 <input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search AFCON, World Cup, Nigeria, crypto..."
-                  className="min-w-0 flex-1 border-none bg-transparent font-mono text-xs font-bold text-white placeholder:text-[#ccc3d8]/50 focus:outline-none"
+                  placeholder="Search markets, teams, countries..."
+                  className="min-w-0 flex-1 border-none bg-transparent text-sm font-semibold text-white placeholder:text-[#8f8798] focus:outline-none"
                 />
               </label>
 
-              <MarketSelect icon="filter" label="Category" value={selectedCategory} onChange={setSelectedCategory} options={categories} />
-              <MarketSelect icon="topic" label="Topic" value={selectedTopic} onChange={setSelectedTopic} options={topics} />
-              <MarketSelect icon="region" label="Region" value={selectedRegion} onChange={setSelectedRegion} options={regions} />
-
               <button
                 onClick={() => setSortOrder((current) => getNextSortOrder(current))}
-                className="flex items-center justify-center gap-2 rounded border border-[#262626] bg-[#201f1f] px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-[#ccc3d8] transition-all duration-200 hover:text-white"
+                className="flex items-center justify-center gap-2 rounded border border-[#2b2b2b] bg-[#111111] px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#f2d5c8] transition-all duration-200 hover:border-deep-orange/60 hover:text-white"
               >
                 <ArrowUpDown size={14} />
-                <span>{getSortLabel(sortOrder)}</span>
+                <span>Sort: {getSortLabel(sortOrder)}</span>
               </button>
+
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-3 lg:w-[25rem]">
+                <MarketSelect icon="filter" label="Category" value={selectedCategory} onChange={setSelectedCategory} options={categories} />
+                <MarketSelect icon="topic" label="Topic" value={selectedTopic} onChange={setSelectedTopic} options={topics} />
+                <MarketSelect icon="region" label="Region" value={selectedRegion} onChange={setSelectedRegion} options={regions} />
+              </div>
             </div>
+          </div>
+
+          <div className="mt-6 flex gap-2 overflow-x-auto pb-1">
+            {topicPills.map((topic) => {
+              const count = topic === 'All' ? markets.length : topicCounts.get(topic) ?? 0;
+              return (
+                <button
+                  key={topic}
+                  type="button"
+                  onClick={() => setSelectedTopic(topic)}
+                  aria-pressed={selectedTopic === topic}
+                  className={`flex flex-shrink-0 items-center gap-2 border-b-2 px-1.5 pb-2 font-sans text-sm font-semibold transition-colors ${
+                    selectedTopic === topic
+                      ? 'border-deep-orange text-deep-orange'
+                      : 'border-transparent text-[#f2d5c8]/80 hover:border-white/30 hover:text-white'
+                  }`}
+                >
+                  {topic === 'Trending' ? <Flame size={14} /> : null}
+                  <span>{topic === 'All' ? 'All Markets' : topic}</span>
+                  <span className="font-mono text-[10px] text-[#8f8798]">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {regionPills.map((region) => {
+              const count = region === 'All' ? markets.length : regionCounts.get(region) ?? 0;
+              return (
+                <button
+                  key={region}
+                  type="button"
+                  onClick={() => setSelectedRegion(region)}
+                  aria-pressed={selectedRegion === region}
+                  className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                    selectedRegion === region
+                      ? 'border-electric-purple bg-electric-purple text-white'
+                      : 'border-[#262626] bg-[#101010] text-[#ccc3d8] hover:border-white/40 hover:text-white'
+                  }`}
+                >
+                  <Globe2 size={12} />
+                  <span>{region}</span>
+                  <span className="text-[9px] opacity-70">{count}</span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/70">
             <span className="rounded border border-[#262626] bg-[#111111] px-2 py-1">{visibleMarkets.length} shown</span>
+            <span className="rounded border border-[#262626] bg-[#111111] px-2 py-1">{filteredMarkets.length} matching</span>
             {selectedTopic !== 'All' ? <span className="rounded border border-deep-orange/30 bg-deep-orange/10 px-2 py-1 text-deep-orange">{selectedTopic}</span> : null}
             {selectedRegion !== 'All' ? <span className="rounded border border-electric-purple/40 bg-electric-purple/10 px-2 py-1 text-[#d2bbff]">{selectedRegion}</span> : null}
           </div>
         </header>
-
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-            {curatedTopics.map((topic) => (
-              <button
-                key={topic}
-                type="button"
-                onClick={() => setSelectedTopic(topic)}
-                aria-pressed={selectedTopic === topic}
-                className={`flex flex-shrink-0 items-center gap-1.5 rounded border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
-                  selectedTopic === topic
-                    ? 'border-deep-orange bg-deep-orange text-black'
-                    : 'border-[#262626] bg-[#111111] text-[#ccc3d8] hover:border-white/40 hover:text-white'
-                }`}
-              >
-                {topic === 'Trending' ? <Flame size={12} /> : null}
-                <span>{topic}</span>
-                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px]">{topicCounts.get(topic)}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-            {curatedRegions.map((region) => (
-              <button
-                key={region}
-                type="button"
-                onClick={() => setSelectedRegion(region)}
-                aria-pressed={selectedRegion === region}
-                className={`flex flex-shrink-0 items-center gap-1.5 rounded border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
-                  selectedRegion === region
-                    ? 'border-electric-purple bg-electric-purple text-white'
-                    : 'border-[#262626] bg-[#111111] text-[#ccc3d8] hover:border-white/40 hover:text-white'
-                }`}
-              >
-                <Globe2 size={12} />
-                <span>{region}</span>
-                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px]">{regionCounts.get(region)}</span>
-              </button>
-            ))}
-          </div>
 
         {filteredMarkets.length === 0 ? (
           <section className="rounded-lg border border-[#262626] bg-[#161616] p-8 text-center">
@@ -221,161 +239,143 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
             </p>
           </section>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {visibleMarkets.map((market, index) => {
               const isHalted = market.status === 'HALTED';
               const topic = getPrimaryMarketTopic(market);
               const region = market.discoveryRegion ?? inferMarketRegion(market);
               const imageUrl = getMarketImageUrl(market);
-              const prioritizeImage = index < 6;
+              const prioritizeImage = index < 3;
+              const yesCents = getYesCents(market);
+              const noCents = 100 - yesCents;
+              const momentumBars = getMomentumBars(market);
 
               return (
                 <article
                   key={market.id}
-                  className={`bg-surface-card border border-[#262626] rounded-lg p-6 relative overflow-hidden border-t-2 border-t-deep-orange hover:bg-[#201f1f] transition-all duration-300 group ${
+                  className={`group overflow-hidden rounded border border-[#2a2a2a] bg-[#151515] shadow-[0_20px_60px_rgba(0,0,0,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:border-deep-orange/55 hover:bg-[#191919] ${
                     isHalted ? 'opacity-80' : ''
                   }`}
                 >
-                  <div className="absolute inset-0 bg-[#161616]/60 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" />
-
-                  <div className="relative z-10">
-                    <div className="mb-4 h-28 overflow-hidden rounded border border-[#262626] bg-[#0e0e0e]">
-                      {imageUrl ? (
-                        <div className="relative h-full w-full">
-                          <Image
-                            alt=""
-                            className="object-cover opacity-90 transition-transform duration-300 group-hover:scale-[1.03]"
-                            fill
-                            loading={prioritizeImage ? 'eager' : 'lazy'}
-                            priority={prioritizeImage}
-                            quality={58}
-                            sizes="(max-width: 768px) 92vw, (max-width: 1280px) 45vw, 360px"
-                            src={imageUrl}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#0e0e0e]/78 via-transparent to-transparent" />
-                          <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2">
-                            <span className="truncate rounded border border-white/10 bg-black/45 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-white/85 backdrop-blur">
-                              {region}
-                            </span>
-                            <span className="rounded border border-deep-orange/40 bg-deep-orange/90 px-2 py-1 font-mono text-[9px] font-black uppercase tracking-widest text-black">
-                              {market.currentOdds.toFixed(1)}%
-                            </span>
-                          </div>
+                  <div className="relative h-40 overflow-hidden bg-[#080808] sm:h-44">
+                    {imageUrl ? (
+                      <Image
+                        alt=""
+                        className="object-cover opacity-90 transition duration-500 group-hover:scale-[1.04] group-hover:opacity-100"
+                        fill
+                        loading={prioritizeImage ? 'eager' : 'lazy'}
+                        priority={prioritizeImage}
+                        quality={52}
+                        sizes="(max-width: 768px) 92vw, (max-width: 1280px) 45vw, 31vw"
+                        src={imageUrl}
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(255,98,24,0.22),transparent_34%),linear-gradient(135deg,rgba(28,15,12,0.96),rgba(14,14,14,0.98)_52%,rgba(54,27,96,0.55))]">
+                        <span className="font-mono text-5xl font-black uppercase tracking-widest text-white/12">{getMarketGlyph(topic)}</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#151515] via-[#151515]/30 to-black/5" />
+                    <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-3">
+                      <div className="grid gap-1">
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-[#f6dfd4]">Momentum</span>
+                        <div className="flex h-4 items-end gap-1">
+                          {momentumBars.map((bar, barIndex) => (
+                            <span
+                              key={barIndex}
+                              className={barIndex > 2 ? 'w-1.5 bg-deep-orange' : 'w-1.5 bg-[#00e0c6]'}
+                              style={{ height: bar + 'px' }}
+                            />
+                          ))}
                         </div>
-                      ) : (
-                        <div className="relative flex h-full items-center justify-between overflow-hidden bg-[linear-gradient(135deg,rgba(45,22,87,0.92),rgba(17,17,17,0.96)_48%,rgba(128,47,20,0.66))] px-4">
-                          <div className="absolute -left-8 top-4 h-24 w-24 rounded-full border border-electric-purple/35" />
-                          <div className="absolute right-3 top-3 h-16 w-16 rotate-45 border border-deep-orange/30" />
-                          <div className="relative grid gap-1">
-                            <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]">{topic}</span>
-                            <span className="max-w-[12rem] truncate text-sm font-bold text-white">{region}</span>
-                          </div>
-                          <span className="relative font-mono text-3xl font-black text-deep-orange/80">%</span>
-                        </div>
-                      )}
+                      </div>
+                      <span className={`rounded border px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest ${
+                        isHalted
+                          ? 'border-[#EF4444]/30 bg-[#EF4444]/10 text-[#EF4444]'
+                          : 'border-[#00e0c6]/25 bg-[#00e0c6]/10 text-[#00e0c6]'
+                      }`}>{market.status}</span>
                     </div>
+                  </div>
 
-                    <div className="mb-3 flex flex-wrap gap-2">
-                      <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-[#ccc3d8]">
+                  <div className="p-5">
+                    <div className="mb-4 flex flex-wrap items-center gap-2">
+                      <span className="rounded border border-[#5b3b30] bg-[#3a2924] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-[#f6dfd4]">
                         {topic}
                       </span>
-                      <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-[#ccc3d8]">
+                      <span className="rounded border border-[#262626] bg-[#0d0d0d] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-[#958da1]">
                         {region}
                       </span>
-                      <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-[#ccc3d8]">
-                        Conviction
-                      </span>
                     </div>
 
-                    <div className="flex justify-between items-start mb-4 gap-3">
-                      <h3 className="font-sans font-semibold text-lg text-white leading-tight w-3/4 group-hover:text-deep-orange transition-colors">
-                        {market.title}
-                      </h3>
-                      <span className={`font-mono text-[9px] font-bold px-2 py-1 rounded border tracking-wider flex-shrink-0 ${
-                        isHalted
-                          ? 'text-[#EF4444] bg-[#EF4444]/10 border-[#EF4444]/20'
-                          : 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/20'
-                      }`}>
-                        {market.status}
-                      </span>
-                    </div>
+                    <h3 className="min-h-[3.2rem] text-lg font-semibold leading-tight text-white transition-colors group-hover:text-deep-orange">
+                      {market.title}
+                    </h3>
 
-                    <p className="text-xs text-[#ccc3d8]/80 mb-5 min-h-[32px] line-clamp-2">
+                    <p className="mt-3 min-h-[2.5rem] text-sm leading-relaxed text-[#b9b2c4]/80 line-clamp-2">
                       {market.description}
                     </p>
 
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="mt-5 grid grid-cols-2 gap-3">
                       <div>
-                        <span className="block font-mono text-[10px] uppercase tracking-wider text-[#ccc3d8] mb-1">24h Vol</span>
-                        <span className="block font-sans font-semibold text-lg text-white">{market.vol24h}</span>
+                        <span className="block font-mono text-[10px] uppercase tracking-widest text-[#c9b8ad]">Vol</span>
+                        <strong className="mt-1 block text-lg text-white">{market.vol24h}</strong>
                       </div>
-                      <div>
-                        <span className="block font-mono text-[10px] uppercase tracking-wider text-[#ccc3d8] mb-1">Min Order</span>
-                        <span className="block font-sans font-semibold text-lg text-white" title={market.liquidityLabel}>
-                          {market.liquidity}
-                        </span>
+                      <div className="text-right">
+                        <span className="block font-mono text-[10px] uppercase tracking-widest text-[#c9b8ad]">YES chance</span>
+                        <strong className={`mt-1 block font-mono text-2xl ${isHalted ? 'text-[#958da1]' : 'text-deep-orange'}`}>
+                          {market.currentOdds.toFixed(1)}%
+                        </strong>
                       </div>
                     </div>
 
-                    <div className="mb-6 p-3.5 bg-[#0e0e0e]/90 border border-[#262626] rounded flex justify-between items-center">
-                      <span className="font-mono text-[10px] text-[#ccc3d8]/80 uppercase tracking-widest">
-                        Implied chance <span className="text-deep-orange">(YES)</span>
-                      </span>
-                      <span className={`font-mono text-xl font-bold ${isHalted ? 'text-[#958da1]' : 'text-electric-purple'}`}>
-                        {market.currentOdds.toFixed(1)}%
-                      </span>
-                    </div>
-
-                    <div className="mb-6">
-                      <div className="flex justify-between items-end mb-2">
-                        <span className="font-mono text-[10px] text-[#ccc3d8]/80 uppercase tracking-widest">Conviction Index</span>
+                    <div className="mt-5">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-[#c9b8ad]">Conviction</span>
                         <span className={`font-mono text-xs font-bold ${
                           market.convictionIndex === 'High' ? 'text-deep-orange' :
                           market.convictionIndex === 'Moderate' ? 'text-electric-purple' :
                           market.convictionIndex === 'Low' ? 'text-primary' : 'text-[#958da1]'
-                        }`}>
-                          {market.convictionIndex}
-                        </span>
+                        }`}>{market.convictionIndex}</span>
                       </div>
-
-                      <div className="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-[#2b2b2b]">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 shadow-md ${
-                            market.convictionIndex === 'High' ? 'meter-gradient shadow-[0_0_8px_rgba(249,115,22,0.18)]' :
-                            market.convictionIndex === 'Moderate' ? 'bg-electric-purple shadow-[0_0_10px_rgba(124,58,237,0.4)]' :
-                            market.convictionIndex === 'Low' ? 'bg-primary shadow-[0_0_10px_rgba(210,187,255,0.4)]' : 'bg-outline-variant'
-                          }`}
-                          style={{ width: `${market.convictionValue}%` }}
+                          className="h-full rounded-full bg-deep-orange transition-all duration-500"
+                          style={{ width: `${Math.max(4, Math.min(100, market.convictionValue))}%` }}
                         />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                      {isHalted ? (
-                        <button
-                          disabled
-                          className="w-full bg-[#2a2a2a] text-[#4a4455] font-mono text-xs font-bold py-3 rounded flex justify-center items-center gap-1.5 cursor-not-allowed"
-                        >
-                          Market Halted
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => onOpenMargin(market)}
-                          className="w-full bg-deep-orange text-black font-sans font-bold text-xs py-3 rounded hover:bg-white transition-all flex justify-center items-center gap-2 glow-orange cursor-pointer"
-                        >
-                          <span>Review Market</span>
-                          <ArrowRight size={14} />
-                        </button>
-                      )}
-
+                    <div className="mt-5 grid grid-cols-2 gap-2">
                       <button
                         type="button"
+                        disabled={isHalted}
                         onClick={() => onOpenMargin(market)}
-                        className="inline-flex items-center justify-center rounded border border-[#262626] bg-[#0e0e0e] px-3 text-[#ccc3d8] transition-colors hover:border-white/40 hover:text-white"
-                        aria-label="Review market rules"
-                        title="Review market rules"
+                        className="rounded border border-[#4b342d] bg-[#3a2924] px-3 py-3 text-sm font-semibold text-[#f6dfd4] transition-colors hover:border-deep-orange hover:bg-deep-orange hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <BookOpen size={15} />
+                        Yes {yesCents}¢
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isHalted}
+                        onClick={() => onOpenMargin(market)}
+                        className="rounded border border-[#4b342d] bg-[#3a2924] px-3 py-3 text-sm font-semibold text-[#f6dfd4] transition-colors hover:border-white/60 hover:bg-white hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        No {noCents}¢
+                      </button>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#262626] pt-4">
+                      <span className="truncate font-mono text-[10px] uppercase tracking-widest text-[#8f8798]" title={market.liquidityLabel}>
+                        Min {market.liquidity}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={isHalted}
+                        onClick={() => onOpenMargin(market)}
+                        className="inline-flex items-center gap-2 rounded border border-[#2f2f2f] bg-[#0d0d0d] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#f2d5c8] transition-colors hover:border-deep-orange hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <BookOpen size={13} />
+                        Review
+                        <ArrowRight size={13} />
                       </button>
                     </div>
                   </div>
@@ -385,28 +385,69 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
           </div>
         )}
 
-          {hiddenMarketCount > 0 ? (
-            <div className="mt-8 flex justify-center">
-              <div ref={loadMoreRef} className="flex min-h-14 items-center justify-center">
-                {walletConnected ? (
-                  <span className="rounded border border-[#262626] bg-[#111111] px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]">
-                    Loading more markets...
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleLoadMore}
-                    className="rounded border border-deep-orange/60 bg-deep-orange px-6 py-3 font-sans text-xs font-bold uppercase tracking-widest text-black transition-colors hover:bg-white"
-                  >
-                    Sign in to load more markets
-                  </button>
-                )}
-              </div>
+        {hiddenMarketCount > 0 ? (
+          <div className="mt-10 flex justify-center">
+            <div ref={loadMoreRef} className="flex min-h-14 items-center justify-center">
+              {walletConnected ? (
+                <span className="rounded border border-[#262626] bg-[#111111] px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ccc3d8]">
+                  Loading more markets...
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  className="rounded border border-deep-orange/60 bg-deep-orange px-6 py-3 font-sans text-xs font-bold uppercase tracking-widest text-black transition-colors hover:bg-white"
+                >
+                  Sign in to load more markets
+                </button>
+              )}
             </div>
-          ) : null}
+          </div>
+        ) : null}
       </div>
     </main>
   );
+}
+
+function getYesCents(market: PredictionMarket) {
+  const explicitAsk = parseProbabilityLikeValue(market.bestAsk);
+  const explicitTrade = parseProbabilityLikeValue(market.lastTradePrice);
+  const fallback = Math.round(market.currentOdds);
+
+  return clampCents(explicitAsk ?? explicitTrade ?? fallback);
+}
+
+function parseProbabilityLikeValue(value?: string | null) {
+  if (!value) return null;
+
+  const parsed = Number.parseFloat(value.replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(parsed)) return null;
+
+  return parsed <= 1 ? Math.round(parsed * 100) : Math.round(parsed);
+}
+
+function clampCents(value: number) {
+  return Math.max(0, Math.min(100, value));
+}
+
+function getMomentumBars(market: PredictionMarket) {
+  const base = Math.max(8, Math.min(30, Math.round(market.convictionValue / 4)));
+  const odds = Math.max(4, Math.min(28, Math.round(market.currentOdds / 4)));
+  const volume = Math.max(5, Math.min(30, Math.round(Math.log10(Math.max(10, getVolumeScore(market))) * 4)));
+
+  return [8, 12, Math.max(10, odds), Math.max(12, base - 4), Math.max(14, base), Math.max(10, volume)];
+}
+
+function getMarketGlyph(topic: string) {
+  if (topic.includes('World Cup') || topic.includes('Football')) return 'FC';
+  if (topic.includes('Crypto')) return '₿';
+  if (topic.includes('Politics')) return 'GV';
+  if (topic.includes('Finance') || topic.includes('Economy')) return '$';
+  if (topic.includes('Tech') || topic.includes('AI')) return 'AI';
+  if (topic.includes('Weather')) return 'WX';
+  if (topic.includes('Esports')) return 'XP';
+
+  return topic.slice(0, 2).toUpperCase();
 }
 
 function MarketSelect({
