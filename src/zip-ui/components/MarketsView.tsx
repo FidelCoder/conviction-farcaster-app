@@ -89,7 +89,7 @@ export default function MarketsView({ markets, onOpenMargin, onRequireWallet, wa
       });
 
     if (sortOrder === 'balanced' && query.length === 0) {
-      return balanceMarketMix(baseMarkets);
+      return balanceMarketTrends(baseMarkets, selectedTopic, selectedRegion);
     }
 
     return [...baseMarkets].sort((a, b) => compareMarkets(a, b, sortOrder, searchQuery, selectedTopic, selectedRegion));
@@ -559,7 +559,7 @@ function getNextSortOrder(current: SortOrder): SortOrder {
 }
 
 function getSortLabel(sortOrder: SortOrder) {
-  if (sortOrder === 'balanced') return 'No Sort';
+  if (sortOrder === 'balanced') return 'All Trends';
   if (sortOrder === 'conviction') return 'Conviction';
   if (sortOrder === 'odds') return 'YES Chance';
   if (sortOrder === 'volume') return 'Volume';
@@ -567,7 +567,7 @@ function getSortLabel(sortOrder: SortOrder) {
   return 'Trending';
 }
 
-function balanceMarketMix(markets: PredictionMarket[]) {
+function balanceMarketTrends(markets: PredictionMarket[], selectedTopic = 'All', selectedRegion = 'All') {
   if (markets.length <= 1) return markets;
 
   const buckets = new Map<string, PredictionMarket[]>();
@@ -577,6 +577,14 @@ function balanceMarketMix(markets: PredictionMarket[]) {
     const items = buckets.get(bucket) ?? [];
     items.push(market);
     buckets.set(bucket, items);
+  });
+
+  buckets.forEach((bucketMarkets) => {
+    bucketMarkets.sort(
+      (a, b) =>
+        getTrendingScore(b, selectedTopic, selectedRegion) -
+        getTrendingScore(a, selectedTopic, selectedRegion),
+    );
   });
 
   const orderedBuckets = Array.from(buckets.entries()).sort((a, b) => {
