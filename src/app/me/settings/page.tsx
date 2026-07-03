@@ -99,7 +99,7 @@ export default function SettingsPage() {
               and execution adapters are live. Settings never mark a position executed locally.
             </p>
           </div>
-          <Link href="/margin-desk">Open margin desk</Link>
+          <Link href="/markets">Find markets</Link>
         </section>
       </main>
     </TerminalShell>

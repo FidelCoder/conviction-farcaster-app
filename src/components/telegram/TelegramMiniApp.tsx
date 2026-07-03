@@ -74,7 +74,7 @@ type TonConnectUIConstructor = new (options: {
 }) => TonConnectUI;
 
 const TELEGRAM_BOT_URL = "https://t.me/ConvictionMarkets_bot";
-const tabs: MiniTab[] = ["Markets", "Pulse", "Margin", "Vaults", "Wallet"];
+const tabs: MiniTab[] = ["Markets", "Pulse", "Vaults", "Wallet"];
 const tonAssets = ["TON", "USDT", "STON"];
 const evmChains = [
   { id: 84532, label: "Base Sepolia" },

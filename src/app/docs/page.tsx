@@ -347,8 +347,8 @@ export default function DocsPage() {
               <dd>An automatic safety mechanism that closes a position to protect the vault.</dd>
             </div>
             <div>
-              <dt>Margin Desk</dt>
-              <dd>The trading interface where you submit leveraged position intents.</dd>
+              <dt>Market Margin</dt>
+              <dd>The market-specific flow where you review rules and submit leveraged position intents.</dd>
             </div>
             <div>
               <dt>Signal</dt>
