@@ -169,7 +169,7 @@ export default function SupportPage() {
       const body = (await response.json()) as SupportAiResponse;
 
       if (!response.ok || !body.ok) {
-        setAskStatus(body.ok ? "Support AI unavailable." : body.error.message);
+        setAskStatus(body.ok ? "Conviction AI unavailable." : body.error.message);
         setMessages([
           ...nextMessages,
           {
@@ -198,14 +198,14 @@ export default function SupportPage() {
       );
       if (!summary.trim()) setSummary(question + "\n\n" + body.data.answer);
     } catch {
-      setAskStatus("Support AI is unavailable right now.");
+      setAskStatus("Conviction AI is unavailable right now.");
       setMessages([
         ...nextMessages,
         {
           id: "assistant-network-" + Date.now(),
           role: "assistant",
           content:
-            "The support assistant is unavailable right now. Create a ticket with your email and issue summary so the team can follow up.",
+            "Conviction AI is unavailable right now. Create a ticket with your email and issue summary so the team can follow up.",
           mode: "fallback",
         },
       ]);
@@ -319,29 +319,29 @@ export default function SupportPage() {
         <section className="mx-auto max-w-7xl">
           <header className="mb-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
             <div>
-              <p className="mb-3 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-[#ff9b6a]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#ff9b6a]" />
+              <p className="mb-3 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-deep-orange">
+                <span className="h-1.5 w-1.5 rounded-full bg-deep-orange" />
                 Support
               </p>
               <h1 className="max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
                 Conviction help desk
               </h1>
-              <p className="mt-4 max-w-2xl text-lg leading-relaxed text-[#c9c3d2]">
+              <p className="mt-4 max-w-2xl text-lg leading-relaxed text-on-surface-variant">
                 Chat with Conviction AI, then escalate into a support thread when a human needs to
                 step in.
               </p>
             </div>
 
-            <div className="rounded border border-[#2a2a2a] bg-[#121212] p-4 shadow-[0_20px_80px_rgba(0,0,0,0.22)]">
+            <div className="rounded border border-[#262626] bg-surface-card p-4 shadow-[0_20px_80px_rgba(0,0,0,0.22)]">
               <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center border border-[#d8d5dc] bg-[#080808] text-[#00f0a8]">
+                <span className="grid h-10 w-10 place-items-center border border-[#262626] bg-background-base text-market-green">
                   <Mail size={17} />
                 </span>
                 <div>
-                  <p className="font-mono text-[9px] font-bold uppercase tracking-[0.24em] text-[#9b94a8]">
+                  <p className="font-mono text-[9px] font-bold uppercase tracking-[0.24em] text-on-surface-variant/60">
                     Support mail
                   </p>
-                  <p className="mt-1 break-all font-mono text-xs font-bold text-[#00f0a8]">
+                  <p className="mt-1 break-all font-mono text-xs font-bold text-market-green">
                     {supportEmail}
                   </p>
                 </div>
@@ -350,21 +350,21 @@ export default function SupportPage() {
           </header>
 
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_390px]">
-            <section className="rounded border border-[#2a2a2a] bg-[#141414] shadow-[0_28px_90px_rgba(0,0,0,0.3)]">
-              <div className="flex items-center justify-between gap-4 border-b border-[#d8d5dc] px-6 py-5">
+            <section className="rounded border border-[#262626] bg-surface-card shadow-[0_28px_90px_rgba(0,0,0,0.3)]">
+              <div className="flex items-center justify-between gap-4 border-b border-[#262626] px-6 py-5">
                 <div className="flex items-center gap-4">
-                  <span className="grid h-11 w-11 place-items-center border border-[#ff9b6a]/45 bg-[#2b1b14] text-[#ff9b6a]">
+                  <span className="grid h-11 w-11 place-items-center border border-deep-orange/35 bg-deep-orange/10 text-deep-orange">
                     <Bot size={20} />
                   </span>
                   <div>
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-[#ffb18a]">
-                      AI support chat
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-deep-orange">
+                      Conviction AI
                     </p>
                     <h2 className="mt-1 text-2xl font-bold text-white">Chat with Conviction AI</h2>
                   </div>
                 </div>
-                <span className="inline-flex items-center gap-2 rounded-full border border-[#d8d5dc] bg-[#080808] px-3 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#c9c3d2]">
-                  <span className="h-2 w-2 rounded-full bg-[#00f0a8]" />
+                <span className="inline-flex items-center gap-2 rounded-full border border-[#262626] bg-background-base px-3 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
+                  <span className="h-2 w-2 rounded-full bg-market-green" />
                   Online
                 </span>
               </div>
@@ -378,13 +378,13 @@ export default function SupportPage() {
                   </div>
 
                   <div className="grid gap-3 pl-12">
-                    <p className="font-mono text-[9px] font-bold uppercase tracking-[0.24em] text-[#9b94a8]">
+                    <p className="font-mono text-[9px] font-bold uppercase tracking-[0.24em] text-on-surface-variant/60">
                       Built-in context
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {quickQuestions.map((question) => (
                         <button
-                          className="border border-[#d8d5dc] bg-[#080808] px-3 py-2 text-left font-mono text-[10px] text-[#c9c3d2] transition hover:border-[#ff8b45] hover:text-white"
+                          className="border border-[#262626] bg-background-base px-3 py-2 text-left font-mono text-[10px] text-on-surface-variant transition hover:border-deep-orange hover:text-white"
                           key={question}
                           onClick={() => void submitChat(undefined, question)}
                           type="button"
@@ -397,10 +397,10 @@ export default function SupportPage() {
 
                   {draft.trim() ? (
                     <div className="flex justify-end gap-3 pl-12">
-                      <div className="max-w-[75%] border border-[#5a3524] bg-[#241913] px-4 py-4 text-base leading-relaxed text-white shadow-[0_12px_50px_rgba(255,106,27,0.08)]">
+                      <div className="max-w-[75%] border border-deep-orange/35 bg-deep-orange/10 px-4 py-4 text-base leading-relaxed text-white shadow-[0_12px_50px_rgba(255,106,27,0.08)]">
                         {draft}
                       </div>
-                      <span className="grid h-9 w-9 shrink-0 place-items-center border border-[#ff9b6a]/45 bg-[#21140f] text-[#ff9b6a]">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center border border-deep-orange/35 bg-deep-orange/10 text-deep-orange">
                         <UserRound size={15} />
                       </span>
                     </div>
@@ -408,23 +408,23 @@ export default function SupportPage() {
                 </div>
 
                 <form className="mt-8 grid gap-3" onSubmit={(event) => void submitChat(event)}>
-                  <div className="rounded border border-[#8f8798] bg-[#080808] p-4">
+                  <div className="rounded border border-[#262626] bg-background-base p-4">
                     <textarea
-                      className="min-h-24 w-full resize-y border-none bg-transparent font-mono text-sm leading-relaxed text-white outline-none placeholder:text-[#8f8798]"
+                      className="min-h-24 w-full resize-y border-none bg-transparent font-mono text-sm leading-relaxed text-white outline-none placeholder:text-on-surface-variant/40"
                       onChange={(event) => setDraft(event.target.value)}
                       placeholder="> Enter your query..."
                       value={draft}
                     />
                     <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       {askStatus ? (
-                        <p className="font-mono text-[10px] uppercase tracking-widest text-[#9b94a8]">
+                        <p className="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant/60">
                           {askStatus}
                         </p>
                       ) : (
                         <span />
                       )}
                       <button
-                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded bg-[#ff8b45] px-5 font-mono text-[10px] font-bold uppercase tracking-widest text-black transition hover:bg-white"
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded bg-deep-orange px-5 font-mono text-[10px] font-bold uppercase tracking-widest text-black transition hover:bg-white"
                         type="submit"
                       >
                         <Send size={13} />
@@ -437,53 +437,53 @@ export default function SupportPage() {
             </section>
 
             <aside className="grid gap-6 content-start">
-              <section className="rounded border border-[#2a2a2a] bg-[#141414] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-                <div className="mb-5 flex items-center gap-4 border-b border-[#d8d5dc] pb-5">
-                  <span className="grid h-11 w-11 place-items-center border border-[#00f0a8]/35 bg-[#062017] text-[#00f0a8]">
+              <section className="rounded border border-[#262626] bg-surface-card p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+                <div className="mb-5 flex items-center gap-4 border-b border-[#262626] pb-5">
+                  <span className="grid h-11 w-11 place-items-center border border-market-green/35 bg-market-green/10 text-market-green">
                     <LifeBuoy size={20} />
                   </span>
                   <div>
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-[#00f0a8]">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-market-green">
                       Human support
                     </p>
                     <h2 className="mt-1 text-2xl font-bold text-white">Escalate the chat</h2>
                   </div>
                 </div>
 
-                <p className="mb-6 border-l border-[#d8d5dc] pl-4 font-mono text-xs leading-relaxed text-[#b9b2c4]">
+                <p className="mb-6 border-l border-[#262626] pl-4 font-mono text-xs leading-relaxed text-on-surface-variant/80">
                   Tickets go to Telegram support. Replies return to this page.
                 </p>
 
                 <div className="grid gap-5">
-                  <label className="grid gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#9b94a8]">
+                  <label className="grid gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/60">
                     Email
                     <input
-                      className="min-h-12 rounded border border-[#8f8798] bg-[#080808] px-3 text-sm normal-case tracking-normal text-white outline-none focus:border-[#00f0a8]"
+                      className="min-h-12 rounded border border-[#262626] bg-background-base px-3 text-sm normal-case tracking-normal text-white outline-none focus:border-deep-orange"
                       onChange={(event) => setEmail(event.target.value)}
                       placeholder="you@domain.com"
                       type="email"
                       value={email}
                     />
                   </label>
-                  <label className="grid gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#9b94a8]">
+                  <label className="grid gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/60">
                     Subject
                     <input
-                      className="min-h-12 rounded border border-[#8f8798] bg-[#080808] px-3 text-sm normal-case tracking-normal text-white outline-none focus:border-[#00f0a8]"
+                      className="min-h-12 rounded border border-[#262626] bg-background-base px-3 text-sm normal-case tracking-normal text-white outline-none focus:border-deep-orange"
                       onChange={(event) => setSubject(event.target.value)}
                       value={subject}
                     />
                   </label>
-                  <label className="grid gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#9b94a8]">
+                  <label className="grid gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/60">
                     Issue summary
                     <textarea
-                      className="min-h-32 resize-y rounded border border-[#8f8798] bg-[#080808] p-3 text-sm normal-case tracking-normal text-white outline-none placeholder:text-[#8f8798] focus:border-[#00f0a8]"
+                      className="min-h-32 resize-y rounded border border-[#262626] bg-background-base p-3 text-sm normal-case tracking-normal text-white outline-none placeholder:text-on-surface-variant/40 focus:border-deep-orange"
                       onChange={(event) => setSummary(event.target.value)}
                       placeholder="What needs human intervention?"
                       value={summary}
                     />
                   </label>
                   <button
-                    className="inline-flex min-h-12 items-center justify-center gap-2 border border-[#00f0a8] bg-[#112019] px-4 font-mono text-[10px] font-bold uppercase tracking-widest text-[#00f0a8] transition hover:bg-[#00f0a8] hover:text-black"
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded bg-deep-orange px-4 font-mono text-[10px] font-bold uppercase tracking-widest text-black transition hover:bg-white"
                     onClick={() => void createTicket()}
                     type="button"
                   >
@@ -491,7 +491,7 @@ export default function SupportPage() {
                     Send ticket
                   </button>
                   {ticketStatus ? (
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-[#9b94a8]">
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant/60">
                       {ticketStatus}
                     </p>
                   ) : null}
@@ -502,32 +502,34 @@ export default function SupportPage() {
                 const Icon = card.icon;
                 return (
                   <article
-                    className="rounded border border-[#2a2a2a] border-l-[#ff9b6a] bg-[#141414] p-5"
+                    className="rounded border border-[#262626] border-l-deep-orange bg-surface-card p-5"
                     key={card.title}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon className="text-[#ff9b6a]" size={16} />
-                      <h3 className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-[#f7d6c5]">
+                      <Icon className="text-deep-orange" size={16} />
+                      <h3 className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-on-surface-variant">
                         {card.title}
                       </h3>
                     </div>
-                    <p className="mt-3 text-sm leading-relaxed text-[#b9b2c4]">{card.body}</p>
+                    <p className="mt-3 text-sm leading-relaxed text-on-surface-variant/80">
+                      {card.body}
+                    </p>
                   </article>
                 );
               })}
             </aside>
           </div>
 
-          <section className="mt-10 overflow-hidden rounded border border-[#2a2a2a] bg-[#111111] shadow-[0_24px_90px_rgba(0,0,0,0.26)]">
-            <div className="flex flex-col gap-3 border-b border-[#d8d5dc] px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <section className="mt-10 overflow-hidden rounded border border-[#262626] bg-surface-container-lowest shadow-[0_24px_90px_rgba(0,0,0,0.26)]">
+            <div className="flex flex-col gap-3 border-b border-[#262626] px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
-                <span className="grid h-9 w-9 place-items-center border border-[#d8d5dc] bg-[#080808] text-[#f7d6c5]">
+                <span className="grid h-9 w-9 place-items-center border border-[#262626] bg-background-base text-on-surface-variant">
                   <RefreshCw size={15} />
                 </span>
                 <h2 className="text-2xl font-bold text-white">Support history</h2>
               </div>
               <button
-                className="inline-flex items-center gap-2 border border-[#5a3524] bg-[#111111] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ffb18a] transition hover:border-[#ff8b45] hover:text-white"
+                className="inline-flex items-center gap-2 border border-deep-orange/35 bg-surface-container-lowest px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange transition hover:border-deep-orange hover:text-white"
                 onClick={() => void loadTickets()}
                 type="button"
               >
@@ -539,33 +541,33 @@ export default function SupportPage() {
             {tickets.length === 0 ? (
               <div className="grid min-h-[260px] place-items-center px-6 py-12 text-center">
                 <div>
-                  <span className="mx-auto grid h-16 w-16 place-items-center rounded border border-[#8f8798] bg-[#1b1b1d] text-[#9b94a8]">
+                  <span className="mx-auto grid h-16 w-16 place-items-center rounded border border-[#262626] bg-surface-container-low text-on-surface-variant/60">
                     <FolderOpen size={28} />
                   </span>
                   <p className="mt-7 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-white">
                     NO_RECORDS_FOUND // WALLET_OR_EMAIL
                   </p>
-                  <p className="mt-3 text-base text-[#c9c3d2]">
+                  <p className="mt-3 text-base text-on-surface-variant">
                     Create a ticket to initialize a support sequence.
                   </p>
                 </div>
               </div>
             ) : (
               <div className="grid gap-0 lg:grid-cols-[360px_minmax(0,1fr)]">
-                <div className="border-b border-[#2a2a2a] p-4 lg:border-b-0 lg:border-r">
+                <div className="border-b border-[#262626] p-4 lg:border-b-0 lg:border-r">
                   <div className="grid gap-2">
                     {tickets.map((ticket) => (
                       <button
-                        className={`border p-3 text-left transition ${activeTicket?.id === ticket.id ? "border-[#ff8b45] bg-[#2b1b14]" : "border-[#2a2a2a] bg-[#080808] hover:border-[#ff8b45]/50"}`}
+                        className={`border p-3 text-left transition ${activeTicket?.id === ticket.id ? "border-deep-orange bg-deep-orange/10" : "border-[#262626] bg-background-base hover:border-deep-orange/50"}`}
                         key={ticket.id}
                         onClick={() => setActiveTicketId(ticket.id)}
                         type="button"
                       >
-                        <span className="font-mono text-[9px] uppercase tracking-widest text-[#9b94a8]">
+                        <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/60">
                           {shortTicket(ticket.id)} · {ticket.status}
                         </span>
                         <strong className="mt-1 block text-sm text-white">{ticket.subject}</strong>
-                        <span className="mt-1 block truncate text-xs text-[#c9c3d2]">
+                        <span className="mt-1 block truncate text-xs text-on-surface-variant">
                           {ticket.summary}
                         </span>
                       </button>
@@ -576,19 +578,19 @@ export default function SupportPage() {
                 <div className="p-5">
                   {activeTicket ? (
                     <div>
-                      <div className="mb-4 flex flex-col gap-2 border-b border-[#2a2a2a] pb-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="mb-4 flex flex-col gap-2 border-b border-[#262626] pb-4 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                          <p className="font-mono text-[9px] uppercase tracking-widest text-[#ff9b6a]">
+                          <p className="font-mono text-[9px] uppercase tracking-widest text-deep-orange">
                             Ticket {shortTicket(activeTicket.id)}
                           </p>
                           <h3 className="mt-1 text-xl font-bold text-white">
                             {activeTicket.subject}
                           </h3>
-                          <p className="mt-2 text-sm leading-relaxed text-[#c9c3d2]">
+                          <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">
                             {activeTicket.summary}
                           </p>
                         </div>
-                        <span className="inline-flex w-fit items-center gap-1 border border-[#2a2a2a] bg-[#080808] px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-white">
+                        <span className="inline-flex w-fit items-center gap-1 border border-[#262626] bg-background-base px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-white">
                           {activeTicket.status === "RESOLVED" ||
                           activeTicket.status === "CLOSED" ? (
                             <CheckCircle2 size={12} />
@@ -621,20 +623,20 @@ export default function SupportPage() {
                       </div>
 
                       {activeTicket.status === "CLOSED" ? (
-                        <p className="mt-4 border border-[#2a2a2a] bg-[#080808] p-3 text-sm text-[#c9c3d2]">
+                        <p className="mt-4 border border-[#262626] bg-background-base p-3 text-sm text-on-surface-variant">
                           This ticket is closed. Create a new ticket if you still need help.
                         </p>
                       ) : (
                         <div className="mt-4 grid gap-3">
                           <textarea
-                            className="min-h-24 resize-y rounded border border-[#8f8798] bg-[#080808] p-3 text-sm text-white outline-none focus:border-[#ff8b45]"
+                            className="min-h-24 resize-y rounded border border-[#262626] bg-background-base p-3 text-sm text-white outline-none focus:border-deep-orange"
                             onChange={(event) => setReplyDraft(event.target.value)}
                             placeholder="Reply to this support thread..."
                             value={replyDraft}
                           />
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <button
-                              className="inline-flex min-h-10 items-center justify-center gap-2 rounded bg-[#ff8b45] px-4 font-mono text-[10px] font-bold uppercase tracking-widest text-black transition hover:bg-white"
+                              className="inline-flex min-h-10 items-center justify-center gap-2 rounded bg-deep-orange px-4 font-mono text-[10px] font-bold uppercase tracking-widest text-black transition hover:bg-white"
                               onClick={() => void sendTicketReply()}
                               type="button"
                             >
@@ -642,7 +644,7 @@ export default function SupportPage() {
                               Reply to ticket
                             </button>
                             {replyStatus ? (
-                              <p className="font-mono text-[10px] uppercase tracking-widest text-[#9b94a8]">
+                              <p className="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant/60">
                                 {replyStatus}
                               </p>
                             ) : null}
@@ -667,7 +669,7 @@ function SupportChatRow({ message }: { message: ChatMessage }) {
   return (
     <article className={"flex gap-3 " + (isUser ? "justify-end" : "justify-start")}>
       {!isUser ? (
-        <span className="grid h-8 w-8 shrink-0 place-items-center border border-[#d8d5dc] bg-[#080808] text-[#f7d6c5]">
+        <span className="grid h-8 w-8 shrink-0 place-items-center border border-[#262626] bg-background-base text-on-surface-variant">
           <Bot size={14} />
         </span>
       ) : null}
@@ -675,19 +677,19 @@ function SupportChatRow({ message }: { message: ChatMessage }) {
         className={
           "max-w-[82%] border px-4 py-3 text-sm leading-relaxed " +
           (isUser
-            ? "border-[#5a3524] bg-[#241913] text-white"
-            : "border-[#d8d5dc] bg-[#181818] text-white")
+            ? "border-deep-orange/35 bg-deep-orange/10 text-white"
+            : "border-[#262626] bg-surface-container-lowest text-white")
         }
       >
         <p className="whitespace-pre-wrap">{message.content}</p>
         {!isUser && message.mode ? (
-          <p className="mt-3 font-mono text-[9px] uppercase tracking-widest text-[#9b94a8]">
+          <p className="mt-3 font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/60">
             {message.mode === "ai" ? "Conviction AI" : "Built-in context"}
           </p>
         ) : null}
       </div>
       {isUser ? (
-        <span className="grid h-8 w-8 shrink-0 place-items-center border border-[#d8d5dc] bg-[#080808] text-[#f7d6c5]">
+        <span className="grid h-8 w-8 shrink-0 place-items-center border border-[#262626] bg-background-base text-on-surface-variant">
           <UserRound size={14} />
         </span>
       ) : null}
@@ -714,12 +716,14 @@ function ThreadBubble({
     <article
       className={
         "rounded-lg border p-3 " +
-        (isSupport ? "border-deep-orange/35 bg-deep-orange/10" : "border-[#262626] bg-[#0A0A0A]")
+        (isSupport
+          ? "border-deep-orange/35 bg-deep-orange/10"
+          : "border-[#262626] bg-background-base")
       }
     >
       <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <strong className="text-sm text-white">{author}</strong>
-        <span className="font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/50">
+        <span className="font-mono text-[9px] uppercase tracking-widest text-on-surface-variant/50">
           {formatDate(createdAt)}
         </span>
       </div>
@@ -728,7 +732,7 @@ function ThreadBubble({
           {subject}
         </p>
       ) : null}
-      <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#e5e2e1]">{body}</p>
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-on-surface">{body}</p>
     </article>
   );
 }
