@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { encodeFunctionData, erc20Abi, parseAbi, parseUnits } from "viem";
 
-import { BrowserWalletMarks, GoogleWalletMark, ThirdwebMark, TonWalletMark } from "./AuthWalletMarks";
+import {
+  BrowserWalletMarks,
+  GoogleWalletMark,
+  ThirdwebMark,
+  TonWalletMark,
+} from "./AuthWalletMarks";
 import { MobileWalletLauncher } from "./MobileWalletLauncher";
 import { RequiredVictionOnboarding } from "./RequiredVictionOnboarding";
 import { ThirdwebWalletBridge, ThirdwebWalletProvider } from "./ThirdwebWalletBridge";
@@ -35,7 +40,10 @@ import {
   resolveEvmWalletProvider,
   type EthereumProvider,
 } from "../lib/evm-wallet-provider";
-import { fetchWalletBalanceSnapshot, applyWalletBalanceSnapshot } from "../lib/client-wallet-balances";
+import {
+  fetchWalletBalanceSnapshot,
+  applyWalletBalanceSnapshot,
+} from "../lib/client-wallet-balances";
 import { mapExecutionToVaults } from "../lib/execution-vaults";
 import { isThirdwebConfigured } from "../lib/thirdweb-client";
 import ActivityView from "../zip-ui/components/ActivityView";
@@ -43,7 +51,6 @@ import Header from "../zip-ui/components/Header";
 import LandingView from "../zip-ui/components/LandingView";
 import MarginDeskView from "../zip-ui/components/MarginDeskView";
 import MarketsView from "../zip-ui/components/MarketsView";
-import Sidebar from "../zip-ui/components/Sidebar";
 import StatusBar from "../zip-ui/components/StatusBar";
 import VaultsView from "../zip-ui/components/VaultsView";
 import type {
@@ -177,19 +184,21 @@ export function BrowserTerminal({
   const riskParameters = useMemo(() => mapExecutionToRiskParameters(execution), [execution]);
   const tape = useMemo(() => mapMarketsToTape(markets), [markets]);
   const [timelineEvents, setTimelineEvents] = useState<SocialTimelineEvent[]>([]);
-  const socialActivity = useMemo(() => mapTimelineEventsToActivity(timelineEvents, socialFeed), [socialFeed, timelineEvents]);
+  const socialActivity = useMemo(
+    () => mapTimelineEventsToActivity(timelineEvents, socialFeed),
+    [socialFeed, timelineEvents],
+  );
   const leaderboardItems = useMemo(() => mapLeaderboard(leaderboard), [leaderboard]);
   const [activeTab, setActiveTabState] = useState<TerminalTab>(initialTab);
   const [portfolio, setPortfolio] = useState<UserPortfolio>(emptyPortfolio);
   const [session, setSession] = useState<UserSession | null>(null);
   const [sessionWalletKind, setSessionWalletKind] = useState<SessionWalletKind | null>(null);
-  const [activeMarket, setActiveMarket] = useState<PredictionMarket>(() =>
-    displayMarkets.find((market) => market.id === initialMarketId) ?? displayMarkets[0],
+  const [activeMarket, setActiveMarket] = useState<PredictionMarket>(
+    () => displayMarkets.find((market) => market.id === initialMarketId) ?? displayMarkets[0],
   );
   const [alertMessage, setAlertMessage] = useState<AlertMessage>(null);
   const [mobileWalletMessage, setMobileWalletMessage] = useState<string | null>(null);
   const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSignInChoiceOpen, setIsSignInChoiceOpen] = useState(false);
   useProductAnalytics({ area: activeTab, session });
   const isLandingTab = activeTab === "landing";
@@ -244,7 +253,9 @@ export function BrowserTerminal({
         vaultTotalBalances: isSameWallet ? current.vaultTotalBalances : {},
         walletBalances: isSameWallet ? current.walletBalances : {},
         vaultTransactions: isSameWallet ? current.vaultTransactions : [],
-        walletBalancesMessage: canReadTokenBalances ? "Reading wallet token balances..." : undefined,
+        walletBalancesMessage: canReadTokenBalances
+          ? "Reading wallet token balances..."
+          : undefined,
         walletBalancesStatus: canReadTokenBalances ? "loading" : "idle",
       };
     });
@@ -305,7 +316,8 @@ export function BrowserTerminal({
   }, [session]);
 
   useEffect(() => {
-    if (!portfolio.connected || !portfolio.address || !evmAddressPattern.test(portfolio.address)) return;
+    if (!portfolio.connected || !portfolio.address || !evmAddressPattern.test(portfolio.address))
+      return;
 
     let isCurrent = true;
     const walletAddress = portfolio.address;
@@ -375,7 +387,10 @@ export function BrowserTerminal({
       return;
     }
     if (portfolio.connected) {
-      triggerAlert("info", "You are already signed in. Open the account menu to copy or disconnect.");
+      triggerAlert(
+        "info",
+        "You are already signed in. Open the account menu to copy or disconnect.",
+      );
       return;
     }
 
@@ -386,7 +401,10 @@ export function BrowserTerminal({
         return;
       }
 
-      triggerAlert("info", "Smart wallet auth is not configured yet. Use EVM wallet sign-in or TON wallet.");
+      triggerAlert(
+        "info",
+        "Smart wallet auth is not configured yet. Use EVM wallet sign-in or TON wallet.",
+      );
       return;
     }
 
@@ -417,7 +435,11 @@ export function BrowserTerminal({
       const response = await fetch("/api/browser-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: address, authProvider: "EVM_EOA", source: "WEB_APP" }),
+        body: JSON.stringify({
+          walletAddress: address,
+          authProvider: "EVM_EOA",
+          source: "WEB_APP",
+        }),
       });
       const body = (await response.json()) as BrowserSessionResponse;
 
@@ -430,7 +452,12 @@ export function BrowserTerminal({
       setSessionWalletKind("eoa");
       setStoredBrowserWalletSession(body.data.session);
       setStoredBrowserSessionWalletKind("eoa");
-      void trackProductEvent({ area: activeTab, label: "eoa", session: body.data.session, type: "AUTH_CONNECT" });
+      void trackProductEvent({
+        area: activeTab,
+        label: "eoa",
+        session: body.data.session,
+        type: "AUTH_CONNECT",
+      });
       triggerAlert("success", "EVM wallet signed in and registered with core.");
     } catch {
       triggerAlert("info", "Wallet connection was cancelled or failed.");
@@ -448,7 +475,12 @@ export function BrowserTerminal({
     applySession(null);
     setSessionWalletKind(null);
     clearStoredBrowserWalletSession();
-    void trackProductEvent({ area: activeTab, label: sessionWalletKind ?? "wallet", session, type: "AUTH_DISCONNECT" });
+    void trackProductEvent({
+      area: activeTab,
+      label: sessionWalletKind ?? "wallet",
+      session,
+      type: "AUTH_DISCONNECT",
+    });
     triggerAlert("info", "Session closed.");
   }
 
@@ -457,21 +489,29 @@ export function BrowserTerminal({
     setSessionWalletKind("smart");
     setStoredBrowserWalletSession(nextSession);
     setStoredBrowserSessionWalletKind("smart");
-    void trackProductEvent({ area: activeTab, label: "smart", session: nextSession, type: "AUTH_CONNECT" });
+    void trackProductEvent({
+      area: activeTab,
+      label: "smart",
+      session: nextSession,
+      type: "AUTH_CONNECT",
+    });
   }
 
-  const handleSmartWalletActive = useCallback((address: string) => {
-    setSessionWalletKind((current) => {
-      const activeAddress = portfolio.address?.toLowerCase();
+  const handleSmartWalletActive = useCallback(
+    (address: string) => {
+      setSessionWalletKind((current) => {
+        const activeAddress = portfolio.address?.toLowerCase();
 
-      if (activeAddress && activeAddress === address.toLowerCase()) {
-        setStoredBrowserSessionWalletKind("smart");
-        return "smart";
-      }
+        if (activeAddress && activeAddress === address.toLowerCase()) {
+          setStoredBrowserSessionWalletKind("smart");
+          return "smart";
+        }
 
-      return current;
-    });
-  }, [portfolio.address]);
+        return current;
+      });
+    },
+    [portfolio.address],
+  );
 
   function handleThirdwebDisconnectSession() {
     applySession(null);
@@ -484,22 +524,30 @@ export function BrowserTerminal({
     setSessionWalletKind("ton");
     setStoredBrowserWalletSession(nextSession);
     setStoredBrowserSessionWalletKind("ton");
-    void trackProductEvent({ area: activeTab, label: "ton", session: nextSession, type: "AUTH_CONNECT" });
+    void trackProductEvent({
+      area: activeTab,
+      label: "ton",
+      session: nextSession,
+      type: "AUTH_CONNECT",
+    });
     triggerAlert("success", "TON wallet signed in and registered with core.");
   }
 
-  const handleTonWalletActive = useCallback((address: string) => {
-    setSessionWalletKind((current) => {
-      const activeAddress = portfolio.address;
+  const handleTonWalletActive = useCallback(
+    (address: string) => {
+      setSessionWalletKind((current) => {
+        const activeAddress = portfolio.address;
 
-      if (activeAddress && activeAddress === address) {
-        setStoredBrowserSessionWalletKind("ton");
-        return "ton";
-      }
+        if (activeAddress && activeAddress === address) {
+          setStoredBrowserSessionWalletKind("ton");
+          return "ton";
+        }
 
-      return current;
-    });
-  }, [portfolio.address]);
+        return current;
+      });
+    },
+    [portfolio.address],
+  );
 
   function handleTonDisconnectSession() {
     if (sessionWalletKind !== "ton") return;
@@ -512,13 +560,24 @@ export function BrowserTerminal({
   function handleProfileClaimed(nextSession: UserSession) {
     applySession(nextSession);
     setStoredBrowserWalletSession(nextSession);
-    void trackProductEvent({ area: activeTab, label: nextSession.traderProfile?.handle ?? "profile", session: nextSession, type: "PROFILE_CLAIM" });
+    void trackProductEvent({
+      area: activeTab,
+      label: nextSession.traderProfile?.handle ?? "profile",
+      session: nextSession,
+      type: "PROFILE_CLAIM",
+    });
     triggerAlert("success", "Your .viction identity is active.");
   }
 
   function handleOpenMargin(market: PredictionMarket) {
     setActiveMarket(market);
-    void trackProductEvent({ area: "markets", label: market.title, metadata: { marketId: market.id }, session, type: "MARKET_OPEN_MARGIN" });
+    void trackProductEvent({
+      area: "markets",
+      label: market.title,
+      metadata: { marketId: market.id },
+      session,
+      type: "MARKET_OPEN_MARGIN",
+    });
     setActiveTab("margin-desk");
   }
 
@@ -578,14 +637,19 @@ export function BrowserTerminal({
       const provider = await resolveEvmWalletProvider();
 
       if (!provider) {
-        promptMobileWallet("Margin request recorded. Open this page in a wallet browser to submit the onchain call.");
+        promptMobileWallet(
+          "Margin request recorded. Open this page in a wallet browser to submit the onchain call.",
+        );
         return;
       }
 
       const vault = vaults.find((item) => item.id === vaultId);
 
       if (!vault?.chainId) {
-        triggerAlert("info", "Margin request recorded, but the selected vault is missing a chain id.");
+        triggerAlert(
+          "info",
+          "Margin request recorded, but the selected vault is missing a chain id.",
+        );
         return;
       }
 
@@ -593,7 +657,10 @@ export function BrowserTerminal({
       const walletAddress = accounts[0];
 
       if (!walletAddress || walletAddress.toLowerCase() !== portfolio.address.toLowerCase()) {
-        triggerAlert("info", "Margin request recorded, but your wallet does not match the active Conviction session.");
+        triggerAlert(
+          "info",
+          "Margin request recorded, but your wallet does not match the active Conviction session.",
+        );
         return;
       }
 
@@ -625,7 +692,8 @@ export function BrowserTerminal({
       });
       triggerAlert("success", "Margin transaction submitted. Waiting for chain confirmation.");
       const receipt = await waitForTransactionReceipt(provider, marginHash);
-      const confirmedStatus = receipt?.status === "0x1" ? "CONFIRMED" : receipt ? "FAILED" : "SUBMITTED";
+      const confirmedStatus =
+        receipt?.status === "0x1" ? "CONFIRMED" : receipt ? "FAILED" : "SUBMITTED";
       await recordTerminalContractTransaction(prepared.transaction.id, {
         responsePayload: receipt,
         status: confirmedStatus,
@@ -650,7 +718,12 @@ export function BrowserTerminal({
           ...current.activePositions,
           {
             id: body.data.position.id,
-            marketTitle: "[" + outcomeType + "] " + activeMarket.title + (visibility === "PUBLIC" ? " (public)" : ""),
+            marketTitle:
+              "[" +
+              outcomeType +
+              "] " +
+              activeMarket.title +
+              (visibility === "PUBLIC" ? " (public)" : ""),
             vaultName: vault.name,
             leverage,
             marginAmount: marginAmt,
@@ -700,7 +773,10 @@ export function BrowserTerminal({
       const amountUnits = parseUnits(String(amount), vault.collateralTokenDecimals ?? 6);
 
       if (sessionWalletKind === "smart") {
-        triggerAlert("info", "Preparing smart wallet deposit for " + amount.toFixed(2) + " " + vault.asset + ".");
+        triggerAlert(
+          "info",
+          "Preparing smart wallet deposit for " + amount.toFixed(2) + " " + vault.asset + ".",
+        );
         const smartResult = await submitSmartWalletDeposit({
           amountUnits: amountUnits.toString(),
           chainId: vault.chainId,
@@ -719,7 +795,14 @@ export function BrowserTerminal({
         });
 
         recordVaultDepositTransaction(transaction, vaultId, amount);
-        void trackProductEvent({ area: "vaults", label: vault.name, metadata: { chainId: vault.chainId, vaultId }, session, type: "VAULT_DEPOSIT", value: amount });
+        void trackProductEvent({
+          area: "vaults",
+          label: vault.name,
+          metadata: { chainId: vault.chainId, vaultId },
+          session,
+          type: "VAULT_DEPOSIT",
+          value: amount,
+        });
         refreshWalletBalances();
         triggerAlert("success", "Vault deposit confirmed.");
         return transaction;
@@ -732,14 +815,20 @@ export function BrowserTerminal({
         return false;
       }
 
-      triggerAlert("info", "Preparing wallet approval for " + amount.toFixed(2) + " " + vault.asset + ".");
+      triggerAlert(
+        "info",
+        "Preparing wallet approval for " + amount.toFixed(2) + " " + vault.asset + ".",
+      );
       const currentAccounts = normalizeAccounts(
         await provider.request({ method: "eth_requestAccounts" }),
       );
       const walletAddress = currentAccounts[0];
 
       if (!walletAddress || walletAddress.toLowerCase() !== portfolio.address.toLowerCase()) {
-        triggerAlert("info", "Connected EOA wallet does not match the active Conviction session. Disconnect and sign in with that EOA, or use Smart wallet sign-in.");
+        triggerAlert(
+          "info",
+          "Connected EOA wallet does not match the active Conviction session. Disconnect and sign in with that EOA, or use Smart wallet sign-in.",
+        );
         return false;
       }
 
@@ -825,7 +914,14 @@ export function BrowserTerminal({
       });
 
       recordVaultDepositTransaction(transaction, vaultId, amount);
-      void trackProductEvent({ area: "vaults", label: vault.name, metadata: { chainId: vault.chainId, vaultId }, session, type: "VAULT_DEPOSIT", value: amount });
+      void trackProductEvent({
+        area: "vaults",
+        label: vault.name,
+        metadata: { chainId: vault.chainId, vaultId },
+        session,
+        type: "VAULT_DEPOSIT",
+        value: amount,
+      });
       refreshWalletBalances();
       triggerAlert("success", "Vault deposit confirmed.");
       return transaction;
@@ -845,8 +941,14 @@ export function BrowserTerminal({
 
     return new Promise<SmartVaultTransactionResult | null>((resolve) => {
       const cleanup = () => {
-        window.removeEventListener("conviction-thirdweb-smart-deposit-result", handleResult as EventListener);
-        window.removeEventListener("conviction-thirdweb-smart-deposit-error", handleError as EventListener);
+        window.removeEventListener(
+          "conviction-thirdweb-smart-deposit-result",
+          handleResult as EventListener,
+        );
+        window.removeEventListener(
+          "conviction-thirdweb-smart-deposit-error",
+          handleError as EventListener,
+        );
       };
 
       const timeout = window.setTimeout(() => {
@@ -870,11 +972,19 @@ export function BrowserTerminal({
         resolve(null);
       };
 
-      window.addEventListener("conviction-thirdweb-smart-deposit-result", handleResult as EventListener);
-      window.addEventListener("conviction-thirdweb-smart-deposit-error", handleError as EventListener);
-      window.dispatchEvent(new CustomEvent("conviction-thirdweb-smart-deposit", {
-        detail: { ...input, requestId },
-      }));
+      window.addEventListener(
+        "conviction-thirdweb-smart-deposit-result",
+        handleResult as EventListener,
+      );
+      window.addEventListener(
+        "conviction-thirdweb-smart-deposit-error",
+        handleError as EventListener,
+      );
+      window.dispatchEvent(
+        new CustomEvent("conviction-thirdweb-smart-deposit", {
+          detail: { ...input, requestId },
+        }),
+      );
     });
   }
 
@@ -900,7 +1010,11 @@ export function BrowserTerminal({
     };
   }
 
-  function recordVaultDepositTransaction(transaction: VaultDepositTransaction, vaultId: string, amount: number) {
+  function recordVaultDepositTransaction(
+    transaction: VaultDepositTransaction,
+    vaultId: string,
+    amount: number,
+  ) {
     setPortfolio((current) => ({
       ...current,
       vaultBalances: {
@@ -909,7 +1023,8 @@ export function BrowserTerminal({
       },
       vaultTotalBalances: {
         ...current.vaultTotalBalances,
-        [vaultId]: (current.vaultTotalBalances[vaultId] ?? current.vaultBalances[vaultId] ?? 0) + amount,
+        [vaultId]:
+          (current.vaultTotalBalances[vaultId] ?? current.vaultBalances[vaultId] ?? 0) + amount,
       },
       vaultTransactions: [transaction, ...current.vaultTransactions].slice(0, 20),
     }));
@@ -930,8 +1045,11 @@ export function BrowserTerminal({
     triggerAlert("info", "Risk voting is display-only until governance contracts are connected.");
   }
 
-
-  async function handleCreateActivityPost(input: { body: string; mediaUrl?: string | null; mediaType?: string | null }) {
+  async function handleCreateActivityPost(input: {
+    body: string;
+    mediaUrl?: string | null;
+    mediaType?: string | null;
+  }) {
     if (!portfolio.connected) {
       void handleConnectWallet();
       return null;
@@ -960,7 +1078,12 @@ export function BrowserTerminal({
         return null;
       }
 
-      void trackProductEvent({ area: "activity", label: input.mediaType ?? "text", session, type: "PULSE_POST" });
+      void trackProductEvent({
+        area: "activity",
+        label: input.mediaType ?? "text",
+        session,
+        type: "PULSE_POST",
+      });
       triggerAlert("success", "Pulse post published.");
       return body.data.post;
     } catch {
@@ -971,14 +1094,21 @@ export function BrowserTerminal({
 
   function requireActivityWallet() {
     if (portfolio.connected) {
-      triggerAlert("info", "Wallet session is active. Wait a moment for the profile session to finish loading.");
+      triggerAlert(
+        "info",
+        "Wallet session is active. Wait a moment for the profile session to finish loading.",
+      );
       return;
     }
 
     void handleConnectWallet();
   }
 
-  async function handleCreateActivitySignal(input: { marketId: string; side: "YES" | "NO"; thesis: string }) {
+  async function handleCreateActivitySignal(input: {
+    marketId: string;
+    side: "YES" | "NO";
+    thesis: string;
+  }) {
     if (!portfolio.connected) {
       void handleConnectWallet();
       return null;
@@ -1016,7 +1146,13 @@ export function BrowserTerminal({
         return null;
       }
 
-      void trackProductEvent({ area: "activity", label: input.side, metadata: { marketId: input.marketId }, session, type: "PULSE_SIGNAL" });
+      void trackProductEvent({
+        area: "activity",
+        label: input.side,
+        metadata: { marketId: input.marketId },
+        session,
+        type: "PULSE_SIGNAL",
+      });
       triggerAlert("success", "Signal published to Market Pulse.");
       return { id: body.data.signal.id, createdAt: body.data.signal.createdAt };
     } catch {
@@ -1042,10 +1178,7 @@ export function BrowserTerminal({
           onStatus={triggerAlert}
           onTonWalletActive={handleTonWalletActive}
         />
-        <RequiredVictionOnboarding
-          onClaimed={handleProfileClaimed}
-          session={session}
-        />
+        <RequiredVictionOnboarding onClaimed={handleProfileClaimed} session={session} />
         <SignInChoiceDialog
           onClose={() => setIsSignInChoiceOpen(false)}
           onSelect={(mode) => {
@@ -1054,130 +1187,116 @@ export function BrowserTerminal({
           }}
           open={isSignInChoiceOpen && !portfolio.connected}
         />
-      <Header
-        activeTab={activeTab}
-        onConnectWallet={handleConnectWallet}
-        onDisconnectWallet={handleDisconnectWallet}
-        onOpenMenu={isLandingTab ? undefined : () => setIsMobileMenuOpen(true)}
-        onOpenPortfolio={() => {
-          window.location.href = "/me";
-        }}
-        onOpenSignInMenu={handleOpenSignInMenu}
-        portfolio={portfolio}
-        session={session}
-        setActiveTab={setActiveTab}
-      />
-      {isLandingTab ? null : (
-        <Sidebar
+        <Header
           activeTab={activeTab}
-          mobileOpen={isMobileMenuOpen}
-          onCloseMobile={() => setIsMobileMenuOpen(false)}
-          onOpenRequest={() => setActiveTab("markets")}
+          onConnectWallet={handleConnectWallet}
+          onDisconnectWallet={handleDisconnectWallet}
+          onOpenPortfolio={() => {
+            window.location.href = "/me";
+          }}
+          onOpenSignInMenu={handleOpenSignInMenu}
           portfolio={portfolio}
           session={session}
           setActiveTab={setActiveTab}
         />
-      )}
+        <div className="pt-24 lg:pt-16">
+          {activeTab === "landing" ? (
+            <LandingView
+              activeMarket={currentMarket}
+              marketCount={markets.length}
+              maxLeverage={getMaxLeverage(vaults)}
+              onExploreVaults={() => setActiveTab("vaults")}
+              onLaunchTerminal={() => setActiveTab("markets")}
+              socialCount={socialFeed.length}
+              walletConnected={portfolio.connected}
+            />
+          ) : null}
 
-      <div className="pt-16">
-        {activeTab === "landing" ? (
-          <LandingView
-            activeMarket={currentMarket}
-            marketCount={markets.length}
-            maxLeverage={getMaxLeverage(vaults)}
-            onExploreVaults={() => setActiveTab("vaults")}
-            onLaunchTerminal={() => setActiveTab("markets")}
-            socialCount={socialFeed.length}
-            walletConnected={portfolio.connected}
-          />
-        ) : null}
+          {activeTab === "markets" ? (
+            <MarketsView
+              markets={displayMarkets}
+              onOpenMargin={handleOpenMargin}
+              onRequireWallet={() => {
+                void handleConnectWallet();
+              }}
+              walletConnected={portfolio.connected}
+            />
+          ) : null}
 
-        {activeTab === "markets" ? (
-          <MarketsView
-            markets={displayMarkets}
-            onOpenMargin={handleOpenMargin}
-            onRequireWallet={() => {
-              void handleConnectWallet();
-            }}
-            walletConnected={portfolio.connected}
-          />
-        ) : null}
+          {activeTab === "margin-desk" ? (
+            <MarginDeskView
+              activeMarket={currentMarket}
+              markets={displayMarkets}
+              onRequestMargin={handleRequestMargin}
+              portfolio={portfolio}
+              setActiveMarket={setActiveMarket}
+              tape={tape}
+              vaults={vaults}
+            />
+          ) : null}
 
-        {activeTab === "margin-desk" ? (
-          <MarginDeskView
-            activeMarket={currentMarket}
-            markets={displayMarkets}
-            onRequestMargin={handleRequestMargin}
-            portfolio={portfolio}
-            setActiveMarket={setActiveMarket}
-            tape={tape}
-            vaults={vaults}
-          />
-        ) : null}
+          {activeTab === "vaults" ? (
+            <VaultsView
+              onCreateVault={handleCreateVault}
+              onDeposit={handleDeposit}
+              onModifyRisk={handleModifyRisk}
+              onRefreshWalletBalances={refreshWalletBalances}
+              onWithdraw={handleWithdraw}
+              portfolio={portfolio}
+              riskParameters={riskParameters}
+              vaults={vaults}
+            />
+          ) : null}
 
-        {activeTab === "vaults" ? (
-          <VaultsView
-            onCreateVault={handleCreateVault}
-            onDeposit={handleDeposit}
-            onModifyRisk={handleModifyRisk}
-            onRefreshWalletBalances={refreshWalletBalances}
-            onWithdraw={handleWithdraw}
-            portfolio={portfolio}
-            riskParameters={riskParameters}
-            vaults={vaults}
-          />
-        ) : null}
-
-        {activeTab === "activity" ? (
-          <ActivityView
-            activity={socialActivity}
-            leaderboard={leaderboardItems}
-            markets={displayMarkets}
-            onCreateSignal={handleCreateActivitySignal}
-            onCreatePost={handleCreateActivityPost}
-            onOpenMarket={handleOpenMargin}
-            onRequireWallet={requireActivityWallet}
-            portfolio={portfolio}
-            session={session}
-            onTimelineRefresh={() => refreshSocialTimeline(setTimelineEvents, session?.user.id)}
-          />
-        ) : null}
-      </div>
-
-      {isLandingTab ? null : (
-        <StatusBar
-          contractStatus="TESTNET"
-          executionMode={execution.marginExecutionEnabled ? "Live" : "Request"}
-          marketCount={markets.length}
-        />
-      )}
-
-      <MobileWalletLauncher
-        message={mobileWalletMessage ?? undefined}
-        onClose={() => setMobileWalletMessage(null)}
-        open={Boolean(mobileWalletMessage)}
-      />
-
-      {alertMessage ? (
-        <div className="fixed top-20 right-6 z-[60] max-w-sm bg-[#161616] border border-[#262626] rounded-lg shadow-2xl overflow-hidden animate-scale-up">
-          <div
-            className={
-              "h-1 " + (alertMessage.type === "success" ? "bg-[#10B981]" : "bg-deep-orange")
-            }
-          />
-          <div className="px-5 py-4">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/70 mb-1">
-              {alertMessage.type === "success" ? "Confirmed" : "Notice"}
-            </p>
-            <p className="text-sm text-white leading-relaxed">{alertMessage.text}</p>
-          </div>
+          {activeTab === "activity" ? (
+            <ActivityView
+              activity={socialActivity}
+              leaderboard={leaderboardItems}
+              markets={displayMarkets}
+              onCreateSignal={handleCreateActivitySignal}
+              onCreatePost={handleCreateActivityPost}
+              onOpenMarket={handleOpenMargin}
+              onRequireWallet={requireActivityWallet}
+              portfolio={portfolio}
+              session={session}
+              onTimelineRefresh={() => refreshSocialTimeline(setTimelineEvents, session?.user.id)}
+            />
+          ) : null}
         </div>
-      ) : null}
+
+        {isLandingTab ? null : (
+          <StatusBar
+            contractStatus="TESTNET"
+            executionMode={execution.marginExecutionEnabled ? "Live" : "Request"}
+            marketCount={markets.length}
+          />
+        )}
+
+        <MobileWalletLauncher
+          message={mobileWalletMessage ?? undefined}
+          onClose={() => setMobileWalletMessage(null)}
+          open={Boolean(mobileWalletMessage)}
+        />
+
+        {alertMessage ? (
+          <div className="fixed top-20 right-6 z-[60] max-w-sm bg-[#161616] border border-[#262626] rounded-lg shadow-2xl overflow-hidden animate-scale-up">
+            <div
+              className={
+                "h-1 " + (alertMessage.type === "success" ? "bg-[#10B981]" : "bg-deep-orange")
+              }
+            />
+            <div className="px-5 py-4">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/70 mb-1">
+                {alertMessage.type === "success" ? "Confirmed" : "Notice"}
+              </p>
+              <p className="text-sm text-white leading-relaxed">{alertMessage.text}</p>
+            </div>
+          </div>
+        ) : null}
       </div>
     </ThirdwebWalletProvider>
   );
 }
-
 
 function SignInChoiceDialog({
   onClose,
@@ -1191,12 +1310,19 @@ function SignInChoiceDialog({
   if (!open) return null;
 
   return (
-    <div className="viction-onboarding-overlay" role="dialog" aria-modal="true" aria-labelledby="sign-in-choice-title">
+    <div
+      className="viction-onboarding-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sign-in-choice-title"
+    >
       <div className="viction-onboarding-card sign-in-choice-card">
         <div className="viction-onboarding-heading">
           <span>Sign in</span>
           <h2 id="sign-in-choice-title">Choose how to enter</h2>
-          <p>Choose Google smart wallet, TON wallet, or the EVM wallet where you already hold funds.</p>
+          <p>
+            Choose Google smart wallet, TON wallet, or the EVM wallet where you already hold funds.
+          </p>
         </div>
         <div className="sign-in-choice-grid">
           <button className="sign-in-choice-option" onClick={() => onSelect("smart")} type="button">
@@ -1215,11 +1341,15 @@ function SignInChoiceDialog({
             <BrowserWalletMarks className="sign-in-choice-marks" />
             <span>EVM wallets</span>
             <strong>Self-custody wallet</strong>
-            <small>MetaMask, Coinbase, Trust Wallet, Rabby, Phantom, OKX, and other EOA wallets.</small>
+            <small>
+              MetaMask, Coinbase, Trust Wallet, Rabby, Phantom, OKX, and other EOA wallets.
+            </small>
           </button>
         </div>
         <div className="viction-onboarding-actions">
-          <button onClick={onClose} type="button">Cancel</button>
+          <button onClick={onClose} type="button">
+            Cancel
+          </button>
         </div>
       </div>
     </div>
@@ -1243,7 +1373,6 @@ const emptyPredictionMarket: PredictionMarket = {
   imageUrl: null,
   source: "Conviction Core",
 };
-
 
 function isTerminalTab(value: string | null | undefined): value is TerminalTab {
   return typeof value === "string" && TERMINAL_TABS.includes(value as TerminalTab);
@@ -1275,7 +1404,9 @@ function mapMarketToPredictionMarket(market: Market): PredictionMarket {
   const discovery = getMarketDiscoveryProfile(market);
   const region = discovery.regions[0] ?? "GLOBAL";
   const primaryTag = market.providerMetadata?.primaryTag?.trim();
-  const metadataTopic = market.providerMetadata?.discoveryTopics?.find((topic) => topic.trim().length > 0);
+  const metadataTopic = market.providerMetadata?.discoveryTopics?.find(
+    (topic) => topic.trim().length > 0,
+  );
 
   return {
     id: market.id,
@@ -1369,121 +1500,133 @@ function getTapeMarketLabel(market: Market) {
   return label.length > 24 ? label.slice(0, 23).trimEnd() + "..." : label;
 }
 
-function mapTimelineEventsToActivity(events: SocialTimelineEvent[], fallbackFeed: SocialFeedItem[]): ActivityItem[] {
+function mapTimelineEventsToActivity(
+  events: SocialTimelineEvent[],
+  fallbackFeed: SocialFeedItem[],
+): ActivityItem[] {
   if (events.length === 0) {
     return mapSocialFeedToActivity(fallbackFeed);
   }
 
-  return events.filter((event) => event.type !== "FOLLOW").map((event) => {
-    if (event.type === "REPOST" && event.signal) {
-      const signalItem = mapSocialFeedItemToActivity(event.signal);
+  return events
+    .filter((event) => event.type !== "FOLLOW")
+    .map((event) => {
+      if (event.type === "REPOST" && event.signal) {
+        const signalItem = mapSocialFeedItemToActivity(event.signal);
+        return {
+          ...signalItem,
+          id: event.id,
+          eventType: "REPOST",
+          kind: "repost",
+          actorUserId: event.actor.userId,
+          traderProfileId: event.signal.trader?.id,
+          username: getActorUsername(event.actor),
+          name: getActorDisplayName(event.actor),
+          time: formatRelativeTime(event.createdAt),
+          text: getActorDisplayName(event.actor) + " reposted this market take.",
+          topic: "Repost",
+          signalSide: event.signal.signal.side,
+          convictionLevel: event.signal.signal.convictionLevel,
+        };
+      }
+
+      if (event.type === "PUBLIC_TRADE" && event.position) {
+        return {
+          id: event.id,
+          actorUserId: event.actor.userId,
+          traderProfileId:
+            event.position.trader.traderProfileId ?? event.actor.traderProfileId ?? undefined,
+          username: getActorUsername(event.actor),
+          name: getActorDisplayName(event.actor),
+          avatarUrl: event.position.trader.avatarUrl ?? event.actor.avatarUrl ?? undefined,
+          time: formatRelativeTime(event.createdAt),
+          text: buildPublicTradeText(event),
+          type: "request",
+          kind: "trade",
+          eventType: "PUBLIC_TRADE",
+          likes: 0,
+          commentsCount: event.position.replies.length,
+          repeats: 0,
+          marketId: event.position.market?.id,
+          marketPrice: formatSocialMarketPrice(event.position.market),
+          marketTitle: event.position.market?.title ?? "Market unavailable",
+          replies: event.position.replies.map((reply) => ({
+            id: reply.id,
+            author: getReplyDisplayName(reply.author),
+            text: reply.body,
+            time: formatRelativeTime(reply.createdAt),
+          })),
+          topic: "Public trade",
+          position: {
+            id: event.position.id,
+            side: event.position.side,
+            quantity: event.position.quantity,
+            executionMode: event.position.executionMode,
+            leverageMultiplier: event.position.leverageMultiplier,
+            marginCollateral: event.position.marginCollateral,
+            status: event.position.status,
+          },
+        };
+      }
+
+      if (event.signal) {
+        return {
+          ...mapSocialFeedItemToActivity(event.signal),
+          eventType: "SIGNAL",
+        };
+      }
+
+      if (event.type === "POST" && event.post) {
+        return {
+          id: event.post.id,
+          postId: event.post.id,
+          actorUserId: event.actor.userId,
+          traderProfileId:
+            event.post.author.traderProfileId ?? event.actor.traderProfileId ?? undefined,
+          username: getActorUsername(event.actor),
+          name: getActorDisplayName(event.actor),
+          avatarUrl:
+            event.post.author.avatarUrl ??
+            event.actor.avatarUrl ??
+            event.post.author.profileUrl ??
+            event.actor.profileUrl ??
+            undefined,
+          time: formatRelativeTime(event.createdAt),
+          text: event.post.body,
+          type: "request",
+          kind: "post",
+          eventType: "POST",
+          likes: event.post.counts.reactions,
+          commentsCount: event.post.counts.replies,
+          repeats: event.post.counts.bookmarks,
+          likedByUser: event.post.viewer?.reacted ?? false,
+          repostedByUser: event.post.viewer?.bookmarked ?? false,
+          replies: (event.post.recentReplies ?? []).map((reply) => ({
+            id: reply.id,
+            author: getReplyDisplayName(reply.author),
+            text: reply.body,
+            time: formatRelativeTime(reply.createdAt),
+          })),
+          topic: "Pulse",
+        };
+      }
+
       return {
-        ...signalItem,
         id: event.id,
-        eventType: "REPOST",
-        kind: "repost",
         actorUserId: event.actor.userId,
-        traderProfileId: event.signal.trader?.id,
         username: getActorUsername(event.actor),
         name: getActorDisplayName(event.actor),
         time: formatRelativeTime(event.createdAt),
-        text: getActorDisplayName(event.actor) + " reposted this market take.",
-        topic: "Repost",
-        signalSide: event.signal.signal.side,
-        convictionLevel: event.signal.signal.convictionLevel,
-      };
-    }
-
-    if (event.type === "PUBLIC_TRADE" && event.position) {
-      return {
-        id: event.id,
-        actorUserId: event.actor.userId,
-        traderProfileId: event.position.trader.traderProfileId ?? event.actor.traderProfileId ?? undefined,
-        username: getActorUsername(event.actor),
-        name: getActorDisplayName(event.actor),
-        avatarUrl: event.position.trader.avatarUrl ?? event.actor.avatarUrl ?? undefined,
-        time: formatRelativeTime(event.createdAt),
-        text: buildPublicTradeText(event),
-        type: "request",
-        kind: "trade",
-        eventType: "PUBLIC_TRADE",
-        likes: 0,
-        commentsCount: event.position.replies.length,
-        repeats: 0,
-        marketId: event.position.market?.id,
-        marketPrice: formatSocialMarketPrice(event.position.market),
-        marketTitle: event.position.market?.title ?? "Market unavailable",
-        replies: event.position.replies.map((reply) => ({
-          id: reply.id,
-          author: getReplyDisplayName(reply.author),
-          text: reply.body,
-          time: formatRelativeTime(reply.createdAt),
-        })),
-        topic: "Public trade",
-        position: {
-          id: event.position.id,
-          side: event.position.side,
-          quantity: event.position.quantity,
-          executionMode: event.position.executionMode,
-          leverageMultiplier: event.position.leverageMultiplier,
-          marginCollateral: event.position.marginCollateral,
-          status: event.position.status,
-        },
-      };
-    }
-
-    if (event.signal) {
-      return {
-        ...mapSocialFeedItemToActivity(event.signal),
-        eventType: "SIGNAL",
-      };
-    }
-
-    if (event.type === "POST" && event.post) {
-      return {
-        id: event.post.id,
-        postId: event.post.id,
-        actorUserId: event.actor.userId,
-        traderProfileId: event.post.author.traderProfileId ?? event.actor.traderProfileId ?? undefined,
-        username: getActorUsername(event.actor),
-        name: getActorDisplayName(event.actor),
-        avatarUrl: event.post.author.avatarUrl ?? event.actor.avatarUrl ?? event.post.author.profileUrl ?? event.actor.profileUrl ?? undefined,
-        time: formatRelativeTime(event.createdAt),
-        text: event.post.body,
+        text: "New market activity.",
         type: "request",
         kind: "post",
-        eventType: "POST",
-        likes: event.post.counts.reactions,
-        commentsCount: event.post.counts.replies,
-        repeats: event.post.counts.bookmarks,
-        likedByUser: event.post.viewer?.reacted ?? false,
-        repostedByUser: event.post.viewer?.bookmarked ?? false,
-        replies: (event.post.recentReplies ?? []).map((reply) => ({
-          id: reply.id,
-          author: getReplyDisplayName(reply.author),
-          text: reply.body,
-          time: formatRelativeTime(reply.createdAt),
-        })),
+        likes: 0,
+        commentsCount: 0,
+        repeats: 0,
+        replies: [],
         topic: "Pulse",
       };
-    }
-
-    return {
-      id: event.id,
-      actorUserId: event.actor.userId,
-      username: getActorUsername(event.actor),
-      name: getActorDisplayName(event.actor),
-      time: formatRelativeTime(event.createdAt),
-      text: "New market activity.",
-      type: "request",
-      kind: "post",
-      likes: 0,
-      commentsCount: 0,
-      repeats: 0,
-      replies: [],
-      topic: "Pulse",
-    };
-  });
+    });
 }
 
 function mapSocialFeedToActivity(feed: SocialFeedItem[]): ActivityItem[] {
@@ -1498,7 +1641,8 @@ function mapSocialFeedItemToActivity(item: SocialFeedItem): ActivityItem {
     traderProfileId: item.trader?.id ?? item.author.traderProfileId ?? undefined,
     username: getSocialUsername(item),
     name: getSocialDisplayName(item),
-    avatarUrl: item.trader?.avatarUrl ?? item.author.avatarUrl ?? item.author.profileUrl ?? undefined,
+    avatarUrl:
+      item.trader?.avatarUrl ?? item.author.avatarUrl ?? item.author.profileUrl ?? undefined,
     time: formatRelativeTime(item.signal.createdAt),
     text: item.signal.thesis,
     type: "request",
@@ -1527,17 +1671,20 @@ function parseTimelineEvents(body: unknown): SocialTimelineEvent[] {
   if (!body || typeof body !== "object" || !("ok" in body)) return [];
   const response = body as { ok?: boolean; data?: { events?: unknown } };
   return response.ok && Array.isArray(response.data?.events)
-    ? response.data.events as SocialTimelineEvent[]
+    ? (response.data.events as SocialTimelineEvent[])
     : [];
 }
 
-async function refreshSocialTimeline(setter: (events: SocialTimelineEvent[]) => void, userId?: string) {
+async function refreshSocialTimeline(
+  setter: (events: SocialTimelineEvent[]) => void,
+  userId?: string,
+) {
   const params = new URLSearchParams({ limit: "80", scope: "all" });
   if (userId) params.set("userId", userId);
 
   try {
     const response = await fetch("/api/social/timeline?" + params.toString());
-    const body = await response.json() as unknown;
+    const body = (await response.json()) as unknown;
     setter(parseTimelineEvents(body));
   } catch {
     // Keep current feed if refresh fails.
@@ -1549,20 +1696,54 @@ function buildPublicTradeText(event: SocialTimelineEvent) {
   if (!position) return "Placed a public trade.";
 
   const leverage = position.leverageMultiplier ? " at " + position.leverageMultiplier + "x" : "";
-  const collateral = position.marginCollateral ? " with " + position.marginCollateral + " collateral" : "";
-  return getActorDisplayName(event.actor) + " placed a public " + position.side + " trade" + leverage + collateral + ".";
+  const collateral = position.marginCollateral
+    ? " with " + position.marginCollateral + " collateral"
+    : "";
+  return (
+    getActorDisplayName(event.actor) +
+    " placed a public " +
+    position.side +
+    " trade" +
+    leverage +
+    collateral +
+    "."
+  );
 }
 
-function getActorUsername(actor: { handle?: string | null; username?: string | null; displayName?: string | null; userId: string }) {
-  return normalizeVictionIdentity(actor.handle ?? actor.username ?? actor.displayName, actor.userId);
+function getActorUsername(actor: {
+  handle?: string | null;
+  username?: string | null;
+  displayName?: string | null;
+  userId: string;
+}) {
+  return normalizeVictionIdentity(
+    actor.handle ?? actor.username ?? actor.displayName,
+    actor.userId,
+  );
 }
 
-function getActorDisplayName(actor: { handle?: string | null; username?: string | null; displayName?: string | null; userId: string }) {
-  return normalizeVictionIdentity(actor.handle ?? actor.displayName ?? actor.username, actor.userId);
+function getActorDisplayName(actor: {
+  handle?: string | null;
+  username?: string | null;
+  displayName?: string | null;
+  userId: string;
+}) {
+  return normalizeVictionIdentity(
+    actor.handle ?? actor.displayName ?? actor.username,
+    actor.userId,
+  );
 }
 
-function getReplyDisplayName(actor: { handle?: string | null; username?: string | null; displayName?: string | null; userId: string }) {
-  return normalizeVictionIdentity(actor.handle ?? actor.username ?? actor.displayName, actor.userId);
+function getReplyDisplayName(actor: {
+  handle?: string | null;
+  username?: string | null;
+  displayName?: string | null;
+  userId: string;
+}) {
+  return normalizeVictionIdentity(
+    actor.handle ?? actor.username ?? actor.displayName,
+    actor.userId,
+  );
 }
 
 function getSocialUsername(item: SocialFeedItem) {
@@ -1668,7 +1849,6 @@ function formatRelativeTime(value: string) {
 
   return Math.floor(hours / 24) + "d ago";
 }
-
 
 async function prepareTerminalMarginIntent(positionId: string) {
   const response = await fetch("/api/contracts/margin-intents/prepare", {
@@ -1779,7 +1959,6 @@ function getVaultAddress(execution: ExecutionCapabilities, vault: Vault) {
   return execution.chains.find((chain) => chain.chainId === vault.chainId)?.vaultAddress ?? null;
 }
 
-
 async function readCollateralAllowance(input: {
   owner: string;
   provider: EthereumProvider;
@@ -1869,10 +2048,12 @@ function getWalletChainConfig(chainId: number) {
 }
 
 function isUnknownChainError(error: unknown) {
-  return typeof error === "object" &&
+  return (
+    typeof error === "object" &&
     error !== null &&
     "code" in error &&
-    Number((error as { code?: unknown }).code) === 4902;
+    Number((error as { code?: unknown }).code) === 4902
+  );
 }
 
 async function waitForTransactionReceipt(provider: EthereumProvider, transactionHash: string) {
