@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
-import { PredictionMarket } from '../types';
-import { 
+import React, { useState } from "react";
+import { PredictionMarket } from "../types";
+import {
   ShieldCheck,
   ArrowRight,
   Coins,
   Gauge,
   Sparkles,
   BookOpen,
-} from 'lucide-react';
+  HelpCircle,
+  MessageCircle,
+  UsersRound,
+} from "lucide-react";
 
 interface LandingViewProps {
   activeMarket: PredictionMarket;
@@ -15,6 +18,7 @@ interface LandingViewProps {
   maxLeverage: number;
   onLaunchTerminal: () => void;
   onExploreVaults: () => void;
+  onOpenPulse: () => void;
   socialCount: number;
   walletConnected: boolean;
 }
@@ -25,29 +29,30 @@ export default function LandingView({
   maxLeverage,
   onLaunchTerminal,
   onExploreVaults,
+  onOpenPulse,
   socialCount,
-  walletConnected
+  walletConnected,
 }: LandingViewProps) {
   // Simulator states
-  const [outcome, setOutcome] = useState<'YES' | 'NO'>('YES');
+  const [outcome, setOutcome] = useState<"YES" | "NO">("YES");
   const [leverage, setLeverage] = useState<number>(5);
   const [collateral, setCollateral] = useState<number>(1000);
 
   const optionYesPrice = Math.max(0.01, activeMarket.currentOdds / 100 || 0.01);
   const optionNoPrice = Math.max(0.01, 1 - optionYesPrice);
-  
-  const currentPrice = outcome === 'YES' ? optionYesPrice : optionNoPrice;
+
+  const currentPrice = outcome === "YES" ? optionYesPrice : optionNoPrice;
   const borrowCapital = collateral * (leverage - 1);
   const totalTradingPower = collateral * leverage;
   const contractShares = Math.floor(totalTradingPower / currentPrice);
-  
+
   // Potential multiplier
-  const payoutPotential = contractShares * 1.00; // each share is worth $1 upon resolution
-  const totalReturnOnCollateral = ((payoutPotential - borrowCapital - collateral) / collateral) * 100;
+  const payoutPotential = contractShares * 1.0; // each share is worth $1 upon resolution
+  const totalReturnOnCollateral =
+    ((payoutPotential - borrowCapital - collateral) / collateral) * 100;
 
   return (
     <main className="flex-1 px-4 pb-28 pt-28 md:px-10 md:pb-36 md:pt-32 max-w-[1280px] mx-auto w-full bg-grid-tech">
-      
       {/* 1. HERO SECTION */}
       <section className="relative z-10 mb-24 md:mb-32">
         {/* Decorative ambient radial lights */}
@@ -63,12 +68,16 @@ export default function LandingView({
 
           {/* Heading */}
           <h1 className="text-4xl md:text-6xl font-sans font-extrabold tracking-tight text-white mb-8 leading-tight">
-            Find Markets. <span className="text-transparent bg-clip-text bg-gradient-to-r from-deep-orange to-[#a78bfa]">Trade With Margin</span>
+            Find Markets.{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-deep-orange to-[#a78bfa]">
+              Trade With Margin
+            </span>
           </h1>
 
           {/* Subheading */}
           <p className="text-sm md:text-base text-[#ccc3d8] leading-relaxed mb-12 max-w-2xl mx-auto font-sans">
-            Discover live event markets and back your strongest calls with margin powered by vault liquidity.
+            Discover live event markets and back your strongest calls with margin powered by vault
+            liquidity.
           </p>
 
           {/* CTAs */}
@@ -89,15 +98,52 @@ export default function LandingView({
             </button>
           </div>
         </div>
+      </section>
 
+      <section className="mb-20 md:mb-28">
+        <button
+          className="group grid w-full cursor-pointer gap-6 rounded-xl border border-[#262626] bg-surface-card/90 p-5 text-left transition-all hover:border-deep-orange/70 hover:bg-[#1f1b18] md:grid-cols-[1.2fr_0.8fr] md:p-8"
+          onClick={onOpenPulse}
+          type="button"
+        >
+          <div className="flex items-start gap-4">
+            <span className="inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded border border-deep-orange/30 bg-deep-orange/10 text-deep-orange transition-colors group-hover:bg-deep-orange group-hover:text-black">
+              <MessageCircle size={20} />
+            </span>
+            <div>
+              <p className="font-mono text-[9px] font-extrabold uppercase tracking-widest text-deep-orange">
+                Market Pulse
+              </p>
+              <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-white md:text-3xl">
+                Talk markets before the price moves.
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#ccc3d8]">
+                Follow traders, post calls, join market rooms, and turn event news into a live
+                conviction feed.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-1 xl:grid-cols-3">
+            <PulseStat label="Posts" value={socialCount.toLocaleString()} />
+            <PulseStat label="Traders" value="Live" icon={<UsersRound size={14} />} />
+            <span className="inline-flex min-h-14 items-center justify-between rounded border border-deep-orange/30 bg-deep-orange px-4 font-mono text-[10px] font-extrabold uppercase tracking-widest text-black transition-colors group-hover:bg-white">
+              Open Pulse
+              <ArrowRight size={14} />
+            </span>
+          </div>
+        </button>
       </section>
 
       {/* 2. REAL-TIME INTERACTIVE LEVERAGE SIMULATOR */}
       <section className="mb-24 md:mb-28">
         <div className="text-center mb-12 md:mb-14">
-          <h2 className="text-2xl md:text-3xl font-sans font-bold text-white mb-4">Preview Margin Mechanics</h2>
+          <h2 className="text-2xl md:text-3xl font-sans font-bold text-white mb-4">
+            Preview Margin Mechanics
+          </h2>
           <p className="mx-auto max-w-xl text-sm text-[#ccc3d8]/80">
-            Estimate how collateral, borrowed vault liquidity, and YES/NO prices shape a margin request.
+            Estimate how collateral, borrowed vault liquidity, and YES/NO prices shape a margin
+            request.
           </p>
         </div>
 
@@ -105,7 +151,7 @@ export default function LandingView({
           {/* SIMULATOR CONTROLS (cols 5) */}
           <div className="lg:col-span-5 bg-surface-card border border-[#262626] rounded-xl p-6 md:p-8 flex flex-col justify-between glow-orange relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-deep-orange/5 rounded-full blur-xl pointer-events-none" />
-            
+
             <div>
               {/* Target market info */}
               <div className="mb-6">
@@ -123,24 +169,24 @@ export default function LandingView({
                   Pick Outcome
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => setOutcome('YES')}
+                    onClick={() => setOutcome("YES")}
                     className={`p-3 rounded text-center transition-all cursor-pointer font-sans font-bold text-xs ${
-                      outcome === 'YES' 
-                        ? 'bg-deep-orange text-black border-none' 
-                        : 'bg-[#0e0e0e] text-[#ccc3d8] border border-[#262626] hover:border-white/30'
+                      outcome === "YES"
+                        ? "bg-deep-orange text-black border-none"
+                        : "bg-[#0e0e0e] text-[#ccc3d8] border border-[#262626] hover:border-white/30"
                     }`}
                   >
                     YES ({(optionYesPrice * 100).toFixed(0)}%)
                   </button>
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => setOutcome('NO')}
+                    onClick={() => setOutcome("NO")}
                     className={`p-3 rounded text-center transition-all cursor-pointer font-sans font-bold text-xs ${
-                      outcome === 'NO' 
-                        ? 'bg-[#EF4444] text-white border-none' 
-                        : 'bg-[#0e0e0e] text-[#ccc3d8] border border-[#262626] hover:border-white/30'
+                      outcome === "NO"
+                        ? "bg-[#EF4444] text-white border-none"
+                        : "bg-[#0e0e0e] text-[#ccc3d8] border border-[#262626] hover:border-white/30"
                     }`}
                   >
                     NO ({(optionNoPrice * 100).toFixed(0)}%)
@@ -154,11 +200,13 @@ export default function LandingView({
                   <label className="block font-mono text-[9px] text-[#ccc3d8]/80 uppercase tracking-widest font-extrabold">
                     Your Collateral (USDC)
                   </label>
-                  <span className="font-mono text-[10px] text-[#ccc3d8]">Available: {walletConnected ? 'Connect balance adapter' : 'Not signed in'}</span>
+                  <span className="font-mono text-[10px] text-[#ccc3d8]">
+                    Available: {walletConnected ? "Connect balance adapter" : "Not signed in"}
+                  </span>
                 </div>
                 <div className="relative">
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="100"
                     min="100"
                     max="10000"
@@ -166,7 +214,9 @@ export default function LandingView({
                     value={collateral}
                     onChange={(e) => setCollateral(Math.max(100, parseFloat(e.target.value) || 0))}
                   />
-                  <span className="absolute left-3 top-3 text-xs font-mono font-bold text-[#ccc3d8] italic">USDC</span>
+                  <span className="absolute left-3 top-3 text-xs font-mono font-bold text-[#ccc3d8] italic">
+                    USDC
+                  </span>
                 </div>
               </div>
 
@@ -180,7 +230,7 @@ export default function LandingView({
                     {Math.min(leverage, maxLeverage)}x Leverage
                   </span>
                 </div>
-                <input 
+                <input
                   type="range"
                   min="1"
                   max={maxLeverage}
@@ -210,7 +260,9 @@ export default function LandingView({
           <div className="lg:col-span-7 bg-[#1c1b1b]/60 border border-[#262626] rounded-xl p-6 md:p-8 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-baseline mb-6 border-b border-[#262626] pb-4">
-                <span className="font-mono text-xs font-bold text-[#ccc3d8] uppercase tracking-wide">Margin Estimate</span>
+                <span className="font-mono text-xs font-bold text-[#ccc3d8] uppercase tracking-wide">
+                  Margin Estimate
+                </span>
                 <span className="font-mono text-[9px] text-emerald-400 font-extrabold flex items-center gap-1 bg-emerald-500/10 px-2.5 py-0.5 rounded-full uppercase leading-none">
                   <Gauge size={12} />
                   Safe Margins
@@ -220,16 +272,28 @@ export default function LandingView({
               {/* Grid representation */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mb-8">
                 <div className="p-4 bg-[#0a0a0a] border border-[#262626] rounded">
-                  <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-wider block mb-1">Your Collateral</span>
-                  <span className="font-mono text-[#e5e2e1] font-bold text-base">${collateral.toLocaleString()}</span>
+                  <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-wider block mb-1">
+                    Your Collateral
+                  </span>
+                  <span className="font-mono text-[#e5e2e1] font-bold text-base">
+                    ${collateral.toLocaleString()}
+                  </span>
                 </div>
                 <div className="p-4 bg-[#0a0a0a] border border-[#262626] rounded">
-                  <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-wider block mb-1">Vault Liquidity Used</span>
-                  <span className="font-mono text-[#F97316] font-semibold text-base">${borrowCapital.toLocaleString()}</span>
+                  <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-wider block mb-1">
+                    Vault Liquidity Used
+                  </span>
+                  <span className="font-mono text-[#F97316] font-semibold text-base">
+                    ${borrowCapital.toLocaleString()}
+                  </span>
                 </div>
                 <div className="p-4 bg-[#0a0a0a] border border-[#262626] rounded col-span-2 md:col-span-1">
-                  <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-wider block mb-1">Total Exposure</span>
-                  <span className="font-mono text-white font-extrabold text-base">${totalTradingPower.toLocaleString()}</span>
+                  <span className="font-mono text-[9px] text-[#ccc3d8]/50 uppercase tracking-wider block mb-1">
+                    Total Exposure
+                  </span>
+                  <span className="font-mono text-white font-extrabold text-base">
+                    ${totalTradingPower.toLocaleString()}
+                  </span>
                 </div>
               </div>
 
@@ -243,17 +307,23 @@ export default function LandingView({
                 {/* Result line 2 */}
                 <div className="flex justify-between items-center">
                   <span className="text-[#ccc3d8]/80">Effective Contract Shares Held:</span>
-                  <span className="text-white font-bold">{contractShares.toLocaleString()} shares</span>
+                  <span className="text-white font-bold">
+                    {contractShares.toLocaleString()} shares
+                  </span>
                 </div>
                 {/* Result line 3 */}
                 <div className="flex justify-between items-center">
                   <span className="text-[#ccc3d8]/80">Liquidation Trigger Price:</span>
-                  <span className="text-[#EF4444] font-bold">{(currentPrice * 82).toFixed(1)}%</span>
+                  <span className="text-[#EF4444] font-bold">
+                    {(currentPrice * 82).toFixed(1)}%
+                  </span>
                 </div>
                 {/* Result line 4 */}
                 <div className="flex justify-between items-center border-t border-[#262626] pt-3 text-emerald-400">
                   <span className="font-medium">Potential Yield On Correct Outcome:</span>
-                  <span className="text-base font-extrabold">+{totalReturnOnCollateral.toFixed(1)}%</span>
+                  <span className="text-base font-extrabold">
+                    +{totalReturnOnCollateral.toFixed(1)}%
+                  </span>
                 </div>
               </div>
             </div>
@@ -262,8 +332,11 @@ export default function LandingView({
             <div className="mt-2 p-5 bg-[#201f1f] rounded border border-[#262626] text-sm text-[#ccc3d8] leading-relaxed flex gap-3.5 items-start">
               <ShieldCheck size={20} className="text-deep-orange flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-sans text-base font-bold text-white block mb-1">Automated Collateral Guard:</span>
-                Your position resolves to $1.00 per share when the outcome is correct. Risk controls monitor drawdowns and help protect vault liquidity from runaway losses.
+                <span className="font-sans text-base font-bold text-white block mb-1">
+                  Automated Collateral Guard:
+                </span>
+                Your position resolves to $1.00 per share when the outcome is correct. Risk controls
+                monitor drawdowns and help protect vault liquidity from runaway losses.
               </div>
             </div>
           </div>
@@ -275,20 +348,34 @@ export default function LandingView({
         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-deep-orange via-electric-purple to-emerald-400" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10 text-center md:text-left">
           <div>
-            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Available Markets</span>
+            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">
+              Available Markets
+            </span>
             <span className="font-mono text-3xl font-extrabold text-white">{marketCount}</span>
-            {marketCount === 0 ? <span className="mt-2 block text-[10px] text-deep-orange">Core feed reconnecting</span> : null}
+            {marketCount === 0 ? (
+              <span className="mt-2 block text-[10px] text-deep-orange">
+                Core feed reconnecting
+              </span>
+            ) : null}
           </div>
           <div>
-            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Market Posts</span>
+            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">
+              Market Posts
+            </span>
             <span className="font-mono text-3xl font-extrabold text-white">{socialCount}</span>
           </div>
           <div>
-            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Get Up To</span>
-            <span className="font-mono text-3xl font-extrabold text-deep-orange">{Math.max(maxLeverage, 10)}x</span>
+            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">
+              Get Up To
+            </span>
+            <span className="font-mono text-3xl font-extrabold text-deep-orange">
+              {Math.max(maxLeverage, 10)}x
+            </span>
           </div>
           <div>
-            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">Trading Flow</span>
+            <span className="font-mono text-[9px] text-[#ccc3d8]/60 uppercase tracking-widest font-extrabold block mb-2">
+              Trading Flow
+            </span>
             <span className="font-mono text-3xl font-extrabold text-emerald-400">Request</span>
           </div>
         </div>
@@ -300,22 +387,13 @@ export default function LandingView({
             <p className="font-mono text-[9px] font-extrabold uppercase tracking-widest text-[#ccc3d8]/50">
               Conviction Markets
             </p>
-            <p className="mt-1 text-sm text-[#ccc3d8]">
-              Docs, community, and product updates.
-            </p>
+            <p className="mt-1 text-sm text-[#ccc3d8]">Docs, community, and product updates.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 md:gap-4">
-            <SocialLink
-              href="/docs"
-              label="Docs"
-              icon={<BookOpen size={16} />}
-            />
-            <SocialLink
-              href="https://x.com/VictionMarkets"
-              label="X"
-              icon={<XLogo />}
-            />
+            <SocialLink href="/docs" label="Docs" icon={<BookOpen size={16} />} />
+            <SocialLink href="/support" label="Support" icon={<HelpCircle size={16} />} />
+            <SocialLink href="https://x.com/VictionMarkets" label="X" icon={<XLogo />} />
             <SocialLink
               href="https://t.me/+KYjXR2Tz2P4xMGY0"
               label="Telegram"
@@ -324,18 +402,41 @@ export default function LandingView({
           </div>
         </div>
       </footer>
-
     </main>
   );
 }
 
+function PulseStat({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <span className="flex min-h-14 items-center justify-between gap-3 rounded border border-[#262626] bg-[#0A0A0A] px-4">
+      <span className="font-mono text-[9px] font-extrabold uppercase tracking-widest text-[#ccc3d8]/55">
+        {label}
+      </span>
+      <strong className="inline-flex items-center gap-2 font-mono text-sm font-extrabold text-white">
+        {icon}
+        {value}
+      </strong>
+    </span>
+  );
+}
+
 function SocialLink({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
+  const isExternal = href.startsWith("http");
+
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noreferrer"
-      aria-label={'Open Conviction Markets on ' + label}
+      target={isExternal ? "_blank" : undefined}
+      rel={isExternal ? "noreferrer" : undefined}
+      aria-label={"Open " + label}
       className="inline-flex h-10 items-center gap-2 rounded border border-[#262626] bg-[#0A0A0A] px-3 text-xs font-extrabold uppercase tracking-widest text-white transition hover:border-deep-orange hover:text-deep-orange"
     >
       {icon}

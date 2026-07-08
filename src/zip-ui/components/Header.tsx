@@ -13,6 +13,7 @@ import {
   Bell,
   BookOpen,
   Briefcase,
+  ChevronDown,
   Check,
   Copy,
   HelpCircle,
@@ -55,14 +56,9 @@ export default function Header({
     { id: "markets", label: "Markets", href: "/markets" },
     { id: "activity", label: "Pulse", href: "/activity" },
     { id: "vaults", label: "Vaults", href: "/vaults" },
-    ...(portfolio.connected ? [{ id: "portfolio", label: "Portfolio", href: "/me" }] : []),
     { id: "leaderboard", label: "Leaderboard", href: "/leaderboard" },
   ];
-  const mobileTabs = [
-    ...tabs,
-    { id: "docs", label: "Docs", href: "/docs" },
-    { id: "support", label: "Support", href: "/support" },
-  ];
+  const mobileTabs = tabs;
 
   useEffect(() => {
     if (!walletMenuOpen) return;
@@ -106,6 +102,13 @@ export default function Header({
       return;
     }
 
+    if (portfolio.connected) {
+      handleOpenPortfolio();
+      return;
+    }
+  }
+
+  function handleWalletMenuButtonClick() {
     setWalletMenuOpen((open) => !open);
   }
 
@@ -225,20 +228,34 @@ export default function Header({
 
           {/* Account connector */}
           <div className="relative" ref={walletMenuRef}>
-            <button
-              aria-expanded={portfolio.connected ? walletMenuOpen : undefined}
-              aria-haspopup={portfolio.connected ? "menu" : undefined}
-              onClick={handleWalletButtonClick}
-              className={`px-2 sm:px-4 py-1.5 rounded text-[10px] sm:text-xs font-mono font-bold tracking-wider transition-all duration-300 flex items-center gap-1.5 sm:gap-2 border cursor-pointer max-w-[9.75rem] sm:max-w-[13rem] ${
-                portfolio.connected
-                  ? "bg-[#1c1b1b] border-deep-orange text-deep-orange shadow-[0_0_10px_rgba(249,115,22,0.1)] hover:border-white hover:text-white"
-                  : "bg-deep-orange border-deep-orange text-black hover:bg-white hover:border-white hover:text-black font-semibold"
-              }`}
-              type="button"
-            >
-              <Wallet size={14} />
-              <span className="truncate">{walletLabel}</span>
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleWalletButtonClick}
+                className={`px-2 sm:px-4 py-1.5 rounded text-[10px] sm:text-xs font-mono font-bold tracking-wider transition-all duration-300 flex items-center gap-1.5 sm:gap-2 border cursor-pointer max-w-[8.75rem] sm:max-w-[13rem] ${
+                  portfolio.connected
+                    ? "bg-[#1c1b1b] border-deep-orange text-deep-orange shadow-[0_0_10px_rgba(249,115,22,0.1)] hover:border-white hover:text-white"
+                    : "bg-deep-orange border-deep-orange text-black hover:bg-white hover:border-white hover:text-black font-semibold"
+                }`}
+                title={portfolio.connected ? "Open portfolio" : "Sign in"}
+                type="button"
+              >
+                <Wallet size={14} />
+                <span className="truncate">{walletLabel}</span>
+              </button>
+              {portfolio.connected ? (
+                <button
+                  aria-expanded={walletMenuOpen}
+                  aria-haspopup="menu"
+                  aria-label="Account options"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded border border-[#262626] bg-[#0a0a0a] text-[#ccc3d8] transition-colors hover:border-deep-orange hover:text-white"
+                  onClick={handleWalletMenuButtonClick}
+                  title="Account options"
+                  type="button"
+                >
+                  <ChevronDown size={14} />
+                </button>
+              ) : null}
+            </div>
 
             {walletMenuOpen ? (
               <div
