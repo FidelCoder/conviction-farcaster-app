@@ -59,6 +59,15 @@
   animation: spin 3s linear infinite;
 }
 
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Custom scrollbar for dark mode */
 ::-webkit-scrollbar {
   width: 8px;
@@ -8245,7 +8254,6 @@ main,
   background: rgba(22, 22, 22, 0.7);
 }
 
-
 .mobile-wallet-overlay {
   position: fixed;
   inset: 0;
@@ -8435,7 +8443,7 @@ main,
 @media (max-width: 767px) {
   .terminal-page {
     margin-left: 0;
-    padding: 5rem 1rem 6.5rem;
+    padding: 8rem 1rem 6.5rem;
   }
 
   .terminal-page-heading {
@@ -8475,7 +8483,6 @@ main,
     grid-template-columns: 1fr;
   }
 }
-
 
 .brand img {
   display: block;
@@ -8658,7 +8665,10 @@ main,
   cursor: pointer;
   padding: 0.45rem;
   text-align: center;
-  transition: border-color 150ms ease, transform 150ms ease, background 150ms ease;
+  transition:
+    border-color 150ms ease,
+    transform 150ms ease,
+    background 150ms ease;
 }
 
 .viction-onboarding-avatars button:hover,
@@ -8787,7 +8797,10 @@ main,
   cursor: pointer;
   padding: 1rem;
   text-align: left;
-  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
 }
 
 .sign-in-choice-grid button:hover {
@@ -8828,7 +8841,6 @@ main,
     min-height: 0;
   }
 }
-
 
 .wallet-brand-mark,
 .wallet-brand-chip {
@@ -8930,7 +8942,6 @@ main,
 .sign-in-choice-marks {
   margin-bottom: 0.7rem;
 }
-
 
 .terminal-wallet-page .wallet-portfolio-shell {
   display: grid;
@@ -9473,9 +9484,7 @@ main,
 /* Telegram Mini App */
 .telegram-mini-shell {
   min-height: 100vh;
-  background:
-    linear-gradient(180deg, rgba(10, 10, 10, 0.98), rgba(12, 9, 7, 0.98)),
-    #0a0a0a;
+  background: linear-gradient(180deg, rgba(10, 10, 10, 0.98), rgba(12, 9, 7, 0.98)), #0a0a0a;
   color: #f7f2ec;
   padding: 14px 12px 30px;
 }

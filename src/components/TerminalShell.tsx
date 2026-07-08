@@ -15,7 +15,10 @@ import {
   setStoredBrowserWalletSession,
 } from "../lib/browser-wallet-session";
 import type { ExecutionCapabilities, UserSession } from "../lib/core-api";
-import { fetchWalletBalanceSnapshot, applyWalletBalanceSnapshot } from "../lib/client-wallet-balances";
+import {
+  fetchWalletBalanceSnapshot,
+  applyWalletBalanceSnapshot,
+} from "../lib/client-wallet-balances";
 import {
   getNoWalletDetectedMessage,
   isMobileWalletEnvironment,
@@ -24,7 +27,6 @@ import {
 import { isThirdwebConfigured } from "../lib/thirdweb-client";
 import { trackProductEvent, useProductAnalytics } from "../lib/product-analytics";
 import Header from "../zip-ui/components/Header";
-import Sidebar from "../zip-ui/components/Sidebar";
 import StatusBar from "../zip-ui/components/StatusBar";
 import type { UserPortfolio } from "../zip-ui/types";
 
@@ -73,7 +75,6 @@ export function TerminalShell({
   const [session, setSession] = useState<UserSession | null>(null);
   const [alertMessage, setAlertMessage] = useState<AlertMessage>(null);
   const [mobileWalletMessage, setMobileWalletMessage] = useState<string | null>(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sessionWalletKind, setSessionWalletKind] = useState<SessionWalletKind | null>(null);
   const [walletBalanceRefreshNonce, setWalletBalanceRefreshNonce] = useState(0);
   useProductAnalytics({ area: activeTab, session });
@@ -98,7 +99,9 @@ export function TerminalShell({
         vaultTotalBalances: isSameWallet ? current.vaultTotalBalances : {},
         walletBalances: isSameWallet ? current.walletBalances : {},
         vaultTransactions: isSameWallet ? current.vaultTransactions : [],
-        walletBalancesMessage: canReadTokenBalances ? "Reading wallet token balances..." : undefined,
+        walletBalancesMessage: canReadTokenBalances
+          ? "Reading wallet token balances..."
+          : undefined,
         walletBalancesStatus: canReadTokenBalances ? "loading" : "idle",
       };
     });
@@ -121,7 +124,8 @@ export function TerminalShell({
   }, [applySession, sessionOverride]);
 
   useEffect(() => {
-    if (!portfolio.connected || !portfolio.address || !evmAddressPattern.test(portfolio.address)) return;
+    if (!portfolio.connected || !portfolio.address || !evmAddressPattern.test(portfolio.address))
+      return;
 
     let isCurrent = true;
     const walletAddress = portfolio.address;
@@ -194,7 +198,10 @@ export function TerminalShell({
         return;
       }
 
-      triggerAlert("info", "Smart wallet auth is not configured yet. Use EVM wallet sign-in or TON wallet.");
+      triggerAlert(
+        "info",
+        "Smart wallet auth is not configured yet. Use EVM wallet sign-in or TON wallet.",
+      );
       return;
     }
 
@@ -225,7 +232,11 @@ export function TerminalShell({
       const response = await fetch("/api/browser-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: address, authProvider: "EVM_EOA", source: "WEB_APP" }),
+        body: JSON.stringify({
+          walletAddress: address,
+          authProvider: "EVM_EOA",
+          source: "WEB_APP",
+        }),
       });
       const body = (await response.json()) as BrowserSessionResponse;
 
@@ -239,7 +250,12 @@ export function TerminalShell({
       setStoredBrowserWalletSession(body.data.session);
       setStoredBrowserSessionWalletKind("eoa");
       onSessionChange?.(body.data.session);
-      void trackProductEvent({ area: activeTab, label: "eoa", session: body.data.session, type: "AUTH_CONNECT" });
+      void trackProductEvent({
+        area: activeTab,
+        label: "eoa",
+        session: body.data.session,
+        type: "AUTH_CONNECT",
+      });
       triggerAlert("success", "EVM wallet signed in and registered with core.");
       setWalletBalanceRefreshNonce((current) => current + 1);
     } catch {
@@ -254,22 +270,30 @@ export function TerminalShell({
     setSessionWalletKind(null);
     clearStoredBrowserWalletSession();
     onSessionChange?.(null);
-    void trackProductEvent({ area: activeTab, label: sessionWalletKind ?? "wallet", session, type: "AUTH_DISCONNECT" });
+    void trackProductEvent({
+      area: activeTab,
+      label: sessionWalletKind ?? "wallet",
+      session,
+      type: "AUTH_DISCONNECT",
+    });
     triggerAlert("info", "Wallet session closed.");
   }
 
-  const handleSmartWalletActive = useCallback((address: string) => {
-    setSessionWalletKind((current) => {
-      const activeAddress = portfolio.address?.toLowerCase();
+  const handleSmartWalletActive = useCallback(
+    (address: string) => {
+      setSessionWalletKind((current) => {
+        const activeAddress = portfolio.address?.toLowerCase();
 
-      if (activeAddress && activeAddress === address.toLowerCase()) {
-        setStoredBrowserSessionWalletKind("smart");
-        return "smart";
-      }
+        if (activeAddress && activeAddress === address.toLowerCase()) {
+          setStoredBrowserSessionWalletKind("smart");
+          return "smart";
+        }
 
-      return current;
-    });
-  }, [portfolio.address]);
+        return current;
+      });
+    },
+    [portfolio.address],
+  );
 
   function handleThirdwebSessionReady(nextSession: UserSession) {
     applySession(nextSession);
@@ -277,7 +301,12 @@ export function TerminalShell({
     setStoredBrowserWalletSession(nextSession);
     setStoredBrowserSessionWalletKind("smart");
     onSessionChange?.(nextSession);
-    void trackProductEvent({ area: activeTab, label: "smart", session: nextSession, type: "AUTH_CONNECT" });
+    void trackProductEvent({
+      area: activeTab,
+      label: "smart",
+      session: nextSession,
+      type: "AUTH_CONNECT",
+    });
     setWalletBalanceRefreshNonce((current) => current + 1);
   }
 
@@ -296,21 +325,29 @@ export function TerminalShell({
     setStoredBrowserWalletSession(nextSession);
     setStoredBrowserSessionWalletKind("ton");
     onSessionChange?.(nextSession);
-    void trackProductEvent({ area: activeTab, label: "ton", session: nextSession, type: "AUTH_CONNECT" });
+    void trackProductEvent({
+      area: activeTab,
+      label: "ton",
+      session: nextSession,
+      type: "AUTH_CONNECT",
+    });
   }
 
-  const handleTonWalletActive = useCallback((address: string) => {
-    setSessionWalletKind((current) => {
-      const activeAddress = portfolio.address;
+  const handleTonWalletActive = useCallback(
+    (address: string) => {
+      setSessionWalletKind((current) => {
+        const activeAddress = portfolio.address;
 
-      if (activeAddress && activeAddress === address) {
-        setStoredBrowserSessionWalletKind("ton");
-        return "ton";
-      }
+        if (activeAddress && activeAddress === address) {
+          setStoredBrowserSessionWalletKind("ton");
+          return "ton";
+        }
 
-      return current;
-    });
-  }, [portfolio.address]);
+        return current;
+      });
+    },
+    [portfolio.address],
+  );
 
   function handleTonDisconnectSession() {
     if (sessionWalletKind !== "ton") return;
@@ -325,7 +362,12 @@ export function TerminalShell({
     applySession(nextSession);
     setStoredBrowserWalletSession(nextSession);
     onSessionChange?.(nextSession);
-    void trackProductEvent({ area: activeTab, label: nextSession.traderProfile?.handle ?? "profile", session: nextSession, type: "PROFILE_CLAIM" });
+    void trackProductEvent({
+      area: activeTab,
+      label: nextSession.traderProfile?.handle ?? "profile",
+      session: nextSession,
+      type: "PROFILE_CLAIM",
+    });
     triggerAlert("success", "Your .viction identity is active.");
   }
 
@@ -346,64 +388,48 @@ export function TerminalShell({
           onStatus={triggerAlert}
           onTonWalletActive={handleTonWalletActive}
         />
-      <RequiredVictionOnboarding
-        onClaimed={handleProfileClaimed}
-        session={session}
-      />
-      <Header
-        activeTab={activeTab}
-        onConnectWallet={handleConnectWallet}
-        onDisconnectWallet={handleDisconnectWallet}
-        onOpenMenu={() => setIsMobileMenuOpen(true)}
-        onOpenPortfolio={() => {
-          window.location.href = "/me";
-        }}
-        portfolio={portfolio}
-        session={session}
-        setActiveTab={navigateFromTab}
-      />
-      <Sidebar
-        activeTab={activeTab}
-        mobileOpen={isMobileMenuOpen}
-        onCloseMobile={() => setIsMobileMenuOpen(false)}
-        onOpenRequest={() => {
-          window.location.href = "/markets";
-        }}
-        portfolio={portfolio}
-        session={session}
-        setActiveTab={navigateFromTab}
-      />
+        <RequiredVictionOnboarding onClaimed={handleProfileClaimed} session={session} />
+        <Header
+          activeTab={activeTab}
+          onConnectWallet={handleConnectWallet}
+          onDisconnectWallet={handleDisconnectWallet}
+          onOpenPortfolio={() => {
+            window.location.href = "/me";
+          }}
+          portfolio={portfolio}
+          session={session}
+          setActiveTab={navigateFromTab}
+        />
+        {children}
 
-      {children}
+        <StatusBar
+          contractStatus="TESTNET"
+          executionMode={execution.marginExecutionEnabled ? "Live" : "Request"}
+          marketCount={marketCount}
+        />
 
-      <StatusBar
-        contractStatus="TESTNET"
-        executionMode={execution.marginExecutionEnabled ? "Live" : "Request"}
-        marketCount={marketCount}
-      />
+        <MobileWalletLauncher
+          message={mobileWalletMessage ?? undefined}
+          onClose={() => setMobileWalletMessage(null)}
+          open={Boolean(mobileWalletMessage)}
+        />
 
-      <MobileWalletLauncher
-        message={mobileWalletMessage ?? undefined}
-        onClose={() => setMobileWalletMessage(null)}
-        open={Boolean(mobileWalletMessage)}
-      />
-
-      {alertMessage ? (
-        <div className="terminal-alert">
-          <div
-            className={
-              "terminal-alert-strip " +
-              (alertMessage.type === "success" ? "terminal-alert-success" : "")
-            }
-          />
-          <div className="px-5 py-4">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/70 mb-1">
-              {alertMessage.type === "success" ? "Confirmed" : "Notice"}
-            </p>
-            <p className="text-sm text-white leading-relaxed">{alertMessage.text}</p>
+        {alertMessage ? (
+          <div className="terminal-alert">
+            <div
+              className={
+                "terminal-alert-strip " +
+                (alertMessage.type === "success" ? "terminal-alert-success" : "")
+              }
+            />
+            <div className="px-5 py-4">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]/70 mb-1">
+                {alertMessage.type === "success" ? "Confirmed" : "Notice"}
+              </p>
+              <p className="text-sm text-white leading-relaxed">{alertMessage.text}</p>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
       </div>
     </ThirdwebWalletProvider>
   );
