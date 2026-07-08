@@ -1207,6 +1207,7 @@ export function BrowserTerminal({
               maxLeverage={getMaxLeverage(vaults)}
               onExploreVaults={() => setActiveTab("vaults")}
               onLaunchTerminal={() => setActiveTab("markets")}
+              onOpenPulse={() => setActiveTab("activity")}
               socialCount={socialFeed.length}
               walletConnected={portfolio.connected}
             />
