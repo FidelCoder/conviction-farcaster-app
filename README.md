@@ -2,6 +2,10 @@
 
 Next.js Farcaster app workspace for Conviction Markets. The app reads product data from the core API and does not keep local markets, signals, positions, traders, or copy-intent records.
 
+## Product Guide
+
+A short tester-facing guide is available at [`docs/user-guide.md`](docs/user-guide.md). It explains markets, margin, vaults, Pulse, profiles, portfolio, support, and Telegram without requiring protocol knowledge.
+
 ## Setup
 
 Package manager: npm.
