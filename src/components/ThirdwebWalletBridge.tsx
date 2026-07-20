@@ -43,6 +43,23 @@ type SmartVaultTransactionResult = {
 
 type SmartVaultTransactionFailure = { message: string; requestId: string };
 
+type SmartMessageSignRequest = {
+  address: string;
+  message: string;
+  requestId: string;
+};
+
+type SmartMessageSignResult = {
+  address: string;
+  requestId: string;
+  signature: string;
+};
+
+type SmartMessageSignFailure = {
+  message: string;
+  requestId: string;
+};
+
 export function ThirdwebWalletProvider({ children }: { children: React.ReactNode }) {
   return <ThirdwebProvider>{children}</ThirdwebProvider>;
 }
@@ -220,6 +237,44 @@ export function ThirdwebWalletBridge({
       window.removeEventListener("conviction-thirdweb-smart-deposit", handleSmartVaultDeposit);
     };
   }, [account, configured, onStatus]);
+
+  useEffect(() => {
+    if (!configured) return;
+
+    async function handleMessageSign(event: Event) {
+      const detail = (event as CustomEvent<SmartMessageSignRequest>).detail;
+      if (!detail?.requestId) return;
+
+      try {
+        if (!account) throw new Error("Smart wallet is not active. Sign in with Google smart wallet again.");
+        if (account.address.toLowerCase() !== detail.address.toLowerCase()) {
+          throw new Error("Active smart wallet does not match the requested signing account.");
+        }
+        if (!account.signMessage) {
+          throw new Error("Active smart wallet does not support ownership-message signing.");
+        }
+
+        const signature = await account.signMessage({ message: detail.message });
+        const result: SmartMessageSignResult = {
+          address: account.address,
+          requestId: detail.requestId,
+          signature,
+        };
+        window.dispatchEvent(new CustomEvent<SmartMessageSignResult>("conviction-thirdweb-sign-result", { detail: result }));
+      } catch (error) {
+        const failure: SmartMessageSignFailure = {
+          message: error instanceof Error ? error.message : "Smart wallet signature failed.",
+          requestId: detail.requestId,
+        };
+        window.dispatchEvent(new CustomEvent<SmartMessageSignFailure>("conviction-thirdweb-sign-error", { detail: failure }));
+      }
+    }
+
+    window.addEventListener("conviction-thirdweb-sign-message", handleMessageSign);
+    return () => {
+      window.removeEventListener("conviction-thirdweb-sign-message", handleMessageSign);
+    };
+  }, [account, configured]);
 
   const detailsButton = useMemo(() => ({
     displayBalanceToken: {

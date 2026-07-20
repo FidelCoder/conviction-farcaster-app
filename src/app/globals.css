@@ -11248,3 +11248,542 @@ main,
     display: grid;
   }
 }
+
+.polymarket-account-manager {
+  display: grid;
+  gap: 1rem;
+  border-top: 1px solid #2a2a2a;
+  border-bottom: 1px solid #2a2a2a;
+  background: rgba(11, 11, 11, 0.46);
+  padding: 1.2rem 0;
+}
+
+.terminal-account-page > .polymarket-account-manager {
+  margin-top: 1.25rem;
+}
+
+.polymarket-account-heading,
+.polymarket-form-footer,
+.polymarket-proof-step,
+.polymarket-create-account,
+.polymarket-account-title,
+.polymarket-account-actions,
+.polymarket-position-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.polymarket-account-heading > div:first-child,
+.polymarket-create-account > div,
+.polymarket-proof-step > div:first-child {
+  min-width: 0;
+}
+
+.polymarket-account-heading h2,
+.polymarket-create-account h3,
+.polymarket-linked-account h3,
+.polymarket-position-heading h3 {
+  margin: 0;
+  color: #ffffff;
+  letter-spacing: 0;
+}
+
+.polymarket-account-heading h2 {
+  margin-top: 0.25rem;
+  font-size: 1.2rem;
+}
+
+.polymarket-account-heading p,
+.polymarket-form-footer p,
+.polymarket-proof-step p,
+.polymarket-create-account p,
+.polymarket-account-notice p {
+  margin: 0.35rem 0 0;
+  color: rgba(204, 195, 216, 0.78);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.polymarket-heading-actions,
+.polymarket-account-actions,
+.polymarket-proof-step > div:last-child {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.55rem;
+}
+
+.polymarket-primary-button,
+.polymarket-secondary-button,
+.polymarket-icon-button,
+.polymarket-account-actions button,
+.polymarket-create-account a {
+  display: inline-flex;
+  min-height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid #343434;
+  border-radius: 6px;
+  background: #171717;
+  color: #ffffff;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  padding: 0 0.85rem;
+  text-transform: uppercase;
+}
+
+.polymarket-primary-button,
+.polymarket-create-account a {
+  border-color: #d66518;
+  background: #d66518;
+  color: #090909;
+}
+
+.polymarket-primary-button:hover,
+.polymarket-create-account a:hover {
+  border-color: #ef7d2d;
+  background: #ef7d2d;
+}
+
+.polymarket-secondary-button:hover,
+.polymarket-icon-button:hover,
+.polymarket-account-actions button:hover {
+  border-color: rgba(214, 101, 24, 0.72);
+  color: #ef7d2d;
+}
+
+.polymarket-icon-button {
+  width: 2.45rem;
+  padding: 0;
+}
+
+.polymarket-primary-button:disabled,
+.polymarket-secondary-button:disabled,
+.polymarket-icon-button:disabled,
+.polymarket-account-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.polymarket-link-form {
+  display: grid;
+  gap: 1rem;
+  border-left: 2px solid #d66518;
+  background: rgba(22, 22, 22, 0.8);
+  padding: 1rem;
+}
+
+.polymarket-wallet-types {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.polymarket-wallet-types button {
+  display: grid;
+  min-width: 0;
+  min-height: 5.5rem;
+  align-content: start;
+  gap: 0.4rem;
+  border: 1px solid #303030;
+  border-radius: 6px;
+  background: #101010;
+  color: #ffffff;
+  padding: 0.8rem;
+  text-align: left;
+}
+
+.polymarket-wallet-types button.active {
+  border-color: #d66518;
+  background: rgba(214, 101, 24, 0.11);
+}
+
+.polymarket-wallet-types strong {
+  color: #ffffff;
+  font-size: 0.84rem;
+}
+
+.polymarket-wallet-types span {
+  color: rgba(204, 195, 216, 0.72);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.polymarket-address-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.polymarket-address-fields label {
+  display: grid;
+  min-width: 0;
+  gap: 0.45rem;
+}
+
+.polymarket-address-fields label > span,
+.polymarket-proof-step span,
+.polymarket-create-account span,
+.polymarket-account-title span,
+.polymarket-account-facts span,
+.polymarket-position-copy span,
+.polymarket-position-value span {
+  color: #d66518;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.polymarket-address-fields input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  border: 1px solid #343434;
+  border-radius: 6px;
+  background: #090909;
+  color: #ffffff;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.78rem;
+  padding: 0 0.75rem;
+}
+
+.polymarket-address-fields input:focus {
+  border-color: #d66518;
+  outline: none;
+}
+
+.polymarket-address-fields input:disabled {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.polymarket-proof-step,
+.polymarket-create-account,
+.polymarket-account-notice {
+  border: 1px solid #303030;
+  border-radius: 6px;
+  background: rgba(22, 22, 22, 0.72);
+  padding: 1rem;
+}
+
+.polymarket-proof-step strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: #ffffff;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+
+.polymarket-account-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  color: #d66518;
+}
+
+.polymarket-account-notice strong {
+  color: #ffffff;
+}
+
+.polymarket-account-message {
+  min-height: 1.3rem;
+  margin: 0;
+  color: rgba(204, 195, 216, 0.76);
+  font-size: 0.78rem;
+}
+
+.polymarket-account-message.success {
+  color: #10b981;
+}
+
+.polymarket-account-message.error,
+.polymarket-account-error {
+  color: #ef4444;
+}
+
+.polymarket-account-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.polymarket-linked-account {
+  display: grid;
+  gap: 0.9rem;
+  border: 1px solid #303030;
+  border-radius: 6px;
+  background: #111111;
+  padding: 1rem;
+}
+
+.polymarket-account-title {
+  justify-content: flex-start;
+}
+
+.polymarket-account-title > div:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+
+.polymarket-account-title h3 {
+  margin-top: 0.22rem;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.95rem;
+}
+
+.polymarket-account-mark {
+  display: grid;
+  width: 2.55rem;
+  height: 2.55rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(214, 101, 24, 0.48);
+  border-radius: 6px;
+  color: #d66518;
+}
+
+.polymarket-status-badge {
+  display: inline-flex;
+  min-height: 1.7rem;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid rgba(214, 101, 24, 0.44);
+  border-radius: 4px;
+  color: #ef7d2d;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.62rem;
+  font-weight: 900;
+  padding: 0 0.45rem;
+  text-transform: uppercase;
+}
+
+.polymarket-status-badge.ready {
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #10b981;
+}
+
+.polymarket-status-badge.error {
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #ef4444;
+}
+
+.polymarket-account-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.polymarket-account-facts div {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+  border-top: 1px solid #2a2a2a;
+  padding-top: 0.55rem;
+}
+
+.polymarket-account-facts strong {
+  color: #ffffff;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.polymarket-account-error {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.polymarket-account-actions {
+  justify-content: flex-start;
+}
+
+.polymarket-account-actions button.danger {
+  margin-left: auto;
+  color: #ef4444;
+}
+
+.polymarket-create-account h3 {
+  margin-top: 0.25rem;
+}
+
+.polymarket-imported-ledger {
+  display: grid;
+  gap: 1rem;
+  border-top: 1px solid #2a2a2a;
+  padding-top: 1rem;
+}
+
+.polymarket-position-section {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.polymarket-position-heading {
+  border-bottom: 1px solid #2a2a2a;
+  padding-bottom: 0.6rem;
+}
+
+.polymarket-position-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #d66518;
+}
+
+.polymarket-position-heading h3 {
+  font-size: 0.96rem;
+}
+
+.polymarket-position-heading > span {
+  color: rgba(204, 195, 216, 0.72);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+}
+
+.polymarket-position-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.polymarket-position-row {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) minmax(6rem, auto);
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid #292929;
+  border-radius: 6px;
+  background: #0d0d0d;
+  padding: 0.65rem;
+}
+
+.polymarket-position-image {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border: 1px solid #303030;
+  border-radius: 5px;
+  background-color: #171717;
+  background-position: center;
+  background-size: cover;
+  color: #d66518;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.polymarket-position-copy,
+.polymarket-position-value {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.polymarket-position-copy strong {
+  color: #ffffff;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.polymarket-position-copy small {
+  color: rgba(204, 195, 216, 0.7);
+  font-size: 0.72rem;
+}
+
+.polymarket-position-value {
+  text-align: right;
+}
+
+.polymarket-position-value strong {
+  color: #10b981;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.82rem;
+}
+
+.polymarket-position-empty {
+  margin: 0;
+  color: rgba(204, 195, 216, 0.7);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 900px) {
+  .polymarket-wallet-types,
+  .polymarket-account-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .polymarket-account-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .polymarket-account-manager {
+    padding: 1rem 0;
+  }
+
+  .polymarket-account-heading,
+  .polymarket-form-footer,
+  .polymarket-proof-step,
+  .polymarket-create-account {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .polymarket-heading-actions,
+  .polymarket-proof-step > div:last-child {
+    width: 100%;
+  }
+
+  .polymarket-primary-button {
+    flex: 1;
+  }
+
+  .polymarket-wallet-types,
+  .polymarket-address-fields,
+  .polymarket-account-list {
+    grid-template-columns: 1fr;
+  }
+
+  .polymarket-account-title {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .polymarket-account-title .polymarket-status-badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .polymarket-account-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .polymarket-account-actions button.danger {
+    margin-left: 0;
+  }
+
+  .polymarket-create-account a {
+    width: 100%;
+  }
+
+  .polymarket-position-row {
+    grid-template-columns: 2.7rem minmax(0, 1fr);
+  }
+
+  .polymarket-position-image {
+    width: 2.7rem;
+    height: 2.7rem;
+  }
+
+  .polymarket-position-value {
+    grid-column: 2;
+    text-align: left;
+  }
+}
