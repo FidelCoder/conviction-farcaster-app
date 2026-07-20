@@ -10152,13 +10152,14 @@ main,
 
 .landing-v2-network {
   position: absolute;
-  inset: 0;
-  opacity: 0.38;
+  inset: -3px;
+  opacity: 0.25;
   background-image: url("/landing/market-network-hero.webp");
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
-  filter: brightness(0.72) saturate(0.88);
+  filter: blur(1.5px) brightness(0.62) saturate(0.78);
+  transform: scale(1.01);
   pointer-events: none;
 }
 
@@ -10194,7 +10195,8 @@ main,
   gap: 9px;
   border: 1px solid #343039;
   padding: 8px 10px;
-  color: #b8b2bc;
+  background: rgba(8, 8, 11, 0.72);
+  color: #d3ced6;
 }
 
 .landing-v2-kicker span,
@@ -10214,6 +10216,7 @@ main,
   font-weight: 900;
   line-height: 0.98;
   letter-spacing: 0;
+  text-shadow: 0 3px 20px rgba(0, 0, 0, 0.88);
 }
 
 .landing-v2-hero-copy h1 strong {
@@ -10230,9 +10233,10 @@ main,
 .landing-v2-lead {
   max-width: 540px;
   margin: 30px 0 0;
-  color: var(--landing-muted);
+  color: #c0bac3;
   font-size: 15px;
   line-height: 1.75;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.92);
 }
 
 .landing-v2-actions {
@@ -11066,7 +11070,7 @@ main,
 
   .landing-v2-network {
     display: block;
-    opacity: 0.2;
+    opacity: 0.14;
     background-position: 58% center;
   }
 
