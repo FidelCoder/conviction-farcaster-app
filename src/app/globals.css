@@ -10153,12 +10153,12 @@ main,
 .landing-v2-network {
   position: absolute;
   inset: 0;
-  opacity: 0.08;
-  background-image: url("/logo/conviction-markets-3d-black-bg.png");
-  background-position: 86% 46%;
+  opacity: 0.38;
+  background-image: url("/landing/market-network-hero.webp");
+  background-position: center;
   background-repeat: no-repeat;
-  background-size: 820px auto;
-  filter: grayscale(1);
+  background-size: cover;
+  filter: brightness(0.72) saturate(0.88);
   pointer-events: none;
 }
 
@@ -11065,7 +11065,9 @@ main,
   }
 
   .landing-v2-network {
-    display: none;
+    display: block;
+    opacity: 0.2;
+    background-position: 58% center;
   }
 
   .landing-v2-hero-copy h1 {
