@@ -4,6 +4,7 @@ declare module "thirdweb" {
   export type ThirdwebAccount = {
     address: string;
     sendTransaction?: (transaction: unknown) => Promise<{ transactionHash: string }>;
+    signMessage?: (input: { message: string }) => Promise<string>;
   };
   export type ThirdwebContract = { address: string; chain: ThirdwebChain; client: ThirdwebClient };
   export function createThirdwebClient(input: { clientId: string }): ThirdwebClient;

@@ -10,6 +10,7 @@ import type { CopyIntent, Market, Position, TradeSignal, UserSession } from "../
 import type { UserPortfolio } from "../zip-ui/types";
 import { executionStatusLabel, formatDate } from "../lib/display";
 import { EmptyState } from "./EmptyState";
+import { PolymarketAccountManager } from "./PolymarketAccountManager";
 import { PositionCard } from "./PositionCard";
 import { SignalCard } from "./SignalCard";
 
@@ -230,6 +231,7 @@ export function MyActivityDashboard() {
           <a href="#history">History</a>
           <a href="#signals">Signals</a>
           <a href="#copy-intents">Copy intents</a>
+          <a href="#polymarket-account">Polymarket</a>
           <Link href="/vaults">Vaults</Link>
           <Link href="/markets">Find markets</Link>
         </aside>
@@ -254,6 +256,8 @@ export function MyActivityDashboard() {
               {activityState.message}
             </p>
           </section>
+
+          <PolymarketAccountManager session={session} showPositions />
 
           {activity ? (
             <>

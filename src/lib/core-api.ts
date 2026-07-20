@@ -366,6 +366,62 @@ export type UserSession = {
   traderProfile: TraderProfile | null;
 };
 
+export type PolymarketWalletType = "EOA" | "POLY_PROXY" | "GNOSIS_SAFE" | "POLY_1271";
+export type PolymarketAccountStatus = "LINKED" | "READY" | "DISCONNECTED" | "ERROR";
+export type PolymarketPositionState = "OPEN" | "CLOSED";
+
+export type PolymarketPositionSnapshot = {
+  id: string;
+  assetId: string;
+  conditionId: string | null;
+  state: PolymarketPositionState;
+  outcome: string | null;
+  size: string | null;
+  averagePrice: string | null;
+  initialValue: string | null;
+  currentValue: string | null;
+  cashPnl: string | null;
+  realizedPnl: string | null;
+  currentPrice: string | null;
+  title: string | null;
+  slug: string | null;
+  iconUrl: string | null;
+  eventSlug: string | null;
+  endDate: string | null;
+  redeemable: boolean;
+  mergeable: boolean;
+  lastSyncedAt: string;
+};
+
+export type PolymarketAccount = {
+  id: string;
+  userId: string;
+  ownerAddress: string;
+  funderAddress: string;
+  walletType: PolymarketWalletType;
+  chainId: 137;
+  status: PolymarketAccountStatus;
+  credentialsConfigured: boolean;
+  credentialsVerifiedAt: string | null;
+  profileName: string | null;
+  profileUrl: string | null;
+  linkedAt: string;
+  walletVerifiedAt: string | null;
+  disconnectedAt: string | null;
+  lastSyncedAt: string | null;
+  lastSyncError: string | null;
+  positions: PolymarketPositionSnapshot[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PolymarketAccountChallenge = {
+  id: string;
+  purpose: "LINK" | "UNLINK";
+  message: string;
+  expiresAt: string;
+};
+
 export type DiscoveredUser = {
   user: CoreUser;
   socialAccount: SocialAccount | null;
@@ -955,6 +1011,65 @@ export async function createBrowserWalletSession(input: { walletAddress: string;
       metadata: input.metadata ?? null,
     },
   });
+}
+
+export async function listPolymarketAccounts(userId: string) {
+  const response = await coreRequest<{ accounts: PolymarketAccount[] }>("/users/" + encodeURIComponent(userId) + "/polymarket/accounts");
+  return response.accounts;
+}
+
+export async function createPolymarketLinkChallenge(input: { userId: string; convictionAddress: string; convictionChainId: number; polymarketOwnerAddress: string; polymarketFunderAddress: string; polymarketWalletType: PolymarketWalletType }) {
+  const response = await coreRequest<{ challenge: PolymarketAccountChallenge }>("/users/" + encodeURIComponent(input.userId) + "/polymarket/link-challenges", {
+    method: "POST",
+    body: {
+      convictionAddress: input.convictionAddress,
+      convictionChainId: input.convictionChainId,
+      polymarketOwnerAddress: input.polymarketOwnerAddress,
+      polymarketFunderAddress: input.polymarketFunderAddress,
+      polymarketWalletType: input.polymarketWalletType,
+    },
+  });
+  return response.challenge;
+}
+
+export async function completePolymarketAccountLink(input: { userId: string; challengeId: string; convictionSignature: string; polymarketSignature?: string | null }) {
+  const response = await coreRequest<{ account: PolymarketAccount }>("/users/" + encodeURIComponent(input.userId) + "/polymarket/accounts", {
+    method: "POST",
+    body: {
+      challengeId: input.challengeId,
+      convictionSignature: input.convictionSignature,
+      polymarketSignature: input.polymarketSignature ?? null,
+    },
+  });
+  return response.account;
+}
+
+export async function syncPolymarketAccount(userId: string, accountId: string) {
+  const response = await coreRequest<{ account: PolymarketAccount }>("/users/" + encodeURIComponent(userId) + "/polymarket/accounts/" + encodeURIComponent(accountId) + "/sync", { method: "POST" });
+  return response.account;
+}
+
+export async function createPolymarketUnlinkChallenge(input: { userId: string; accountId: string; convictionAddress: string; convictionChainId: number }) {
+  const response = await coreRequest<{ challenge: PolymarketAccountChallenge }>("/users/" + encodeURIComponent(input.userId) + "/polymarket/accounts/" + encodeURIComponent(input.accountId) + "/unlink-challenges", {
+    method: "POST",
+    body: {
+      convictionAddress: input.convictionAddress,
+      convictionChainId: input.convictionChainId,
+    },
+  });
+  return response.challenge;
+}
+
+export async function unlinkPolymarketAccount(input: { userId: string; accountId: string; challengeId: string; convictionSignature: string; polymarketSignature?: string | null }) {
+  const response = await coreRequest<{ account: PolymarketAccount }>("/users/" + encodeURIComponent(input.userId) + "/polymarket/accounts/" + encodeURIComponent(input.accountId), {
+    method: "DELETE",
+    body: {
+      challengeId: input.challengeId,
+      convictionSignature: input.convictionSignature,
+      polymarketSignature: input.polymarketSignature ?? null,
+    },
+  });
+  return response.account;
 }
 
 export async function getExecutionCapabilities() {

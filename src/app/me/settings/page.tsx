@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { PolymarketAccountManager } from "../../../components/PolymarketAccountManager";
 import { TerminalShell } from "../../../components/TerminalShell";
 import { getStoredBrowserWalletSession } from "../../../lib/browser-wallet-session";
 import {
@@ -78,6 +79,8 @@ export default function SettingsPage() {
           <span>{session ? "Profile active" : "Profile required"}</span>
           <p>Sign in from the top-right action. No Farcaster account is required.</p>
         </section>
+
+        <PolymarketAccountManager session={session} />
 
         <section className="settings-grid" aria-label="Settings sections">
           {settingCards.map((card) => (
