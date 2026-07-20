@@ -1209,6 +1209,8 @@ export function BrowserTerminal({
               onLaunchTerminal={() => setActiveTab("markets")}
               onOpenPulse={() => setActiveTab("activity")}
               socialCount={socialFeed.length}
+              socialPreview={getLandingSocialPreview(socialFeed)}
+              vaultCount={vaults.length}
               walletConnected={portfolio.connected}
             />
           ) : null}
@@ -1395,6 +1397,25 @@ function getNonTerminalRoute(tab: string) {
   };
 
   return routes[tab] ?? null;
+}
+
+function getLandingSocialPreview(feed: SocialFeedItem[]) {
+  const item = feed.find((entry) => entry.signal.status === "PUBLISHED") ?? feed[0];
+
+  if (!item) return null;
+
+  const handle = item.trader?.handle ?? item.author.handle;
+
+  return {
+    author: handle
+      ? "@" + (handle.endsWith(".viction") ? handle : handle + ".viction")
+      : "@conviction",
+    convictionLevel: item.signal.convictionLevel,
+    marketTitle: item.market?.title ?? "Market discussion",
+    side: item.signal.side,
+    thesis: item.signal.thesis,
+    time: formatRelativeTime(item.signal.createdAt),
+  };
 }
 
 function mapMarketToPredictionMarket(market: Market): PredictionMarket {
