@@ -5,7 +5,6 @@ import { encodeFunctionData, erc20Abi, parseAbi, parseUnits } from "viem";
 
 import {
   BrowserWalletMarks,
-  PolymarketWalletMark,
   GoogleWalletMark,
   ThirdwebMark,
   TonWalletMark,
@@ -1432,20 +1431,14 @@ function SignInChoiceDialog({
         <div className="viction-onboarding-heading">
           <span>Sign in</span>
           <h2 id="sign-in-choice-title">Choose how to enter</h2>
-          <p>Enter with Polymarket, Google smart wallet, TON, or another self-custody wallet.</p>
+          <p>Enter with Google smart wallet, TON, or another self-custody wallet.</p>
         </div>
         <div className="sign-in-choice-grid">
           <button
             className="sign-in-choice-option sign-in-choice-option-primary"
-            onClick={() => onSelect("polymarket")}
+            onClick={() => onSelect("smart")}
             type="button"
           >
-            <PolymarketWalletMark className="sign-in-choice-mark" />
-            <span>Polymarket</span>
-            <strong>Existing account</strong>
-            <small>Sign with the owner wallet to restore your linked account and positions.</small>
-          </button>
-          <button className="sign-in-choice-option" onClick={() => onSelect("smart")} type="button">
             <GoogleWalletMark className="sign-in-choice-mark" />
             <span>Google</span>
             <strong>Smart wallet</strong>
@@ -1566,6 +1559,10 @@ function mapMarketToPredictionMarket(market: Market): PredictionMarket {
     externalUrl: market.externalUrl,
     imageUrl: market.providerMetadata?.imageUrl ?? market.providerMetadata?.iconUrl ?? null,
     lastTradePrice: market.lastTradePrice,
+    liquidityValue: parseMarketMetric(market.liquidity ?? market.providerMetadata?.liquidity),
+    oneDayPriceChange: parseMarketMetric(market.providerMetadata?.oneDayPriceChange),
+    totalVolumeValue: parseMarketMetric(market.providerMetadata?.totalVolume),
+    volume24hValue: parseMarketMetric(market.volume24hr ?? market.providerMetadata?.volume24hr),
     noTokenId: market.noTokenId,
     orderMinSize: market.orderMinSize,
     resolutionDate: market.resolutionDate,
@@ -1612,6 +1609,12 @@ function formatMarketCurrency(value: string | number | null | undefined) {
   if (numericValue >= 1_000) return "$" + (numericValue / 1_000).toFixed(1) + "K";
 
   return "$" + numericValue.toFixed(0);
+}
+
+function parseMarketMetric(value: string | number | null | undefined) {
+  const numericValue = typeof value === "number" ? value : Number(value);
+
+  return Number.isFinite(numericValue) ? numericValue : null;
 }
 
 function mapMarketsToTape(markets: Market[]): MarketTapeItem[] {

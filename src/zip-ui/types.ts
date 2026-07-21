@@ -17,6 +17,10 @@ export interface PredictionMarket {
   externalUrl?: string | null;
   imageUrl?: string | null;
   lastTradePrice?: string | null;
+  liquidityValue?: number | null;
+  oneDayPriceChange?: number | null;
+  totalVolumeValue?: number | null;
+  volume24hValue?: number | null;
   noTokenId?: string | null;
   orderMinSize?: string | null;
   resolutionDate?: string | null;
