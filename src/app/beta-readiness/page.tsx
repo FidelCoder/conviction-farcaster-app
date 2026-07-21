@@ -4,8 +4,8 @@ import { createMiniAppPageMetadata, getMiniAppImagePath } from "../../lib/miniap
 export const dynamic = "force-dynamic";
 
 export const metadata = createMiniAppPageMetadata({
-  title: "Farcaster Readiness",
-  description: "Deployment checks for Conviction Markets on Farcaster.",
+  title: "Release Readiness",
+  description: "Deployment and Polymarket margin release checks for Conviction Markets.",
   imagePath: getMiniAppImagePath("home"),
   targetPath: "/beta-readiness",
   buttonTitle: "Check readiness",
@@ -13,14 +13,23 @@ export const metadata = createMiniAppPageMetadata({
 
 export default async function BetaReadinessPage() {
   const readiness = await getFarcasterBetaReadiness();
-  const blockingIssues = readiness.checks.filter((check) => check.status === "fail").length;
-  const warnings = readiness.checks.filter((check) => check.status === "warn").length;
+  const margin = readiness.polymarketReadiness;
+  const blockingIssues =
+    readiness.checks.filter(
+      (check) => check.status === "fail" && check.label !== "Polymarket margin release",
+    ).length + (margin ? margin.gates.filter((gate) => !gate.ready).length : 1);
+  const warnings =
+    readiness.checks.filter((check) => check.status === "warn").length +
+    (margin?.warnings.length ?? 0);
+  const readyGates = margin?.gates.filter((gate) => gate.ready).length ?? 0;
+  const gateCount = margin?.gates.length ?? 0;
 
   return (
     <main className="page-shell">
       <section className="page-heading compact">
-        <p className="eyebrow">Readiness</p>
-        <h1>Readiness checks</h1>
+        <p className="eyebrow">Operations</p>
+        <h1>Release readiness</h1>
+        <p>Core infrastructure, risk limits, and public app checks from live runtime state.</p>
       </section>
 
       <section className="market-overview-band" aria-label="Readiness overview">
@@ -34,15 +43,107 @@ export default async function BetaReadinessPage() {
             <dd>{warnings}</dd>
           </div>
           <div>
-            <dt>Markets</dt>
-            <dd>{readiness.marketsCount}</dd>
+            <dt>Margin mode</dt>
+            <dd>{readiness.releaseState.mode.replaceAll("_", " ")}</dd>
           </div>
           <div>
-            <dt>Leaderboard</dt>
-            <dd>{readiness.leaderboardEntries}</dd>
+            <dt>Release gates</dt>
+            <dd>{gateCount ? `${readyGates}/${gateCount}` : "Unavailable"}</dd>
           </div>
         </dl>
       </section>
+
+      {margin ? (
+        <>
+          <section className="page-heading compact">
+            <p className="eyebrow">Polygon pUSD</p>
+            <h2>Execution gates</h2>
+          </section>
+          <section
+            className="readiness-list readiness-gates-grid"
+            aria-label="Polymarket execution gates"
+          >
+            {margin.gates.map((gate) => (
+              <article className={`readiness-check ${gate.ready ? "pass" : "fail"}`} key={gate.id}>
+                <div>
+                  <p className="card-kicker">{gate.ready ? "ready" : "blocked"}</p>
+                  <h2>{gate.label}</h2>
+                </div>
+                <p>{gate.detail}</p>
+              </article>
+            ))}
+          </section>
+
+          <section className="card readiness-config">
+            <div className="card-kicker">Enforced release limits</div>
+            <dl className="metric-list">
+              <div>
+                <dt>Access</dt>
+                <dd>{margin.releasePolicy.mode.replaceAll("_", " ")}</dd>
+              </div>
+              <div>
+                <dt>Invited wallets</dt>
+                <dd>{margin.releasePolicy.allowedWalletsCount}</dd>
+              </div>
+              <div>
+                <dt>Canary markets</dt>
+                <dd>{margin.releasePolicy.allowedMarketsCount}</dd>
+              </div>
+              <div>
+                <dt>Maximum leverage</dt>
+                <dd>{formatBpsAsMultiplier(margin.releasePolicy.caps.maxLeverageBps)}</dd>
+              </div>
+              <div>
+                <dt>Position notional</dt>
+                <dd>{margin.releasePolicy.caps.maxPositionAssets} pUSD</dd>
+              </div>
+              <div>
+                <dt>Vault TVL</dt>
+                <dd>
+                  {margin.releasePolicy.currentTvlAssets ?? "Unavailable"} /{" "}
+                  {margin.releasePolicy.caps.maxTvlAssets} pUSD
+                </dd>
+              </div>
+              <div>
+                <dt>Vault utilization</dt>
+                <dd>
+                  {formatBps(margin.releasePolicy.currentUtilizationBps)} /{" "}
+                  {formatBps(margin.releasePolicy.caps.maxUtilizationBps)}
+                </dd>
+              </div>
+              <div>
+                <dt>Daily realized loss</dt>
+                <dd>
+                  {margin.releasePolicy.dailyRealizedLossAssets ?? "Unavailable"} /{" "}
+                  {margin.releasePolicy.caps.dailyLossLimitAssets} pUSD
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          {margin.missing.length || margin.warnings.length ? (
+            <section className="card readiness-config">
+              <div className="card-kicker">Operator attention</div>
+              <ul className="mt-4 space-y-2 text-sm text-[#ccc3d8]">
+                {margin.missing.map((item) => (
+                  <li key={`missing-${item}`}>Blocked: {item}</li>
+                ))}
+                {margin.warnings.map((item) => (
+                  <li key={`warning-${item}`}>Warning: {item}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </>
+      ) : (
+        <article className="readiness-check fail">
+          <div>
+            <p className="card-kicker">blocked</p>
+            <h2>Polymarket readiness unavailable</h2>
+          </div>
+          <p>Core returned no structured execution readiness record.</p>
+        </article>
+      )}
 
       <section className="readiness-list">
         {readiness.checks.map((check) => (
@@ -97,4 +198,12 @@ export default async function BetaReadinessPage() {
       </section>
     </main>
   );
+}
+
+function formatBps(value: number | null) {
+  return value === null ? "Unavailable" : `${(value / 100).toFixed(2)}%`;
+}
+
+function formatBpsAsMultiplier(value: number) {
+  return `${(value / 10_000).toFixed(2).replace(/\.00$/, "")}x`;
 }

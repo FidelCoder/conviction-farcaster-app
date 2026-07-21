@@ -1,4 +1,12 @@
-import { getCoreApiUrl, getExecutionCapabilities, listLeaderboard, listMarkets } from "./core-api";
+import {
+  getCoreApiUrl,
+  getExecutionCapabilities,
+  getPolymarketExecutionReadiness,
+  listLeaderboard,
+  listMarkets,
+  type PolymarketExecutionReadiness,
+} from "./core-api";
+import { deriveExecutionReleaseState, type ExecutionReleaseState } from "./execution-release-state";
 import {
   getAbsoluteAppUrl,
   getAppUrl,
@@ -29,6 +37,8 @@ export type FarcasterBetaReadiness = {
   leverageEnabled: boolean;
   marginExecutionEnabled: boolean;
   marginIntentsEnabled: boolean;
+  polymarketReadiness: PolymarketExecutionReadiness | null;
+  releaseState: ExecutionReleaseState;
   checks: BetaReadinessCheck[];
 };
 
@@ -40,13 +50,30 @@ type ManifestHealth = {
 export async function getFarcasterBetaReadiness(): Promise<FarcasterBetaReadiness> {
   const appUrl = getAppUrl();
   const manifestUrl = getAbsoluteAppUrl("/.well-known/farcaster.json");
-  const [coreHealth, markets, execution, leaderboard, manifestHealth] = await Promise.all([
+  const [
+    coreHealthResult,
+    marketsResult,
+    executionResult,
+    polymarketReadinessResult,
+    leaderboardResult,
+    manifestHealthResult,
+  ] = await Promise.allSettled([
     checkCoreHealth(),
     listMarkets(),
     getExecutionCapabilities(),
+    getPolymarketExecutionReadiness(),
     listLeaderboard(10),
     checkManifestEndpoint(manifestUrl, appUrl),
   ]);
+  const coreHealth = settledValue(coreHealthResult, false);
+  const markets = settledValue(marketsResult, []);
+  const execution = settledValue(executionResult, null);
+  const polymarketReadiness = settledValue(polymarketReadinessResult, null);
+  const leaderboard = settledValue(leaderboardResult, []);
+  const manifestHealth = settledValue(manifestHealthResult, {
+    detail: "Farcaster manifest health check did not complete.",
+    reachable: false,
+  });
   const coreApiUrl = getCoreApiUrl();
   const accountAssociationState = getFarcasterAccountAssociationState();
   const accountAssociationConfigured = accountAssociationState.status !== "missing";
@@ -55,6 +82,15 @@ export async function getFarcasterBetaReadiness(): Promise<FarcasterBetaReadines
   const noindex = isMiniAppNoindexEnabled();
   const usesPublicHttpsAppUrl = appUrl.startsWith("https://");
   const manifestConfigured = accountAssociationValid || hostedManifestConfigured;
+  const releaseState = execution
+    ? deriveExecutionReleaseState(execution, polymarketReadiness)
+    : {
+        blockingGates: ["Core execution capability unavailable"],
+        canClaimVenueFill: false,
+        canOpenMargin: false,
+        mode: "BLOCKED" as const,
+        reason: "Core execution capability request did not complete.",
+      };
 
   const checks: BetaReadinessCheck[] = [
     {
@@ -101,12 +137,14 @@ export async function getFarcasterBetaReadiness(): Promise<FarcasterBetaReadines
           : "No markets are available. Sync a real provider or keep the empty state for private tests.",
     },
     {
-      label: "Execution claims",
-      status: execution.leverageEnabled || execution.marginExecutionEnabled ? "warn" : "pass",
-      detail:
-        execution.leverageEnabled || execution.marginExecutionEnabled
-          ? "Core reports execution is enabled. Confirm adapters and contracts before beta claims execution."
-          : "Execution remains intent-only; the app should not claim fills, balances, PnL, or leverage execution.",
+      label: "Polymarket margin release",
+      status:
+        releaseState.mode === "PRODUCTION"
+          ? "pass"
+          : releaseState.mode === "INVITE_ONLY_CANARY"
+            ? "warn"
+            : "fail",
+      detail: releaseState.reason,
     },
   ];
 
@@ -124,11 +162,17 @@ export async function getFarcasterBetaReadiness(): Promise<FarcasterBetaReadines
     noindex,
     marketsCount: markets.length,
     leaderboardEntries: leaderboard.length,
-    leverageEnabled: execution.leverageEnabled,
-    marginExecutionEnabled: execution.marginExecutionEnabled,
-    marginIntentsEnabled: Boolean(execution.marginIntentsEnabled),
+    leverageEnabled: execution?.leverageEnabled ?? false,
+    marginExecutionEnabled: execution?.marginExecutionEnabled ?? false,
+    marginIntentsEnabled: Boolean(execution?.marginIntentsEnabled),
+    polymarketReadiness,
+    releaseState,
     checks,
   };
+}
+
+function settledValue<T>(result: PromiseSettledResult<T>, fallback: T) {
+  return result.status === "fulfilled" ? result.value : fallback;
 }
 
 async function checkCoreHealth() {
