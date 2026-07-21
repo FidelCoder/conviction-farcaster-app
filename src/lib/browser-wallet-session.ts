@@ -4,7 +4,7 @@ const browserSessionKey = "conviction-browser-session";
 const browserSessionWalletKindKey = "conviction-browser-session-wallet-kind";
 const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
 
-export type BrowserSessionWalletKind = "smart" | "eoa" | "ton";
+export type BrowserSessionWalletKind = "smart" | "eoa" | "ton" | "polymarket";
 
 export function getStoredBrowserWalletSession() {
   if (typeof window === "undefined") return null;
@@ -35,7 +35,9 @@ export function getStoredBrowserSessionWalletKind(): BrowserSessionWalletKind | 
 
   const kind = window.localStorage.getItem(browserSessionWalletKindKey);
 
-  return kind === "smart" || kind === "eoa" || kind === "ton" ? kind : null;
+  return kind === "smart" || kind === "eoa" || kind === "ton" || kind === "polymarket"
+    ? kind
+    : null;
 }
 
 export function setStoredBrowserSessionWalletKind(kind: BrowserSessionWalletKind) {

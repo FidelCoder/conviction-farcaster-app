@@ -8873,6 +8873,19 @@ main,
   width: 1.35rem;
   height: 1.35rem;
 }
+.wallet-brand-mark-polymarket {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid rgba(94, 128, 255, 0.55);
+  border-radius: 999px;
+  background: #3155d9;
+  color: #ffffff;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 1rem;
+  font-weight: 950;
+  box-shadow: 0 0 18px rgba(49, 85, 217, 0.18);
+}
+
 
 .wallet-brand-mark-ton {
   width: 2.25rem;
@@ -8922,6 +8935,11 @@ main,
 
 .wallet-brand-chip-trust {
   background: #3375bb;
+}
+
+.sign-in-choice-option-primary {
+  border-color: rgba(94, 128, 255, 0.6) !important;
+  background: rgba(49, 85, 217, 0.08) !important;
 }
 
 .wallet-brand-chip-trust svg {

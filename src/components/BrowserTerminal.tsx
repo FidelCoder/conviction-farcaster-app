@@ -5,6 +5,7 @@ import { encodeFunctionData, erc20Abi, parseAbi, parseUnits } from "viem";
 
 import {
   BrowserWalletMarks,
+  PolymarketWalletMark,
   GoogleWalletMark,
   ThirdwebMark,
   TonWalletMark,
@@ -46,6 +47,10 @@ import {
 } from "../lib/client-wallet-balances";
 import { mapExecutionToVaults } from "../lib/execution-vaults";
 import { isThirdwebConfigured } from "../lib/thirdweb-client";
+import {
+  PolymarketWalletUnavailableError,
+  signInWithPolymarketWallet,
+} from "../lib/polymarket-browser-auth";
 import { sendPolymarketWalletCall } from "../lib/polymarket-execution-wallet";
 import ActivityView from "../zip-ui/components/ActivityView";
 import Header from "../zip-ui/components/Header";
@@ -107,8 +112,8 @@ type ExecutionSettlementAttempt = {
 
 type AlertMessage = { type: "success" | "info"; text: string } | null;
 type DepositResult = VaultDepositTransaction | false;
-type SignInMode = "smart" | "eoa" | "ton";
-type SessionWalletKind = "smart" | "eoa" | "ton";
+type SignInMode = "smart" | "eoa" | "ton" | "polymarket";
+type SessionWalletKind = "smart" | "eoa" | "ton" | "polymarket";
 
 type SmartVaultTransactionResult = {
   approvalHash: string | null;
@@ -408,6 +413,42 @@ export function BrowserTerminal({
         "info",
         "Smart wallet auth is not configured yet. Use EVM wallet sign-in or TON wallet.",
       );
+      return;
+    }
+
+    if (mode === "polymarket") {
+      window.dispatchEvent(new Event("conviction-ton-disconnect"));
+      window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
+
+      try {
+        const authentication = await signInWithPolymarketWallet();
+
+        applySession(authentication.session);
+        setSessionWalletKind("polymarket");
+        setStoredBrowserWalletSession(authentication.session);
+        setStoredBrowserSessionWalletKind("polymarket");
+        void trackProductEvent({
+          area: activeTab,
+          label: "polymarket",
+          session: authentication.session,
+          type: "AUTH_CONNECT",
+        });
+        refreshWalletBalances();
+        triggerAlert("success", "Signed in with your Polymarket owner wallet.");
+      } catch (error) {
+        if (error instanceof PolymarketWalletUnavailableError) {
+          promptMobileWallet(
+            "Open Conviction Markets inside the wallet that controls your Polymarket account, then try again.",
+          );
+          return;
+        }
+
+        triggerAlert(
+          "info",
+          error instanceof Error ? error.message : "Polymarket sign-in was cancelled or failed.",
+        );
+      }
+
       return;
     }
 
@@ -1391,11 +1432,19 @@ function SignInChoiceDialog({
         <div className="viction-onboarding-heading">
           <span>Sign in</span>
           <h2 id="sign-in-choice-title">Choose how to enter</h2>
-          <p>
-            Choose Google smart wallet, TON wallet, or the EVM wallet where you already hold funds.
-          </p>
+          <p>Enter with Polymarket, Google smart wallet, TON, or another self-custody wallet.</p>
         </div>
         <div className="sign-in-choice-grid">
+          <button
+            className="sign-in-choice-option sign-in-choice-option-primary"
+            onClick={() => onSelect("polymarket")}
+            type="button"
+          >
+            <PolymarketWalletMark className="sign-in-choice-mark" />
+            <span>Polymarket</span>
+            <strong>Existing account</strong>
+            <small>Sign with the owner wallet to restore your linked account and positions.</small>
+          </button>
           <button className="sign-in-choice-option" onClick={() => onSelect("smart")} type="button">
             <GoogleWalletMark className="sign-in-choice-mark" />
             <span>Google</span>

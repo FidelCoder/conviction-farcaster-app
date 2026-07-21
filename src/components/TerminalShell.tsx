@@ -26,6 +26,10 @@ import {
 } from "../lib/evm-wallet-provider";
 import { isThirdwebConfigured } from "../lib/thirdweb-client";
 import { trackProductEvent, useProductAnalytics } from "../lib/product-analytics";
+import {
+  PolymarketWalletUnavailableError,
+  signInWithPolymarketWallet,
+} from "../lib/polymarket-browser-auth";
 import Header from "../zip-ui/components/Header";
 import StatusBar from "../zip-ui/components/StatusBar";
 import type { UserPortfolio } from "../zip-ui/types";
@@ -60,8 +64,8 @@ const emptyPortfolio: UserPortfolio = {
 };
 
 type AlertMessage = { type: "success" | "info"; text: string } | null;
-type SignInMode = "smart" | "eoa" | "ton";
-type SessionWalletKind = "smart" | "eoa" | "ton";
+type SignInMode = "smart" | "eoa" | "ton" | "polymarket";
+type SessionWalletKind = "smart" | "eoa" | "ton" | "polymarket";
 const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
 
 export function TerminalShell({
@@ -203,6 +207,43 @@ export function TerminalShell({
         "info",
         "Smart wallet auth is not configured yet. Use EVM wallet sign-in or TON wallet.",
       );
+      return;
+    }
+
+    if (mode === "polymarket") {
+      window.dispatchEvent(new Event("conviction-ton-disconnect"));
+      window.dispatchEvent(new Event("conviction-thirdweb-disconnect"));
+
+      try {
+        const authentication = await signInWithPolymarketWallet();
+
+        applySession(authentication.session);
+        setSessionWalletKind("polymarket");
+        setStoredBrowserWalletSession(authentication.session);
+        setStoredBrowserSessionWalletKind("polymarket");
+        onSessionChange?.(authentication.session);
+        void trackProductEvent({
+          area: activeTab,
+          label: "polymarket",
+          session: authentication.session,
+          type: "AUTH_CONNECT",
+        });
+        setWalletBalanceRefreshNonce((current) => current + 1);
+        triggerAlert("success", "Signed in with your Polymarket owner wallet.");
+      } catch (error) {
+        if (error instanceof PolymarketWalletUnavailableError) {
+          promptMobileWallet(
+            "Open Conviction Markets inside the wallet that controls your Polymarket account, then try again.",
+          );
+          return;
+        }
+
+        triggerAlert(
+          "info",
+          error instanceof Error ? error.message : "Polymarket sign-in was cancelled or failed.",
+        );
+      }
+
       return;
     }
 

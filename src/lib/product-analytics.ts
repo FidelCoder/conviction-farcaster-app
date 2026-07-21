@@ -34,7 +34,11 @@ export function useProductAnalytics({ area, enabled = true, session }: ProductAn
 
     if (lastPageKeyRef.current !== pageKey) {
       lastPageKeyRef.current = pageKey;
-      void trackProductEvent({ area, session, type: area === "telegram" ? "MINIAPP_OPEN" : "PAGE_VIEW" });
+      void trackProductEvent({
+        area,
+        session,
+        type: area === "telegram" ? "MINIAPP_OPEN" : "PAGE_VIEW",
+      });
     }
 
     const interval = window.setInterval(() => {
@@ -84,7 +88,10 @@ function getClientAnalyticsSessionId() {
   const existing = window.localStorage.getItem(sessionIdKey);
   if (existing && /^[a-zA-Z0-9:_-]{8,120}$/.test(existing)) return existing;
 
-  const next = "web_" + (window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36));
+  const next =
+    "web_" +
+    (window.crypto?.randomUUID?.() ??
+      Math.random().toString(36).slice(2) + Date.now().toString(36));
   window.localStorage.setItem(sessionIdKey, next);
   return next;
 }
@@ -93,11 +100,16 @@ function inferAuthProvider(session?: UserSession | null): AuthProvider {
   if (session?.socialAccount.authProvider) return session.socialAccount.authProvider;
   if (session?.socialAccount.platform === "TELEGRAM") return "TELEGRAM";
   if (session?.socialAccount.platform === "FARCASTER") return "FARCASTER";
-  if (session?.socialAccount.platform === "WEB" && session.socialAccount.platformUserId.startsWith("ton:")) return "TON_WALLET";
+  if (
+    session?.socialAccount.platform === "WEB" &&
+    session.socialAccount.platformUserId.startsWith("ton:")
+  )
+    return "TON_WALLET";
 
   const kind = getStoredBrowserSessionWalletKind();
   if (kind === "smart") return "THIRDWEB_SMART_WALLET";
   if (kind === "ton") return "TON_WALLET";
+  if (kind === "polymarket") return "POLYMARKET_WALLET";
   if (kind === "eoa") return "EVM_EOA";
 
   return session?.socialAccount.platform === "WEB" ? "EVM_EOA" : "UNKNOWN";
@@ -115,5 +127,8 @@ function getPath() {
 
 function isTelegramMiniApp() {
   if (typeof window === "undefined") return false;
-  return Boolean((window as Window & { Telegram?: unknown }).Telegram) || window.location.pathname.startsWith("/telegram");
+  return (
+    Boolean((window as Window & { Telegram?: unknown }).Telegram) ||
+    window.location.pathname.startsWith("/telegram")
+  );
 }
