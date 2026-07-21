@@ -46,6 +46,7 @@ import {
 } from "../lib/client-wallet-balances";
 import { mapExecutionToVaults } from "../lib/execution-vaults";
 import { isThirdwebConfigured } from "../lib/thirdweb-client";
+import { sendPolymarketWalletCall } from "../lib/polymarket-execution-wallet";
 import ActivityView from "../zip-ui/components/ActivityView";
 import Header from "../zip-ui/components/Header";
 import LandingView from "../zip-ui/components/LandingView";
@@ -161,6 +162,7 @@ const emptyPortfolio: UserPortfolio = {
   vaultLockedBalances: {},
   vaultTotalBalances: {},
   walletBalances: {},
+  vaultMetrics: {},
   vaultTransactions: [],
   walletBalancesStatus: "idle",
   activeRequestsCount: 0,
@@ -252,6 +254,7 @@ export function BrowserTerminal({
         vaultLockedBalances: isSameWallet ? current.vaultLockedBalances : {},
         vaultTotalBalances: isSameWallet ? current.vaultTotalBalances : {},
         walletBalances: isSameWallet ? current.walletBalances : {},
+        vaultMetrics: isSameWallet ? current.vaultMetrics : {},
         vaultTransactions: isSameWallet ? current.vaultTransactions : [],
         walletBalancesMessage: canReadTokenBalances
           ? "Reading wallet token balances..."
@@ -880,11 +883,20 @@ export function BrowserTerminal({
           method: "eth_sendTransaction",
           params: [
             {
-              data: encodeFunctionData({
-                abi: parseAbi(["function deposit(address collateralToken, uint256 amount)"]),
-                functionName: "deposit",
-                args: [vault.collateralTokenAddress as `0x${string}`, amountUnits],
-              }),
+              data:
+                vault.chainId === 137
+                  ? encodeFunctionData({
+                      abi: parseAbi([
+                        "function deposit(uint256 assets,address receiver) returns (uint256)",
+                      ]),
+                      functionName: "deposit",
+                      args: [amountUnits, walletAddress as `0x${string}`],
+                    })
+                  : encodeFunctionData({
+                      abi: parseAbi(["function deposit(address collateralToken, uint256 amount)"]),
+                      functionName: "deposit",
+                      args: [vault.collateralTokenAddress as `0x${string}`, amountUnits],
+                    }),
               from: walletAddress,
               to: vaultAddress,
             },
@@ -1030,19 +1042,74 @@ export function BrowserTerminal({
     }));
   }
 
-  function handleWithdraw() {
-    triggerAlert("info", "Vault withdrawals are not enabled in core yet.");
+  async function handleWithdraw(vaultId: string, amount: number) {
+    const vault = vaults.find((item) => item.id === vaultId);
+    if (!session || !portfolio.address || !vault?.chainId) {
+      triggerAlert("info", "Sign in before withdrawing vault liquidity.");
+      return false;
+    }
+    if (vault.chainId !== 137) {
+      triggerAlert("info", "Legacy testnet vault withdrawals are not enabled.");
+      return false;
+    }
+    try {
+      const response = await fetch("/api/vault-withdrawal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: portfolio.address, amount: normalizeAssetAmount(amount) }),
+      });
+      const body = (await response.json()) as
+        | {
+            ok: true;
+            data: {
+              mode: "IMMEDIATE" | "QUEUED";
+              call: { chainId: number; to: string; value: string; data: string };
+            };
+          }
+        | { ok: false; error: { message: string } };
+      if (!response.ok || !body.ok)
+        throw new Error(body.ok ? "Withdrawal preparation failed." : body.error.message);
+      triggerAlert(
+        "info",
+        body.data.mode === "QUEUED"
+          ? "Confirm the redemption queue request."
+          : "Confirm the vault withdrawal.",
+      );
+      const hash = await sendPolymarketWalletCall(portfolio.address, body.data.call);
+      if (!hash) throw new Error("Wallet did not submit the withdrawal transaction.");
+      const transaction: VaultDepositTransaction = {
+        id: hash,
+        amount,
+        asset: vault.asset,
+        chainId: 137,
+        chainName: "Polygon",
+        depositHash: hash,
+        status: "confirmed",
+        timestamp: new Date().toISOString(),
+        vaultId,
+        vaultName: vault.name,
+        type: body.data.mode === "QUEUED" ? "REDEMPTION_REQUEST" : "WITHDRAWAL",
+      };
+      setPortfolio((current) => ({
+        ...current,
+        vaultTransactions: [transaction, ...current.vaultTransactions].slice(0, 20),
+      }));
+      refreshWalletBalances();
+      triggerAlert(
+        "success",
+        body.data.mode === "QUEUED"
+          ? "Redemption entered the onchain withdrawal queue."
+          : "Vault withdrawal confirmed.",
+      );
+      return true;
+    } catch (error) {
+      triggerAlert("info", getWalletErrorMessage(error));
+      return false;
+    }
   }
 
-  function handleCreateVault() {
-    triggerAlert(
-      "info",
-      "Custom vault deployment requires governance and contract deployment support first.",
-    );
-  }
-
-  function handleModifyRisk() {
-    triggerAlert("info", "Risk voting is display-only until governance contracts are connected.");
+  function normalizeAssetAmount(amount: number) {
+    return amount.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
   }
 
   async function handleCreateActivityPost(input: {
@@ -1229,9 +1296,12 @@ export function BrowserTerminal({
           {activeTab === "margin-desk" ? (
             <MarginDeskView
               activeMarket={currentMarket}
+              execution={execution}
               markets={displayMarkets}
               onRequestMargin={handleRequestMargin}
+              onStatus={triggerAlert}
               portfolio={portfolio}
+              session={session}
               setActiveMarket={setActiveMarket}
               tape={tape}
               vaults={vaults}
@@ -1240,9 +1310,7 @@ export function BrowserTerminal({
 
           {activeTab === "vaults" ? (
             <VaultsView
-              onCreateVault={handleCreateVault}
               onDeposit={handleDeposit}
-              onModifyRisk={handleModifyRisk}
               onRefreshWalletBalances={refreshWalletBalances}
               onWithdraw={handleWithdraw}
               portfolio={portfolio}

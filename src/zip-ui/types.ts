@@ -1,12 +1,12 @@
 export interface PredictionMarket {
   id: string;
   title: string;
-  status: 'LIVE' | 'HALTED';
+  status: "LIVE" | "HALTED";
   vol24h: string;
   liquidity: string;
   liquidityLabel?: string;
   currentOdds: number; // e.g. 64.2
-  convictionIndex: 'High' | 'Moderate' | 'Low' | 'N/A';
+  convictionIndex: "High" | "Moderate" | "Low" | "N/A";
   convictionValue: number; // percentage value for bar width (e.g. 85)
   category: string;
   description: string;
@@ -29,28 +29,29 @@ export interface VaultDepositTransaction {
   id: string;
   amount: number;
   approvalHash?: string | null;
-  asset: 'USDC' | 'WETH';
+  asset: "USDC" | "WETH" | "pUSD";
   chainId?: number;
   chainName?: string;
   depositHash: string;
-  status: 'confirmed' | 'pending' | 'failed';
+  status: "confirmed" | "pending" | "failed";
   timestamp: string;
   vaultId: string;
   vaultName: string;
+  type?: "DEPOSIT" | "WITHDRAWAL" | "REDEMPTION_REQUEST";
 }
 
 export interface Vault {
   id: string;
   name: string;
-  riskTag: 'Low Risk' | 'High Risk';
+  riskTag: "Low Risk" | "High Risk";
   apy: number; // e.g. 8.5
-  apyType: 'Base Yield' | 'Variable Yield';
+  apyType: "Base Yield" | "Variable Yield";
   tvl: string;
   utilization: number; // percentage
   healthRatio: number; // e.g. 1.8
   maxLeverage: number; // e.g. 5
-  asset: 'USDC' | 'WETH';
-  accentColor: 'orange' | 'purple';
+  asset: "USDC" | "WETH" | "pUSD";
+  accentColor: "orange" | "purple";
   userDeposited: number; // tracking user deposits locally
   chainId?: number;
   chainName?: string;
@@ -82,8 +83,8 @@ export interface ActivityItem {
   avatarUrl?: string;
   time: string;
   text: string;
-  type: 'request' | 'system';
-  kind?: 'signal' | 'news' | 'trade' | 'post' | 'repost' | 'follow';
+  type: "request" | "system";
+  kind?: "signal" | "news" | "trade" | "post" | "repost" | "follow";
   likes: number;
   commentsCount: number;
   repeats: number;
@@ -91,14 +92,14 @@ export interface ActivityItem {
   marketId?: string;
   marketTitle?: string;
   marketPrice?: string;
-  signalSide?: 'YES' | 'NO';
+  signalSide?: "YES" | "NO";
   convictionLevel?: number | null;
   replies?: ActivityReplyItem[];
   repostedByUser?: boolean;
   topic?: string;
   actorUserId?: string;
   traderProfileId?: string;
-  eventType?: 'SIGNAL' | 'REPOST' | 'PUBLIC_TRADE' | 'FOLLOW' | 'POST';
+  eventType?: "SIGNAL" | "REPOST" | "PUBLIC_TRADE" | "FOLLOW" | "POST";
   followTarget?: {
     userId: string;
     username: string;
@@ -106,7 +107,7 @@ export interface ActivityItem {
   };
   position?: {
     id: string;
-    side: 'YES' | 'NO';
+    side: "YES" | "NO";
     quantity: string;
     executionMode: string;
     leverageMultiplier?: string | null;
@@ -127,10 +128,10 @@ export interface GlobalRiskParameter {
   parameter: string;
   currentValue: string;
   proposed: string;
-  status: 'Active' | 'Pending Vote';
+  status: "Active" | "Pending Vote";
 }
 
-export type WalletBalanceStatus = 'idle' | 'loading' | 'ready' | 'error';
+export type WalletBalanceStatus = "idle" | "loading" | "ready" | "error";
 
 export interface PortfolioWalletBalance {
   amount: number;
@@ -140,10 +141,25 @@ export interface PortfolioWalletBalance {
   error?: string;
   formatted: string;
   raw: string;
-  status: Exclude<WalletBalanceStatus, 'idle' | 'loading'>;
+  status: Exclude<WalletBalanceStatus, "idle" | "loading">;
   symbol: string;
   tokenAddress: string;
   updatedAt: string;
+}
+
+export interface VaultOnchainMetrics {
+  accruedProtocolFees: number;
+  availableLiquidity: number;
+  borrowedAssets: number;
+  protocolReserves: number;
+  queuedAssets: number;
+  reservedAssets: number;
+  shareValue: number;
+  status: "ready" | "error";
+  totalAssets: number;
+  uncoveredBadDebt: number;
+  utilization: number;
+  withdrawableAssets: number;
 }
 
 export interface UserPortfolio {
@@ -155,6 +171,7 @@ export interface UserPortfolio {
   vaultLockedBalances: { [vaultId: string]: number };
   vaultTotalBalances: { [vaultId: string]: number };
   walletBalances: { [vaultId: string]: PortfolioWalletBalance };
+  vaultMetrics: { [vaultId: string]: VaultOnchainMetrics };
   vaultTransactions: VaultDepositTransaction[];
   walletBalancesMessage?: string;
   walletBalancesStatus: WalletBalanceStatus;

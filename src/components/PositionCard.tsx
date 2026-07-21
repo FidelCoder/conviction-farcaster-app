@@ -8,6 +8,7 @@ import { CopyIntentButton } from "./CopyIntentButton";
 const EXPLORER_TX_BASE_BY_CHAIN: Record<number, string> = {
   1: "https://etherscan.io/tx/",
   10: "https://optimistic.etherscan.io/tx/",
+  137: "https://polygonscan.com/tx/",
   11155111: "https://sepolia.etherscan.io/tx/",
   42161: "https://arbiscan.io/tx/",
   421614: "https://sepolia.arbiscan.io/tx/",
@@ -126,6 +127,7 @@ function getExplorerTxUrl(chainId: number | null | undefined, hash: string | nul
 function formatChainId(chainId: number) {
   if (chainId === 1) return "Ethereum";
   if (chainId === 10) return "Optimism";
+  if (chainId === 137) return "Polygon";
   if (chainId === 11155111) return "Ethereum Sepolia";
   if (chainId === 42161) return "Arbitrum";
   if (chainId === 421614) return "Arbitrum Sepolia";

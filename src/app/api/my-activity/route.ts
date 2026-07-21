@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   CoreApiError,
+  getPolymarketMarginExecution,
+  getPolymarketPositionControls,
   listMarkets,
+  listPolymarketCloseAttempts,
   listTraderSignals,
   listUserCopyIntents,
   listUserPositions,
@@ -43,6 +46,27 @@ export async function POST(request: NextRequest) {
     const marketMap = Object.fromEntries(
       markets.filter((market) => marketIds.has(market.id)).map((market) => [market.id, market]),
     );
+    const polymarketExecutions = Object.fromEntries(
+      await Promise.all(
+        positions
+          .filter((position) => position.chainId === 137 && position.executionMode === "MARGIN")
+          .map(async (position) => {
+            try {
+              const [execution, closeAttempts, controls] = await Promise.all([
+                getPolymarketMarginExecution(position.id, userId),
+                listPolymarketCloseAttempts(position.id, userId),
+                getPolymarketPositionControls(position.id, userId),
+              ]);
+              return [position.id, { closeAttempts, controls, execution }] as const;
+            } catch (error) {
+              if (error instanceof CoreApiError && error.statusCode === 404) {
+                return [position.id, null] as const;
+              }
+              throw error;
+            }
+          }),
+      ),
+    );
 
     return NextResponse.json({
       ok: true,
@@ -51,6 +75,7 @@ export async function POST(request: NextRequest) {
         positions,
         copyIntents,
         markets: marketMap,
+        polymarketExecutions,
       },
     });
   } catch (error) {

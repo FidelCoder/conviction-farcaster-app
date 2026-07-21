@@ -4,13 +4,29 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
-import { getSessionWalletAddress, getStoredBrowserWalletSession } from "../lib/browser-wallet-session";
-import { fetchWalletBalanceSnapshot, applyWalletBalanceSnapshot } from "../lib/client-wallet-balances";
-import type { CopyIntent, Market, Position, TradeSignal, UserSession } from "../lib/core-api";
+import {
+  getSessionWalletAddress,
+  getStoredBrowserWalletSession,
+} from "../lib/browser-wallet-session";
+import {
+  fetchWalletBalanceSnapshot,
+  applyWalletBalanceSnapshot,
+} from "../lib/client-wallet-balances";
+import type {
+  CopyIntent,
+  Market,
+  PolymarketCloseAttempt,
+  PolymarketMarginExecution,
+  PolymarketPositionControls,
+  Position,
+  TradeSignal,
+  UserSession,
+} from "../lib/core-api";
 import type { UserPortfolio } from "../zip-ui/types";
 import { executionStatusLabel, formatDate } from "../lib/display";
 import { EmptyState } from "./EmptyState";
 import { PolymarketAccountManager } from "./PolymarketAccountManager";
+import { PolymarketPositionLifecycle } from "./PolymarketPositionLifecycle";
 import { PositionCard } from "./PositionCard";
 import { SignalCard } from "./SignalCard";
 
@@ -24,6 +40,14 @@ type MyActivity = {
   copyIntents: CopyIntent[];
   markets: Record<string, Market>;
   positions: Position[];
+  polymarketExecutions: Record<
+    string,
+    {
+      closeAttempts: PolymarketCloseAttempt[];
+      controls: PolymarketPositionControls;
+      execution: PolymarketMarginExecution;
+    } | null
+  >;
   signals: TradeSignal[];
 };
 
@@ -42,6 +66,7 @@ export function MyActivityDashboard() {
     vaultLockedBalances: {},
     vaultTotalBalances: {},
     walletBalances: {},
+    vaultMetrics: {},
     vaultTransactions: [],
     walletBalancesStatus: "idle",
     activeRequestsCount: 0,
@@ -51,6 +76,7 @@ export function MyActivityDashboard() {
     status: "idle",
     message: "Sign in to load your portfolio.",
   });
+  const [activityRefresh, setActivityRefresh] = useState(0);
 
   useEffect(() => {
     const storedSession = getStoredBrowserWalletSession();
@@ -66,10 +92,12 @@ export function MyActivityDashboard() {
     window.addEventListener("conviction-browser-session", handleSessionChange as EventListener);
 
     return () => {
-      window.removeEventListener("conviction-browser-session", handleSessionChange as EventListener);
+      window.removeEventListener(
+        "conviction-browser-session",
+        handleSessionChange as EventListener,
+      );
     };
   }, []);
-
 
   useEffect(() => {
     if (!portfolio.connected || !portfolio.address) return;
@@ -79,7 +107,11 @@ export function MyActivityDashboard() {
 
     setPortfolio((current) =>
       current.address?.toLowerCase() === walletAddress.toLowerCase()
-        ? { ...current, walletBalancesStatus: "loading", walletBalancesMessage: "Reading wallet token balances..." }
+        ? {
+            ...current,
+            walletBalancesStatus: "loading",
+            walletBalancesMessage: "Reading wallet token balances...",
+          }
         : current,
     );
 
@@ -95,7 +127,11 @@ export function MyActivityDashboard() {
         if (!isCurrent) return;
         setPortfolio((current) =>
           current.address?.toLowerCase() === walletAddress.toLowerCase()
-            ? { ...current, walletBalancesStatus: "error", walletBalancesMessage: "Unable to read wallet token balances." }
+            ? {
+                ...current,
+                walletBalancesStatus: "error",
+                walletBalancesMessage: "Unable to read wallet token balances.",
+              }
             : current,
         );
       });
@@ -157,19 +193,22 @@ export function MyActivityDashboard() {
     return () => {
       isMounted = false;
     };
-  }, [session]);
+  }, [activityRefresh, session]);
 
   const activity = activityState.status === "ready" ? activityState.activity : null;
-  const activePositions = activity?.positions.filter((position) =>
-    ["PENDING_EXECUTION", "EXECUTED"].includes(position.status),
-  ) ?? [];
-  const pastPositions = activity?.positions.filter((position) =>
-    !["PENDING_EXECUTION", "EXECUTED"].includes(position.status),
-  ) ?? [];
-  const dbMarginCollateral = activity?.positions.reduce((sum, position) => {
-    const amount = Number(position.marginCollateral ?? 0);
-    return Number.isFinite(amount) ? sum + amount : sum;
-  }, 0) ?? 0;
+  const activePositions =
+    activity?.positions.filter((position) =>
+      ["PENDING_EXECUTION", "EXECUTED"].includes(position.status),
+    ) ?? [];
+  const pastPositions =
+    activity?.positions.filter(
+      (position) => !["PENDING_EXECUTION", "EXECUTED"].includes(position.status),
+    ) ?? [];
+  const dbMarginCollateral =
+    activity?.positions.reduce((sum, position) => {
+      const amount = Number(position.marginCollateral ?? 0);
+      return Number.isFinite(amount) ? sum + amount : sum;
+    }, 0) ?? 0;
   const onchainVaultCollateral = Object.values(portfolio.vaultTotalBalances).reduce(
     (sum, balance) => sum + balance,
     0,
@@ -179,14 +218,20 @@ export function MyActivityDashboard() {
     0,
   );
   const vaultCollateral = onchainVaultCollateral > 0 ? onchainVaultCollateral : dbMarginCollateral;
-  const lockedCollateral = onchainLockedCollateral > 0 ? onchainLockedCollateral : dbMarginCollateral;
+  const lockedCollateral =
+    onchainLockedCollateral > 0 ? onchainLockedCollateral : dbMarginCollateral;
 
   const publicSignalCount = activity?.signals.length ?? 0;
   const copyIntentCount = activity?.copyIntents.length ?? 0;
   const displayHandle = session?.traderProfile?.handle ?? (session ? "trader.viction" : "Sign in");
   const emailLabel = session?.user.email ?? "No email set";
   const walletBalanceLabel = formatTokenBalance(portfolio.usdcBalance, "USDC");
-  const walletStatusLabel = portfolio.walletBalancesStatus === "loading" ? "Syncing" : portfolio.walletBalancesStatus === "error" ? "Retry from wallet menu" : "Available";
+  const walletStatusLabel =
+    portfolio.walletBalancesStatus === "loading"
+      ? "Syncing"
+      : portfolio.walletBalancesStatus === "error"
+        ? "Retry from wallet menu"
+        : "Available";
 
   return (
     <section className="wallet-portfolio-shell" aria-label="My portfolio">
@@ -194,7 +239,11 @@ export function MyActivityDashboard() {
         <div className="wallet-identity-block">
           <span className="wallet-eyebrow">Portfolio</span>
           <h2>{displayHandle}</h2>
-          <p>{session ? "Wallet-linked identity active." : "Sign in from the account button to load your portfolio."}</p>
+          <p>
+            {session
+              ? "Wallet-linked identity active."
+              : "Sign in from the account button to load your portfolio."}
+          </p>
         </div>
         <dl className="wallet-overview-metrics">
           <div>
@@ -243,7 +292,9 @@ export function MyActivityDashboard() {
                 <span>Overview</span>
                 <h2>Wallet records</h2>
               </div>
-              <Link className="text-link" href="/me/profile">Manage identity</Link>
+              <Link className="text-link" href="/me/profile">
+                Manage identity
+              </Link>
             </div>
             <div className="wallet-summary-grid" aria-label="Portfolio summary">
               <SummaryTile label="Wallet balance" value={walletBalanceLabel} />
@@ -252,7 +303,13 @@ export function MyActivityDashboard() {
               <SummaryTile label="Signals" value={publicSignalCount} />
               <SummaryTile label="Copy intents" value={copyIntentCount} />
             </div>
-            <p className={activityState.status === "error" ? "wallet-state-message error" : "wallet-state-message"}>
+            <p
+              className={
+                activityState.status === "error"
+                  ? "wallet-state-message error"
+                  : "wallet-state-message"
+              }
+            >
               {activityState.message}
             </p>
           </section>
@@ -269,13 +326,29 @@ export function MyActivityDashboard() {
               >
                 {activePositions.length > 0 ? (
                   <div className="card-grid compact-grid">
-                    {activePositions.map((position) => (
-                      <PositionCard
-                        key={position.id}
-                        market={activity.markets[position.marketId] ?? null}
-                        position={position}
-                      />
-                    ))}
+                    {activePositions.map((position) =>
+                      position.chainId === 137 && session && portfolio.address ? (
+                        <PolymarketPositionLifecycle
+                          closeAttempts={
+                            activity.polymarketExecutions[position.id]?.closeAttempts ?? []
+                          }
+                          controls={activity.polymarketExecutions[position.id]?.controls ?? null}
+                          execution={activity.polymarketExecutions[position.id]?.execution ?? null}
+                          key={position.id}
+                          market={activity.markets[position.marketId] ?? null}
+                          onChanged={() => setActivityRefresh((value) => value + 1)}
+                          position={position}
+                          session={session}
+                          walletAddress={portfolio.address}
+                        />
+                      ) : (
+                        <PositionCard
+                          key={position.id}
+                          market={activity.markets[position.marketId] ?? null}
+                          position={position}
+                        />
+                      ),
+                    )}
                   </div>
                 ) : null}
               </ActivitySection>
@@ -288,13 +361,29 @@ export function MyActivityDashboard() {
               >
                 {pastPositions.length > 0 ? (
                   <div className="card-grid compact-grid">
-                    {pastPositions.map((position) => (
-                      <PositionCard
-                        key={position.id}
-                        market={activity.markets[position.marketId] ?? null}
-                        position={position}
-                      />
-                    ))}
+                    {pastPositions.map((position) =>
+                      position.chainId === 137 && session && portfolio.address ? (
+                        <PolymarketPositionLifecycle
+                          closeAttempts={
+                            activity.polymarketExecutions[position.id]?.closeAttempts ?? []
+                          }
+                          controls={activity.polymarketExecutions[position.id]?.controls ?? null}
+                          execution={activity.polymarketExecutions[position.id]?.execution ?? null}
+                          key={position.id}
+                          market={activity.markets[position.marketId] ?? null}
+                          onChanged={() => setActivityRefresh((value) => value + 1)}
+                          position={position}
+                          session={session}
+                          walletAddress={portfolio.address}
+                        />
+                      ) : (
+                        <PositionCard
+                          key={position.id}
+                          market={activity.markets[position.marketId] ?? null}
+                          position={position}
+                        />
+                      ),
+                    )}
                   </div>
                 ) : null}
               </ActivitySection>
@@ -325,7 +414,11 @@ export function MyActivityDashboard() {
                 title="Copy intents"
               >
                 {activity.copyIntents.length > 0 ? (
-                  <div className="wallet-activity-table" role="table" aria-label="Submitted copy intents">
+                  <div
+                    className="wallet-activity-table"
+                    role="table"
+                    aria-label="Submitted copy intents"
+                  >
                     {activity.copyIntents.map((copyIntent) => (
                       <Link
                         className="wallet-activity-row"
@@ -355,7 +448,10 @@ export function MyActivityDashboard() {
   );
 }
 
-function applySessionToPortfolio(current: UserPortfolio, nextSession: UserSession | null): UserPortfolio {
+function applySessionToPortfolio(
+  current: UserPortfolio,
+  nextSession: UserSession | null,
+): UserPortfolio {
   if (!nextSession) {
     return {
       connected: false,
@@ -366,6 +462,7 @@ function applySessionToPortfolio(current: UserPortfolio, nextSession: UserSessio
       vaultLockedBalances: {},
       vaultTotalBalances: {},
       walletBalances: {},
+      vaultMetrics: {},
       vaultTransactions: [],
       walletBalancesStatus: "idle",
       activeRequestsCount: 0,
@@ -384,6 +481,7 @@ function applySessionToPortfolio(current: UserPortfolio, nextSession: UserSessio
     vaultLockedBalances: isSameWallet ? current.vaultLockedBalances : {},
     vaultTotalBalances: isSameWallet ? current.vaultTotalBalances : {},
     walletBalances: isSameWallet ? current.walletBalances : {},
+    vaultMetrics: isSameWallet ? current.vaultMetrics : {},
     walletBalancesStatus: nextAddress ? "loading" : "idle",
   };
 }
@@ -430,11 +528,14 @@ function ActivitySection({
   );
 }
 
-
 function formatUsd(value: number) {
   return "$" + value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 function formatTokenBalance(value: number, symbol: string) {
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 }) + " " + symbol;
+  return (
+    value.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 }) +
+    " " +
+    symbol
+  );
 }

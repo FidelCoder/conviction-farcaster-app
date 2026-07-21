@@ -1,15 +1,16 @@
 import { createPublicClient, erc20Abi, formatUnits, http, isAddress, type Address } from "viem";
-import { arbitrumSepolia, base, baseSepolia, sepolia } from "viem/chains";
+import { arbitrumSepolia, base, baseSepolia, polygon, sepolia } from "viem/chains";
 
 import type { ExecutionCapabilities } from "./core-api";
 import { resolveVaultCollateral } from "./vault-token-config";
-import type { PortfolioWalletBalance, Vault } from "../zip-ui/types";
+import type { PortfolioWalletBalance, Vault, VaultOnchainMetrics } from "../zip-ui/types";
 
 type TokenBalanceResult = {
   availableBalance: PortfolioWalletBalance;
   depositedBalance: PortfolioWalletBalance;
   lockedBalance: PortfolioWalletBalance;
   totalVaultBalance: PortfolioWalletBalance;
+  vaultMetrics: VaultOnchainMetrics | null;
   vaultId: string;
 };
 
@@ -18,7 +19,7 @@ type BalanceCacheEntry = {
   result: TokenBalanceResult;
 };
 
-const supportedChains = [baseSepolia, sepolia, arbitrumSepolia, base] as const;
+const supportedChains = [polygon, baseSepolia, sepolia, arbitrumSepolia, base] as const;
 const balanceCache = new Map<string, BalanceCacheEntry>();
 const BALANCE_CACHE_MS = 30000;
 const VAULT_ACCOUNTING_ABI = [
@@ -43,6 +44,49 @@ const VAULT_ACCOUNTING_ABI = [
     type: "function",
   },
 ] as const;
+const ERC4626_ACCOUNTING_ABI = [
+  {
+    inputs: [{ name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  ...[
+    "totalAssets",
+    "availableLiquidity",
+    "withdrawableAssets",
+    "totalBorrowedAssets",
+    "totalReservedAssets",
+    "protocolReserves",
+    "accruedProtocolFees",
+    "totalUncoveredBadDebt",
+    "totalQueuedShares",
+  ].map(
+    (name) =>
+      ({
+        inputs: [],
+        name,
+        outputs: [{ name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function",
+      }) as const,
+  ),
+  {
+    inputs: [{ name: "shares", type: "uint256" }],
+    name: "convertToAssets",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "owner", type: "address" }],
+    name: "maxWithdraw",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
 
 export async function readVaultWalletBalances(input: {
   address: string;
@@ -57,14 +101,13 @@ export async function readVaultWalletBalances(input: {
       lockedBalances: {} as Record<string, PortfolioWalletBalance>,
       totalVaultBalances: {} as Record<string, PortfolioWalletBalance>,
       walletBalances: {} as Record<string, PortfolioWalletBalance>,
+      vaultMetrics: {} as Record<string, VaultOnchainMetrics>,
     };
   }
 
   const supportedVaults = input.vaults.filter((vault) => {
     return Boolean(
-      vault.chainId &&
-        vault.collateralTokenAddress &&
-        isAddress(vault.collateralTokenAddress),
+      vault.chainId && vault.collateralTokenAddress && isAddress(vault.collateralTokenAddress),
     );
   });
 
@@ -77,15 +120,23 @@ export async function readVaultWalletBalances(input: {
     lockedBalances: Record<string, PortfolioWalletBalance>;
     totalVaultBalances: Record<string, PortfolioWalletBalance>;
     walletBalances: Record<string, PortfolioWalletBalance>;
+    vaultMetrics: Record<string, VaultOnchainMetrics>;
   }>(
     (balances, result) => {
       balances.walletBalances[result.vaultId] = result.availableBalance;
       balances.depositedBalances[result.vaultId] = result.depositedBalance;
       balances.lockedBalances[result.vaultId] = result.lockedBalance;
       balances.totalVaultBalances[result.vaultId] = result.totalVaultBalance;
+      if (result.vaultMetrics) balances.vaultMetrics[result.vaultId] = result.vaultMetrics;
       return balances;
     },
-    { depositedBalances: {}, lockedBalances: {}, totalVaultBalances: {}, walletBalances: {} },
+    {
+      depositedBalances: {},
+      lockedBalances: {},
+      totalVaultBalances: {},
+      walletBalances: {},
+      vaultMetrics: {},
+    },
   );
 }
 
@@ -103,7 +154,9 @@ export function getVaultAvailableBalance(input: {
     return liveBalance.amount;
   }
 
-  return input.vault.asset === "USDC" ? input.portfolio.usdcBalance : input.portfolio.wethBalance;
+  if (input.vault.asset === "USDC") return input.portfolio.usdcBalance;
+  if (input.vault.asset === "WETH") return input.portfolio.wethBalance;
+  return 0;
 }
 
 async function readVaultTokenBalance(
@@ -111,7 +164,9 @@ async function readVaultTokenBalance(
   walletAddress: Address,
   execution: ExecutionCapabilities,
 ): Promise<TokenBalanceResult> {
-  const cacheKey = [walletAddress, vault.id, vault.chainId, vault.collateralTokenAddress].join(":").toLowerCase();
+  const cacheKey = [walletAddress, vault.id, vault.chainId, vault.collateralTokenAddress]
+    .join(":")
+    .toLowerCase();
   const cached = balanceCache.get(cacheKey);
 
   if (cached && cached.expiresAt > Date.now()) {
@@ -131,7 +186,7 @@ async function readVaultTokenBalance(
   const vaultAddress = normalizeAddress(chain?.vaultAddress ?? undefined);
   const chainName = collateral.chainName;
   const decimals = collateral.tokenDecimals ?? 18;
-  const symbol = collateral.tokenSymbol === "WETH" ? "WETH" : "USDC";
+  const symbol = collateral.tokenSymbol ?? vault.asset;
 
   if (!tokenAddress || !chainId) {
     return {
@@ -168,6 +223,7 @@ async function readVaultTokenBalance(
         symbol,
         tokenAddress: collateral.tokenAddress ?? "",
       }),
+      vaultMetrics: null,
     };
   }
 
@@ -208,35 +264,110 @@ async function readVaultTokenBalance(
         symbol,
         tokenAddress,
       }),
+      vaultMetrics: null,
     };
   }
 
   try {
     const client = createPublicClient({ chain: viemChain, transport: http(getRpcUrl(chainId)) });
-    const [rawWalletBalance, rawDepositedBalance, rawLockedBalance] = await Promise.all([
-      client.readContract({
-        address: tokenAddress,
-        abi: erc20Abi,
-        functionName: "balanceOf",
-        args: [walletAddress],
-      }),
-      vaultAddress
-        ? client.readContract({
-            address: vaultAddress,
-            abi: VAULT_ACCOUNTING_ABI,
-            functionName: "availableBalance",
-            args: [walletAddress, tokenAddress],
-          })
-        : Promise.resolve(BigInt(0)),
-      vaultAddress
-        ? client.readContract({
-            address: vaultAddress,
-            abi: VAULT_ACCOUNTING_ABI,
-            functionName: "lockedBalance",
-            args: [walletAddress, tokenAddress],
-          })
-        : Promise.resolve(BigInt(0)),
-    ]);
+    const rawWalletBalance = await client.readContract({
+      address: tokenAddress,
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [walletAddress],
+    });
+    let rawDepositedBalance = BigInt(0);
+    let rawLockedBalance = BigInt(0);
+    let vaultMetrics: VaultOnchainMetrics | null = null;
+
+    if (vaultAddress && chainId === 137) {
+      const [shares, maxWithdraw] = await Promise.all([
+        client.readContract({
+          address: vaultAddress,
+          abi: ERC4626_ACCOUNTING_ABI,
+          functionName: "balanceOf",
+          args: [walletAddress],
+        }),
+        client.readContract({
+          address: vaultAddress,
+          abi: ERC4626_ACCOUNTING_ABI,
+          functionName: "maxWithdraw",
+          args: [walletAddress],
+        }),
+      ]);
+      const totalAssets = await client.readContract({
+        address: vaultAddress,
+        abi: ERC4626_ACCOUNTING_ABI,
+        functionName: "convertToAssets",
+        args: [shares],
+      });
+      rawDepositedBalance = maxWithdraw;
+      rawLockedBalance = totalAssets > maxWithdraw ? totalAssets - maxWithdraw : BigInt(0);
+      const [
+        managed,
+        available,
+        withdrawable,
+        borrowed,
+        reserved,
+        reserves,
+        fees,
+        badDebt,
+        queuedShares,
+        oneShareAssets,
+      ] = await Promise.all([
+        readUint(client, vaultAddress, "totalAssets"),
+        readUint(client, vaultAddress, "availableLiquidity"),
+        readUint(client, vaultAddress, "withdrawableAssets"),
+        readUint(client, vaultAddress, "totalBorrowedAssets"),
+        readUint(client, vaultAddress, "totalReservedAssets"),
+        readUint(client, vaultAddress, "protocolReserves"),
+        readUint(client, vaultAddress, "accruedProtocolFees"),
+        readUint(client, vaultAddress, "totalUncoveredBadDebt"),
+        readUint(client, vaultAddress, "totalQueuedShares"),
+        client.readContract({
+          address: vaultAddress,
+          abi: ERC4626_ACCOUNTING_ABI,
+          functionName: "convertToAssets",
+          args: [BigInt(10 ** decimals)],
+        }),
+      ]);
+      const queuedAssets = await client.readContract({
+        address: vaultAddress,
+        abi: ERC4626_ACCOUNTING_ABI,
+        functionName: "convertToAssets",
+        args: [queuedShares],
+      });
+      const amount = (value: bigint) => Number(formatUnits(value, decimals));
+      vaultMetrics = {
+        accruedProtocolFees: amount(fees),
+        availableLiquidity: amount(available),
+        borrowedAssets: amount(borrowed),
+        protocolReserves: amount(reserves),
+        queuedAssets: amount(queuedAssets),
+        reservedAssets: amount(reserved),
+        shareValue: amount(oneShareAssets),
+        status: "ready",
+        totalAssets: amount(managed),
+        uncoveredBadDebt: amount(badDebt),
+        utilization: managed > BigInt(0) ? Number((borrowed * BigInt(10000)) / managed) / 100 : 0,
+        withdrawableAssets: amount(withdrawable),
+      };
+    } else if (vaultAddress) {
+      [rawDepositedBalance, rawLockedBalance] = await Promise.all([
+        client.readContract({
+          address: vaultAddress,
+          abi: VAULT_ACCOUNTING_ABI,
+          functionName: "availableBalance",
+          args: [walletAddress, tokenAddress],
+        }),
+        client.readContract({
+          address: vaultAddress,
+          abi: VAULT_ACCOUNTING_ABI,
+          functionName: "lockedBalance",
+          args: [walletAddress, tokenAddress],
+        }),
+      ]);
+    }
     const rawTotalVaultBalance = rawDepositedBalance + rawLockedBalance;
 
     const result = {
@@ -273,6 +404,7 @@ async function readVaultTokenBalance(
         symbol,
         tokenAddress,
       }),
+      vaultMetrics,
     };
 
     balanceCache.set(cacheKey, { expiresAt: Date.now() + BALANCE_CACHE_MS, result });
@@ -315,6 +447,7 @@ async function readVaultTokenBalance(
         symbol,
         tokenAddress,
       }),
+      vaultMetrics: null,
     };
   }
 }
@@ -342,6 +475,21 @@ function createReadyBalance(input: {
     tokenAddress: input.tokenAddress,
     updatedAt: new Date().toISOString(),
   };
+}
+
+function readUint(client: unknown, address: Address, functionName: string) {
+  const reader = client as {
+    readContract: (input: {
+      address: Address;
+      abi: typeof ERC4626_ACCOUNTING_ABI;
+      functionName: string;
+    }) => Promise<bigint>;
+  };
+  return reader.readContract({
+    address,
+    abi: ERC4626_ACCOUNTING_ABI,
+    functionName,
+  });
 }
 
 function createErrorBalance(input: {
@@ -384,6 +532,7 @@ async function mapWithConcurrency<T, R>(
 
 function getRpcUrl(chainId: number) {
   const urls: Record<number, string> = {
+    137: "https://polygon-rpc.com",
     84532: "https://sepolia.base.org",
     11155111: "https://ethereum-sepolia-rpc.publicnode.com",
     421614: "https://sepolia-rollup.arbitrum.io/rpc",

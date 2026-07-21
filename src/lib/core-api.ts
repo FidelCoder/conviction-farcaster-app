@@ -41,7 +41,6 @@ export type Market = {
   volume24hr?: string | null;
 };
 
-
 export type UserPreference = {
   id: string;
   userId: string;
@@ -290,6 +289,7 @@ export type ExecutionCapabilities = {
   spotExecutionEnabled: boolean;
   marginExecutionEnabled: boolean;
   leverageEnabled: boolean;
+  activeRepaymentEnabled?: boolean;
   marginIntentsEnabled?: boolean;
   leverageRequiresContracts: boolean;
   maxPendingMarginLeverage?: number;
@@ -548,6 +548,200 @@ export type ExecutionAttempt = {
   updatedAt: string;
 };
 
+export type ExecutionWalletCall = {
+  id?: string;
+  chainId: number;
+  to: string;
+  value: string;
+  data: string;
+};
+
+export type SerializedTypedData = {
+  domain: Record<string, string | number>;
+  primaryType: string;
+  types: Record<string, Array<{ name: string; type: string }>>;
+  message: Record<string, string | number>;
+};
+
+export type PolymarketMarginQuote = {
+  borrowAssets: string;
+  collateralAssets: string;
+  conservativeMarkPrice: string;
+  entryDepthAssets: string;
+  estimatedOutcomeShares: string;
+  feeAssets: string;
+  leverageBps: number;
+  leverageMultiplier: string;
+  liquidationPrice: string;
+  mandatoryCloseAt: string;
+  notionalAssets: string;
+  openingPrice: string;
+  orderBookObservedAt: string;
+  quoteExpiresAt: string;
+  side: "YES" | "NO";
+  spreadBps: number;
+  tokenId: string;
+  twapPrice: string;
+};
+
+export type PreparedPolymarketMarginExecution = {
+  authorization: {
+    quoteId: string;
+    borrowAssets: string;
+    minimumOutcomeShares: string;
+    financingFeeAssets: string;
+    priceLimit: string;
+  };
+  quote: PolymarketMarginQuote;
+  typedData: SerializedTypedData;
+  walletCalls: ExecutionWalletCall[];
+  warning: string;
+};
+
+export type PolymarketExecutionState =
+  | "AUTHORIZED"
+  | "RESERVED"
+  | "WALLET_DEPLOYING"
+  | "WALLET_COMMIT_REQUIRED"
+  | "WALLET_COMMITTED"
+  | "FUNDED"
+  | "ORDER_PREPARED"
+  | "ORDER_SUBMITTED"
+  | "FILL_CONFIRMED"
+  | "SECURED"
+  | "OPEN"
+  | "CLOSING"
+  | "CLOSED"
+  | "FAILED"
+  | "CANCELLED"
+  | "RECONCILIATION_REQUIRED";
+
+export type PolymarketMarginExecution = {
+  id: string;
+  positionId: string;
+  state: PolymarketExecutionState;
+  conditionId: string;
+  tokenId: string;
+  vaultAddress: string;
+  adapterAddress: string;
+  loanId: string | null;
+  custodyAddress: string | null;
+  depositWalletAddress: string | null;
+  clobOrderId: string | null;
+  clobTradeIds: unknown;
+  settlementTxHashes: unknown;
+  actualFillPrice: string | null;
+  actualShares: string | null;
+  actualSpentAssets: string | null;
+  actualFeeAssets: string | null;
+  authorizedTerms: Record<string, string | number>;
+  stageInstruction: {
+    stage: string;
+    approvalCall?: ExecutionWalletCall;
+    walletCall?: ExecutionWalletCall;
+  } | null;
+  fundingTxHash: string | null;
+  custodyFundingTxHash: string | null;
+  securityTransferTxHash: string | null;
+  activationTxHash: string | null;
+  activeCloseAttemptId: string | null;
+  stopLossPrice: string | null;
+  takeProfitPrice: string | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  reservedAt: string | null;
+  orderSubmittedAt: string | null;
+  fillConfirmedAt: string | null;
+  securedAt: string | null;
+  openedAt: string | null;
+  closingAt: string | null;
+  closedAt: string | null;
+  lastReconciledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PreparedPolymarketClose = {
+  quote: {
+    amountShares: string;
+    depthFloorPrice: string;
+    estimatedGrossProceeds: string;
+    maximumVenueFeeAssets: string;
+    minimumProceeds: string;
+    priceLimit: string;
+    feeRateBps: number;
+    observedAt: string;
+  };
+  typedData: SerializedTypedData;
+  warning: string;
+};
+
+export type PolymarketCloseAttempt = {
+  id: string;
+  executionId: string;
+  reason: "VOLUNTARY" | "MANDATORY" | "LIQUIDATION" | "RESOLUTION" | "STOP_LOSS" | "TAKE_PROFIT";
+  stage: string;
+  priceLimit: string;
+  minimumProceeds: string;
+  clobOrderId: string | null;
+  clobTradeIds: unknown;
+  settlementTxHashes: unknown;
+  actualFillPrice: string | null;
+  actualShares: string | null;
+  actualProceeds: string | null;
+  actualFeeAssets: string | null;
+  vaultBeginTxHash: string | null;
+  returnTxHash: string | null;
+  vaultSettlementTxHash: string | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PolymarketPositionControls = {
+  activeRepaymentEnabled: boolean;
+  stopLossPrice: string | null;
+  takeProfitPrice: string | null;
+  currentBorrowAssets: string | null;
+  health: {
+    status: "HEALTHY" | "LIQUIDATION_REQUIRED" | "UNAVAILABLE";
+    currentBorrowAssets: string;
+    executableExitPrice: string | null;
+    minimumExitProceeds: string | null;
+    maintenanceMarginBps: number | null;
+    debtCoverageBps: number | null;
+    requiredExitProceeds: string | null;
+    surplusAssets: string | null;
+    shortfallAssets: string | null;
+    observedAt: string | null;
+    warning: string;
+  } | null;
+  warning: string;
+  repayments: Array<{
+    id: string;
+    assets: string;
+    transactionHash: string;
+    confirmedAt: string;
+    createdAt: string;
+  }>;
+};
+
+export type PreparedPolymarketControls = {
+  stopLossPrice: string | null;
+  takeProfitPrice: string | null;
+  typedData: SerializedTypedData;
+  warning: string;
+};
+
+export type PreparedPolymarketRepayment = {
+  assets: string;
+  currentBorrowAssets: string;
+  remainingBorrowAssets: string;
+  walletCalls: ExecutionWalletCall[];
+};
+
 export type CreateMarginPositionInput = {
   userId: string;
   marketId: string;
@@ -771,7 +965,6 @@ export type OmnistonQuoteResult = {
   event: unknown;
 };
 
-
 export type TonVaultIntent = {
   id: string;
   userId: string | null;
@@ -831,40 +1024,50 @@ export class CoreApiError extends Error {
 
 export async function listMarkets() {
   return readOrFallback(async () => {
-    const response = await coreRequest<{ markets?: Market[] } | Market[]>("/markets?limit=250&status=ACTIVE");
+    const response = await coreRequest<{ markets?: Market[] } | Market[]>(
+      "/markets?limit=250&status=ACTIVE",
+    );
 
     return Array.isArray(response) ? response : (response.markets ?? []);
   }, [] as Market[]);
 }
 
 export async function getOmnistonStatus() {
-  return readOrFallback(async () => {
-    const response = await coreRequest<{ omniston: OmnistonStatus }>("/omniston/quote-status");
-    return response.omniston;
-  }, {
-    enabled: false,
-    network: "mainnet",
-    routingMode: "disabled",
-    apiUrl: "",
-    quoteTimeoutMs: 8000,
-    quoteReady: false,
-    swapSubmissionEnabled: false,
-    status: "UNAVAILABLE",
-    notes: ["Omniston status is temporarily unavailable."],
-  } satisfies OmnistonStatus);
+  return readOrFallback(
+    async () => {
+      const response = await coreRequest<{ omniston: OmnistonStatus }>("/omniston/quote-status");
+      return response.omniston;
+    },
+    {
+      enabled: false,
+      network: "mainnet",
+      routingMode: "disabled",
+      apiUrl: "",
+      quoteTimeoutMs: 8000,
+      quoteReady: false,
+      swapSubmissionEnabled: false,
+      status: "UNAVAILABLE",
+      notes: ["Omniston status is temporarily unavailable."],
+    } satisfies OmnistonStatus,
+  );
 }
 
 export async function getOmnistonSummary() {
-  return readOrFallback(async () => {
-    const response = await coreRequest<{ summary: OmnistonQuoteSummary }>("/omniston/quote-summary");
-    return response.summary;
-  }, {
-    total: 0,
-    uniqueTelegramUsers: 0,
-    byStatus: [],
-    topPairs: [],
-    recent: [],
-  } satisfies OmnistonQuoteSummary);
+  return readOrFallback(
+    async () => {
+      const response = await coreRequest<{ summary: OmnistonQuoteSummary }>(
+        "/omniston/quote-summary",
+      );
+      return response.summary;
+    },
+    {
+      total: 0,
+      uniqueTelegramUsers: 0,
+      byStatus: [],
+      topPairs: [],
+      recent: [],
+    } satisfies OmnistonQuoteSummary,
+  );
 }
 
 export async function requestOmnistonQuote(input: RequestOmnistonQuoteInput) {
@@ -894,8 +1097,12 @@ export async function getMarket(id: string) {
   );
 }
 
-
-export async function createTelegramSession(input: { telegramUserId: string; username?: string | null; displayName?: string | null; profileUrl?: string | null }) {
+export async function createTelegramSession(input: {
+  telegramUserId: string;
+  username?: string | null;
+  displayName?: string | null;
+  profileUrl?: string | null;
+}) {
   return coreRequest<UserSession>("/social-accounts", {
     method: "POST",
     body: {
@@ -910,7 +1117,11 @@ export async function createTelegramSession(input: { telegramUserId: string; use
   });
 }
 
-export async function createTonWalletSession(input: { tonAddress: string; displayName?: string | null; source?: string | null }) {
+export async function createTonWalletSession(input: {
+  tonAddress: string;
+  displayName?: string | null;
+  source?: string | null;
+}) {
   const normalizedAddress = input.tonAddress.trim();
   const shortAddress = normalizedAddress.slice(0, 6) + "..." + normalizedAddress.slice(-4);
 
@@ -936,15 +1147,20 @@ export async function createTonVaultIntent(input: {
   amount: string;
   note?: string | null;
 }) {
-  const response = await coreRequest<{ intent?: TonVaultIntent } | TonVaultIntent>("/ton/vault-intents", {
-    method: "POST",
-    body: input,
-  });
+  const response = await coreRequest<{ intent?: TonVaultIntent } | TonVaultIntent>(
+    "/ton/vault-intents",
+    {
+      method: "POST",
+      body: input,
+    },
+  );
 
   return "intent" in response && response.intent ? response.intent : (response as TonVaultIntent);
 }
 
-export async function listTonVaultIntents(options: { userId?: string; tonAddress?: string; limit?: number } = {}) {
+export async function listTonVaultIntents(
+  options: { userId?: string; tonAddress?: string; limit?: number } = {},
+) {
   const params = new URLSearchParams();
   if (options.userId) params.set("userId", options.userId);
   if (options.tonAddress) params.set("tonAddress", options.tonAddress);
@@ -960,11 +1176,16 @@ export async function listTonVaultIntents(options: { userId?: string; tonAddress
 
 export async function getTonVaultSummary() {
   return readOrFallback(async () => {
-    const response = await coreRequest<{ summary?: TonVaultSummary } | TonVaultSummary>("/ton/vault-summary", { allowNotFound: true });
+    const response = await coreRequest<{ summary?: TonVaultSummary } | TonVaultSummary>(
+      "/ton/vault-summary",
+      { allowNotFound: true },
+    );
     if (!response) {
       return fallbackTonVaultSummary;
     }
-    return "summary" in response && response.summary ? response.summary : (response as TonVaultSummary);
+    return "summary" in response && response.summary
+      ? response.summary
+      : (response as TonVaultSummary);
   }, fallbackTonVaultSummary);
 }
 
@@ -995,7 +1216,12 @@ export async function createFarcasterSession(input: CreateFarcasterSessionInput)
   });
 }
 
-export async function createBrowserWalletSession(input: { walletAddress: string; authProvider?: AuthProvider | null; source?: string | null; metadata?: Record<string, unknown> | null }) {
+export async function createBrowserWalletSession(input: {
+  walletAddress: string;
+  authProvider?: AuthProvider | null;
+  source?: string | null;
+  metadata?: Record<string, unknown> | null;
+}) {
   const normalizedAddress = input.walletAddress.trim();
 
   return coreRequest<UserSession>("/social-accounts", {
@@ -1014,61 +1240,112 @@ export async function createBrowserWalletSession(input: { walletAddress: string;
 }
 
 export async function listPolymarketAccounts(userId: string) {
-  const response = await coreRequest<{ accounts: PolymarketAccount[] }>("/users/" + encodeURIComponent(userId) + "/polymarket/accounts");
+  const response = await coreRequest<{ accounts: PolymarketAccount[] }>(
+    "/users/" + encodeURIComponent(userId) + "/polymarket/accounts",
+  );
   return response.accounts;
 }
 
-export async function createPolymarketLinkChallenge(input: { userId: string; convictionAddress: string; convictionChainId: number; polymarketOwnerAddress: string; polymarketFunderAddress: string; polymarketWalletType: PolymarketWalletType }) {
-  const response = await coreRequest<{ challenge: PolymarketAccountChallenge }>("/users/" + encodeURIComponent(input.userId) + "/polymarket/link-challenges", {
-    method: "POST",
-    body: {
-      convictionAddress: input.convictionAddress,
-      convictionChainId: input.convictionChainId,
-      polymarketOwnerAddress: input.polymarketOwnerAddress,
-      polymarketFunderAddress: input.polymarketFunderAddress,
-      polymarketWalletType: input.polymarketWalletType,
+export async function createPolymarketLinkChallenge(input: {
+  userId: string;
+  convictionAddress: string;
+  convictionChainId: number;
+  polymarketOwnerAddress: string;
+  polymarketFunderAddress: string;
+  polymarketWalletType: PolymarketWalletType;
+}) {
+  const response = await coreRequest<{ challenge: PolymarketAccountChallenge }>(
+    "/users/" + encodeURIComponent(input.userId) + "/polymarket/link-challenges",
+    {
+      method: "POST",
+      body: {
+        convictionAddress: input.convictionAddress,
+        convictionChainId: input.convictionChainId,
+        polymarketOwnerAddress: input.polymarketOwnerAddress,
+        polymarketFunderAddress: input.polymarketFunderAddress,
+        polymarketWalletType: input.polymarketWalletType,
+      },
     },
-  });
+  );
   return response.challenge;
 }
 
-export async function completePolymarketAccountLink(input: { userId: string; challengeId: string; convictionSignature: string; polymarketSignature?: string | null }) {
-  const response = await coreRequest<{ account: PolymarketAccount }>("/users/" + encodeURIComponent(input.userId) + "/polymarket/accounts", {
-    method: "POST",
-    body: {
-      challengeId: input.challengeId,
-      convictionSignature: input.convictionSignature,
-      polymarketSignature: input.polymarketSignature ?? null,
+export async function completePolymarketAccountLink(input: {
+  userId: string;
+  challengeId: string;
+  convictionSignature: string;
+  polymarketSignature?: string | null;
+}) {
+  const response = await coreRequest<{ account: PolymarketAccount }>(
+    "/users/" + encodeURIComponent(input.userId) + "/polymarket/accounts",
+    {
+      method: "POST",
+      body: {
+        challengeId: input.challengeId,
+        convictionSignature: input.convictionSignature,
+        polymarketSignature: input.polymarketSignature ?? null,
+      },
     },
-  });
+  );
   return response.account;
 }
 
 export async function syncPolymarketAccount(userId: string, accountId: string) {
-  const response = await coreRequest<{ account: PolymarketAccount }>("/users/" + encodeURIComponent(userId) + "/polymarket/accounts/" + encodeURIComponent(accountId) + "/sync", { method: "POST" });
+  const response = await coreRequest<{ account: PolymarketAccount }>(
+    "/users/" +
+      encodeURIComponent(userId) +
+      "/polymarket/accounts/" +
+      encodeURIComponent(accountId) +
+      "/sync",
+    { method: "POST" },
+  );
   return response.account;
 }
 
-export async function createPolymarketUnlinkChallenge(input: { userId: string; accountId: string; convictionAddress: string; convictionChainId: number }) {
-  const response = await coreRequest<{ challenge: PolymarketAccountChallenge }>("/users/" + encodeURIComponent(input.userId) + "/polymarket/accounts/" + encodeURIComponent(input.accountId) + "/unlink-challenges", {
-    method: "POST",
-    body: {
-      convictionAddress: input.convictionAddress,
-      convictionChainId: input.convictionChainId,
+export async function createPolymarketUnlinkChallenge(input: {
+  userId: string;
+  accountId: string;
+  convictionAddress: string;
+  convictionChainId: number;
+}) {
+  const response = await coreRequest<{ challenge: PolymarketAccountChallenge }>(
+    "/users/" +
+      encodeURIComponent(input.userId) +
+      "/polymarket/accounts/" +
+      encodeURIComponent(input.accountId) +
+      "/unlink-challenges",
+    {
+      method: "POST",
+      body: {
+        convictionAddress: input.convictionAddress,
+        convictionChainId: input.convictionChainId,
+      },
     },
-  });
+  );
   return response.challenge;
 }
 
-export async function unlinkPolymarketAccount(input: { userId: string; accountId: string; challengeId: string; convictionSignature: string; polymarketSignature?: string | null }) {
-  const response = await coreRequest<{ account: PolymarketAccount }>("/users/" + encodeURIComponent(input.userId) + "/polymarket/accounts/" + encodeURIComponent(input.accountId), {
-    method: "DELETE",
-    body: {
-      challengeId: input.challengeId,
-      convictionSignature: input.convictionSignature,
-      polymarketSignature: input.polymarketSignature ?? null,
+export async function unlinkPolymarketAccount(input: {
+  userId: string;
+  accountId: string;
+  challengeId: string;
+  convictionSignature: string;
+  polymarketSignature?: string | null;
+}) {
+  const response = await coreRequest<{ account: PolymarketAccount }>(
+    "/users/" +
+      encodeURIComponent(input.userId) +
+      "/polymarket/accounts/" +
+      encodeURIComponent(input.accountId),
+    {
+      method: "DELETE",
+      body: {
+        challengeId: input.challengeId,
+        convictionSignature: input.convictionSignature,
+        polymarketSignature: input.polymarketSignature ?? null,
+      },
     },
-  });
+  );
   return response.account;
 }
 
@@ -1127,7 +1404,9 @@ export async function getTraderProfile(id: string) {
   );
 }
 
-export async function discoverUsers(options: { limit?: number; query?: string; viewerUserId?: string; claimedOnly?: boolean } = {}) {
+export async function discoverUsers(
+  options: { limit?: number; query?: string; viewerUserId?: string; claimedOnly?: boolean } = {},
+) {
   const params = new URLSearchParams();
   params.set("limit", String(options.limit ?? 50));
   if (options.query?.trim()) params.set("query", options.query.trim());
@@ -1208,7 +1487,8 @@ export async function getRecentSignalFeed(limit = 50): Promise<RecentSignalFeedR
       return {
         status: "unavailable",
         signals: [],
-        message: error instanceof CoreApiError ? error.message : "Core API signal feed is unavailable.",
+        message:
+          error instanceof CoreApiError ? error.message : "Core API signal feed is unavailable.",
       };
     }
 
@@ -1222,7 +1502,9 @@ export async function listRecentSignals(limit = 50) {
   return feed.signals;
 }
 
-export async function getSocialFeed(options: { limit?: number; viewerUserId?: string } = {}): Promise<RecentSocialFeedResult> {
+export async function getSocialFeed(
+  options: { limit?: number; viewerUserId?: string } = {},
+): Promise<RecentSocialFeedResult> {
   const params = new URLSearchParams();
 
   params.set("limit", String(options.limit ?? 50));
@@ -1251,7 +1533,8 @@ export async function getSocialFeed(options: { limit?: number; viewerUserId?: st
       return {
         status: "unavailable",
         feed: [],
-        message: error instanceof CoreApiError ? error.message : "Core API social feed is unavailable.",
+        message:
+          error instanceof CoreApiError ? error.message : "Core API social feed is unavailable.",
       };
     }
 
@@ -1279,8 +1562,9 @@ export async function getSignalSocialParticipants(signalId: string, limit = 20) 
     : (response as SignalSocialParticipants);
 }
 
-
-export async function getSocialTimeline(options: { limit?: number; userId?: string; scope?: "all" | "following" } = {}): Promise<SocialTimelineResult> {
+export async function getSocialTimeline(
+  options: { limit?: number; userId?: string; scope?: "all" | "following" } = {},
+): Promise<SocialTimelineResult> {
   const params = new URLSearchParams();
   params.set("limit", String(options.limit ?? 50));
 
@@ -1305,7 +1589,10 @@ export async function getSocialTimeline(options: { limit?: number; userId?: stri
       return {
         status: "unavailable",
         events: [],
-        message: error instanceof CoreApiError ? error.message : "Core API social timeline is unavailable.",
+        message:
+          error instanceof CoreApiError
+            ? error.message
+            : "Core API social timeline is unavailable.",
       };
     }
 
@@ -1313,8 +1600,12 @@ export async function getSocialTimeline(options: { limit?: number; userId?: stri
   }
 }
 
-
-export async function createPulsePost(input: { authorUserId: string; body: string; mediaUrl?: string | null; mediaType?: string | null }) {
+export async function createPulsePost(input: {
+  authorUserId: string;
+  body: string;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
+}) {
   const response = await coreRequest<{ post?: PulsePost } | PulsePost>("/social/posts", {
     method: "POST",
     body: input,
@@ -1323,7 +1614,11 @@ export async function createPulsePost(input: { authorUserId: string; body: strin
   return "post" in response && response.post ? response.post : (response as PulsePost);
 }
 
-export async function createPulsePostReply(input: { postId: string; authorUserId: string; body: string }) {
+export async function createPulsePostReply(input: {
+  postId: string;
+  authorUserId: string;
+  body: string;
+}) {
   const response = await coreRequest<{ reply?: SignalReply } | SignalReply>(
     "/social/posts/" + encodeURIComponent(input.postId) + "/replies",
     {
@@ -1350,7 +1645,10 @@ export async function addPulsePostReaction(input: { postId: string; userId: stri
 
 export async function removePulsePostReaction(input: { postId: string; userId: string }) {
   return coreRequest<{ counts: SocialFeedCounts }>(
-    "/social/posts/" + encodeURIComponent(input.postId) + "/reactions/" + encodeURIComponent(input.userId),
+    "/social/posts/" +
+      encodeURIComponent(input.postId) +
+      "/reactions/" +
+      encodeURIComponent(input.userId),
     { method: "DELETE" },
   );
 }
@@ -1367,7 +1665,10 @@ export async function addPulsePostBookmark(input: { postId: string; userId: stri
 
 export async function removePulsePostBookmark(input: { postId: string; userId: string }) {
   return coreRequest<{ counts: SocialFeedCounts }>(
-    "/social/posts/" + encodeURIComponent(input.postId) + "/bookmarks/" + encodeURIComponent(input.userId),
+    "/social/posts/" +
+      encodeURIComponent(input.postId) +
+      "/bookmarks/" +
+      encodeURIComponent(input.userId),
     { method: "DELETE" },
   );
 }
@@ -1391,7 +1692,10 @@ export async function unfollowUser(input: { followerId: string; followingId: str
 export async function listUserFollowing(userId: string, limit = 100) {
   return readOrFallback(async () => {
     const response = await coreRequest<{ following?: UserFollow[] } | UserFollow[]>(
-      "/users/" + encodeURIComponent(userId) + "/following?limit=" + encodeURIComponent(String(limit)),
+      "/users/" +
+        encodeURIComponent(userId) +
+        "/following?limit=" +
+        encodeURIComponent(String(limit)),
       { allowNotFound: true },
     );
 
@@ -1403,7 +1707,10 @@ export async function listUserFollowing(userId: string, limit = 100) {
 export async function listUserNotifications(userId: string, limit = 50) {
   return readOrFallback(async () => {
     const response = await coreRequest<{ notifications?: UserNotification[] } | UserNotification[]>(
-      "/users/" + encodeURIComponent(userId) + "/notifications?limit=" + encodeURIComponent(String(limit)),
+      "/users/" +
+        encodeURIComponent(userId) +
+        "/notifications?limit=" +
+        encodeURIComponent(String(limit)),
       { allowNotFound: true },
     );
 
@@ -1412,7 +1719,11 @@ export async function listUserNotifications(userId: string, limit = 50) {
   }, [] as UserNotification[]);
 }
 
-export async function createPositionReply(input: { positionId: string; authorUserId: string; body: string }) {
+export async function createPositionReply(input: {
+  positionId: string;
+  authorUserId: string;
+  body: string;
+}) {
   const response = await coreRequest<{ reply?: PositionReply } | PositionReply>(
     "/positions/" + encodeURIComponent(input.positionId) + "/replies",
     {
@@ -1427,7 +1738,11 @@ export async function createPositionReply(input: { positionId: string; authorUse
   return "reply" in response && response.reply ? response.reply : (response as PositionReply);
 }
 
-export async function createSignalReply(input: { signalId: string; authorUserId: string; body: string }) {
+export async function createSignalReply(input: {
+  signalId: string;
+  authorUserId: string;
+  body: string;
+}) {
   const response = await coreRequest<{ reply?: SignalReply } | SignalReply>(
     "/signals/" + encodeURIComponent(input.signalId) + "/replies",
     {
@@ -1454,7 +1769,10 @@ export async function addSignalReaction(input: { signalId: string; userId: strin
 
 export async function removeSignalReaction(input: { signalId: string; userId: string }) {
   return coreRequest<{ counts: SocialFeedCounts }>(
-    "/signals/" + encodeURIComponent(input.signalId) + "/reactions/" + encodeURIComponent(input.userId),
+    "/signals/" +
+      encodeURIComponent(input.signalId) +
+      "/reactions/" +
+      encodeURIComponent(input.userId),
     { method: "DELETE" },
   );
 }
@@ -1471,7 +1789,10 @@ export async function addSignalBookmark(input: { signalId: string; userId: strin
 
 export async function removeSignalBookmark(input: { signalId: string; userId: string }) {
   return coreRequest<{ counts: SocialFeedCounts }>(
-    "/signals/" + encodeURIComponent(input.signalId) + "/bookmarks/" + encodeURIComponent(input.userId),
+    "/signals/" +
+      encodeURIComponent(input.signalId) +
+      "/bookmarks/" +
+      encodeURIComponent(input.userId),
     { method: "DELETE" },
   );
 }
@@ -1690,6 +2011,199 @@ export async function settlePositionExecution(positionId: string) {
     : (response as ExecutionAttempt);
 }
 
+export async function preparePolymarketMarginExecution(
+  positionId: string,
+  input: {
+    userId: string;
+    idempotencyKey: string;
+    nonce: string;
+    deadline: number;
+    maxSlippageBps: number;
+  },
+) {
+  const response = await coreRequest<{ prepared: PreparedPolymarketMarginExecution }>(
+    "/execution/positions/" + encodeURIComponent(positionId) + "/polymarket/prepare",
+    { method: "POST", body: input },
+  );
+  return response.prepared;
+}
+
+export async function authorizePolymarketMarginExecution(
+  positionId: string,
+  input: {
+    userId: string;
+    idempotencyKey: string;
+    nonce: string;
+    deadline: number;
+    maxSlippageBps: number;
+    quoteId: string;
+    borrowAssets: string;
+    minimumOutcomeShares: string;
+    financingFeeAssets: string;
+    priceLimit: string;
+    signature: string;
+  },
+) {
+  const response = await coreRequest<{ execution: PolymarketMarginExecution }>(
+    "/execution/positions/" + encodeURIComponent(positionId) + "/polymarket/authorize",
+    { method: "POST", body: input },
+  );
+  return response.execution;
+}
+
+export async function getPolymarketMarginExecution(positionId: string, userId: string) {
+  const response = await coreRequest<{ execution: PolymarketMarginExecution }>(
+    "/execution/positions/" +
+      encodeURIComponent(positionId) +
+      "/polymarket?userId=" +
+      encodeURIComponent(userId),
+  );
+  return response.execution;
+}
+
+export async function recordPolymarketReservation(
+  executionId: string,
+  input: { userId: string; transactionHash: string },
+) {
+  const response = await coreRequest<{ execution: PolymarketMarginExecution }>(
+    "/execution/polymarket/" + encodeURIComponent(executionId) + "/reservation",
+    { method: "POST", body: input },
+  );
+  return response.execution;
+}
+
+export async function recordPolymarketWalletCommit(
+  executionId: string,
+  input: { userId: string; transactionHash: string },
+) {
+  const response = await coreRequest<{ execution: PolymarketMarginExecution }>(
+    "/execution/polymarket/" + encodeURIComponent(executionId) + "/wallet-commit",
+    { method: "POST", body: input },
+  );
+  return response.execution;
+}
+
+export async function advancePolymarketExecution(executionId: string, userId: string) {
+  const response = await coreRequest<{ execution: PolymarketMarginExecution }>(
+    "/execution/polymarket/" + encodeURIComponent(executionId) + "/advance",
+    { method: "POST", body: { userId } },
+  );
+  return response.execution;
+}
+
+export async function preparePolymarketPositionClose(
+  positionId: string,
+  input: {
+    userId: string;
+    idempotencyKey: string;
+    nonce: string;
+    deadline: number;
+    maxSlippageBps: number;
+  },
+) {
+  const response = await coreRequest<{ prepared: PreparedPolymarketClose }>(
+    "/execution/positions/" + encodeURIComponent(positionId) + "/polymarket/close/prepare",
+    { method: "POST", body: input },
+  );
+  return response.prepared;
+}
+
+export async function authorizePolymarketPositionClose(
+  positionId: string,
+  input: {
+    userId: string;
+    idempotencyKey: string;
+    nonce: string;
+    deadline: number;
+    maxSlippageBps: number;
+    minimumProceeds: string;
+    priceLimit: string;
+    signature: string;
+  },
+) {
+  const response = await coreRequest<{ closeAttempt: PolymarketCloseAttempt }>(
+    "/execution/positions/" + encodeURIComponent(positionId) + "/polymarket/close/authorize",
+    { method: "POST", body: input },
+  );
+  return response.closeAttempt;
+}
+
+export async function listPolymarketCloseAttempts(positionId: string, userId: string) {
+  const response = await coreRequest<{ closeAttempts: PolymarketCloseAttempt[] }>(
+    "/execution/positions/" +
+      encodeURIComponent(positionId) +
+      "/polymarket/close-attempts?userId=" +
+      encodeURIComponent(userId),
+  );
+  return response.closeAttempts;
+}
+
+export async function getPolymarketPositionControls(positionId: string, userId: string) {
+  const response = await coreRequest<{ controls: PolymarketPositionControls }>(
+    "/execution/positions/" +
+      encodeURIComponent(positionId) +
+      "/polymarket/controls?userId=" +
+      encodeURIComponent(userId),
+  );
+  return response.controls;
+}
+
+export async function preparePolymarketPositionControls(
+  positionId: string,
+  input: {
+    userId: string;
+    stopLossPrice: string | null;
+    takeProfitPrice: string | null;
+    nonce: string;
+    deadline: number;
+  },
+) {
+  const response = await coreRequest<{ prepared: PreparedPolymarketControls }>(
+    "/execution/positions/" + encodeURIComponent(positionId) + "/polymarket/controls/prepare",
+    { method: "POST", body: input },
+  );
+  return response.prepared;
+}
+
+export async function updatePolymarketPositionControls(
+  positionId: string,
+  input: {
+    userId: string;
+    stopLossPrice: string | null;
+    takeProfitPrice: string | null;
+    nonce: string;
+    deadline: number;
+    signature: string;
+  },
+) {
+  const response = await coreRequest<{ controls: PolymarketPositionControls }>(
+    "/execution/positions/" + encodeURIComponent(positionId) + "/polymarket/controls",
+    { method: "PUT", body: input },
+  );
+  return response.controls;
+}
+
+export async function preparePolymarketPrincipalRepayment(
+  positionId: string,
+  input: { userId: string; assets: string },
+) {
+  const response = await coreRequest<{ prepared: PreparedPolymarketRepayment }>(
+    "/execution/positions/" + encodeURIComponent(positionId) + "/polymarket/repay/prepare",
+    { method: "POST", body: input },
+  );
+  return response.prepared;
+}
+
+export async function recordPolymarketPrincipalRepayment(
+  executionId: string,
+  input: { userId: string; assets: string; transactionHash: string },
+) {
+  const response = await coreRequest<{ controls: PolymarketPositionControls }>(
+    "/execution/polymarket/" + encodeURIComponent(executionId) + "/repayments",
+    { method: "POST", body: input },
+  );
+  return response.controls;
+}
 
 export async function getUserPreference(userId: string) {
   const response = await coreRequest<{ preference: UserPreference }>(
@@ -1698,7 +2212,15 @@ export async function getUserPreference(userId: string) {
   return response.preference;
 }
 
-export async function updateUserPreference(userId: string, input: Partial<Pick<UserPreference, "topics" | "regions" | "sports" | "mediaTypes" | "newsIntervalMinutes" | "notifyInActivity">>) {
+export async function updateUserPreference(
+  userId: string,
+  input: Partial<
+    Pick<
+      UserPreference,
+      "topics" | "regions" | "sports" | "mediaTypes" | "newsIntervalMinutes" | "notifyInActivity"
+    >
+  >,
+) {
   const response = await coreRequest<{ preference: UserPreference }>(
     "/users/" + encodeURIComponent(userId) + "/preferences",
     { method: "PUT", body: input },
@@ -1711,7 +2233,9 @@ export async function listActivityMedia(options: { userId?: string | null; limit
   if (options.userId) params.set("userId", options.userId);
   if (options.limit) params.set("limit", String(options.limit));
   const query = params.toString();
-  const response = await coreRequest<{ items: ActivityMediaItem[] }>("/activity-media" + (query ? "?" + query : ""));
+  const response = await coreRequest<{ items: ActivityMediaItem[] }>(
+    "/activity-media" + (query ? "?" + query : ""),
+  );
   return response.items;
 }
 
@@ -1738,18 +2262,24 @@ export async function createSupportTicket(input: {
   return response.ticket;
 }
 
-export async function listSupportTickets(input: { userId?: string | null; email?: string | null; limit?: number } = {}) {
+export async function listSupportTickets(
+  input: { userId?: string | null; email?: string | null; limit?: number } = {},
+) {
   const params = new URLSearchParams();
   if (input.userId) params.set("userId", input.userId);
   if (input.email) params.set("email", input.email);
   if (input.limit) params.set("limit", String(input.limit));
   const query = params.toString();
-  const response = await coreRequest<{ tickets: SupportTicket[] }>("/support/tickets" + (query ? "?" + query : ""));
+  const response = await coreRequest<{ tickets: SupportTicket[] }>(
+    "/support/tickets" + (query ? "?" + query : ""),
+  );
   return response.tickets;
 }
 
 export async function getSupportTicket(ticketId: string) {
-  const response = await coreRequest<{ ticket: SupportTicket }>("/support/tickets/" + encodeURIComponent(ticketId));
+  const response = await coreRequest<{ ticket: SupportTicket }>(
+    "/support/tickets/" + encodeURIComponent(ticketId),
+  );
   return response.ticket;
 }
 
@@ -1774,13 +2304,10 @@ export async function createSupportReply(input: {
 }
 
 export async function updateUserEmail(userId: string, email: string) {
-  return coreRequest<{ email: string }>(
-    "/users/" + encodeURIComponent(userId) + "/email",
-    {
-      method: "PATCH",
-      body: { email },
-    },
-  );
+  return coreRequest<{ email: string }>("/users/" + encodeURIComponent(userId) + "/email", {
+    method: "PATCH",
+    body: { email },
+  });
 }
 
 export async function listAdminFallbackProfiles(token: string) {
@@ -1807,7 +2334,6 @@ export async function createCopyIntent(input: CreateCopyIntentInput) {
 
   return response as CopyIntent;
 }
-
 
 export async function recordUsageEvent(input: RecordUsageEventInput) {
   return coreRequest<{ eventId: string; sessionId: string }>("/analytics/events", {

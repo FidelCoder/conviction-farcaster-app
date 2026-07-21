@@ -1,11 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { getContract, prepareTransaction, readContract, sendTransaction, waitForReceipt } from "thirdweb";
-import { encodeFunctionData, erc20Abi, parseAbi } from "viem";
-import { ConnectButton, ThirdwebProvider, useActiveAccount, useDisconnect, useActiveWallet } from "thirdweb/react";
+import {
+  getContract,
+  prepareTransaction,
+  readContract,
+  sendTransaction,
+  waitForReceipt,
+} from "thirdweb";
+import { encodeFunctionData, erc20Abi, parseAbi, parseUnits } from "viem";
+import {
+  ConnectButton,
+  ThirdwebProvider,
+  useActiveAccount,
+  useDisconnect,
+  useActiveWallet,
+} from "thirdweb/react";
 
-import type { UserSession } from "../lib/core-api";
+import type { ExecutionWalletCall, SerializedTypedData, UserSession } from "../lib/core-api";
 import {
   convictionAccountAbstraction,
   convictionSmartWallets,
@@ -57,6 +69,24 @@ type SmartMessageSignResult = {
 
 type SmartMessageSignFailure = {
   message: string;
+  requestId: string;
+};
+
+type SmartTypedDataRequest = {
+  address: string;
+  requestId: string;
+  typedData: SerializedTypedData;
+};
+
+type SmartExecutionRequest = {
+  address: string;
+  allowanceCheck?: {
+    owner: string;
+    spender: string;
+    token: string;
+    requiredAssets: string;
+  };
+  call: ExecutionWalletCall;
   requestId: string;
 };
 
@@ -160,7 +190,9 @@ export function ThirdwebWalletBridge({
 
       try {
         if (!account) {
-          throw new Error("Smart wallet is not active in this browser. Sign in with Smart wallet again before depositing.");
+          throw new Error(
+            "Smart wallet is not active in this browser. Sign in with Smart wallet again before depositing.",
+          );
         }
 
         const activeAccount = account;
@@ -208,7 +240,12 @@ export function ThirdwebWalletBridge({
           transaction: prepareTransaction({
             chain,
             client: thirdwebClient,
-            data: encodeDepositCall(detail.collateralTokenAddress, amountUnits),
+            data: encodeDepositCall(
+              detail.chainId,
+              activeAccount.address,
+              detail.collateralTokenAddress,
+              amountUnits,
+            ),
             to: detail.vaultAddress,
           }),
         });
@@ -218,16 +255,24 @@ export function ThirdwebWalletBridge({
           transactionHash: deposit.transactionHash,
         });
 
-        window.dispatchEvent(new CustomEvent<SmartVaultTransactionResult>("conviction-thirdweb-smart-deposit-result", {
-          detail: { approvalHash, depositHash: deposit.transactionHash, requestId: detail.requestId },
-        }));
+        window.dispatchEvent(
+          new CustomEvent<SmartVaultTransactionResult>("conviction-thirdweb-smart-deposit-result", {
+            detail: {
+              approvalHash,
+              depositHash: deposit.transactionHash,
+              requestId: detail.requestId,
+            },
+          }),
+        );
       } catch (error) {
-        window.dispatchEvent(new CustomEvent<SmartVaultTransactionFailure>("conviction-thirdweb-smart-deposit-error", {
-          detail: {
-            message: error instanceof Error ? error.message : "Smart wallet deposit failed.",
-            requestId: detail.requestId,
-          },
-        }));
+        window.dispatchEvent(
+          new CustomEvent<SmartVaultTransactionFailure>("conviction-thirdweb-smart-deposit-error", {
+            detail: {
+              message: error instanceof Error ? error.message : "Smart wallet deposit failed.",
+              requestId: detail.requestId,
+            },
+          }),
+        );
       }
     }
 
@@ -246,7 +291,8 @@ export function ThirdwebWalletBridge({
       if (!detail?.requestId) return;
 
       try {
-        if (!account) throw new Error("Smart wallet is not active. Sign in with Google smart wallet again.");
+        if (!account)
+          throw new Error("Smart wallet is not active. Sign in with Google smart wallet again.");
         if (account.address.toLowerCase() !== detail.address.toLowerCase()) {
           throw new Error("Active smart wallet does not match the requested signing account.");
         }
@@ -260,13 +306,21 @@ export function ThirdwebWalletBridge({
           requestId: detail.requestId,
           signature,
         };
-        window.dispatchEvent(new CustomEvent<SmartMessageSignResult>("conviction-thirdweb-sign-result", { detail: result }));
+        window.dispatchEvent(
+          new CustomEvent<SmartMessageSignResult>("conviction-thirdweb-sign-result", {
+            detail: result,
+          }),
+        );
       } catch (error) {
         const failure: SmartMessageSignFailure = {
           message: error instanceof Error ? error.message : "Smart wallet signature failed.",
           requestId: detail.requestId,
         };
-        window.dispatchEvent(new CustomEvent<SmartMessageSignFailure>("conviction-thirdweb-sign-error", { detail: failure }));
+        window.dispatchEvent(
+          new CustomEvent<SmartMessageSignFailure>("conviction-thirdweb-sign-error", {
+            detail: failure,
+          }),
+        );
       }
     }
 
@@ -276,11 +330,126 @@ export function ThirdwebWalletBridge({
     };
   }, [account, configured]);
 
-  const detailsButton = useMemo(() => ({
-    displayBalanceToken: {
-      [baseSepoliaId]: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-    },
-  }), []);
+  useEffect(() => {
+    if (!configured) return;
+
+    async function handleTypedData(event: Event) {
+      const detail = (event as CustomEvent<SmartTypedDataRequest>).detail;
+      if (!detail?.requestId) return;
+      try {
+        const typedAccount = account as
+          | (typeof account & {
+              signTypedData?: (typedData: SmartTypedDataRequest["typedData"]) => Promise<string>;
+            })
+          | undefined;
+        if (!typedAccount?.signTypedData)
+          throw new Error("Active smart wallet cannot sign typed execution terms.");
+        if (typedAccount.address.toLowerCase() !== detail.address.toLowerCase()) {
+          throw new Error("Active smart wallet does not match the Conviction account.");
+        }
+        const signature = await typedAccount.signTypedData(detail.typedData);
+        window.dispatchEvent(
+          new CustomEvent("conviction-thirdweb-typed-data-result", {
+            detail: { requestId: detail.requestId, signature },
+          }),
+        );
+      } catch (error) {
+        window.dispatchEvent(
+          new CustomEvent("conviction-thirdweb-typed-data-error", {
+            detail: {
+              requestId: detail.requestId,
+              message: error instanceof Error ? error.message : "Typed-data signing failed.",
+            },
+          }),
+        );
+      }
+    }
+
+    window.addEventListener("conviction-thirdweb-sign-typed-data", handleTypedData);
+    return () => window.removeEventListener("conviction-thirdweb-sign-typed-data", handleTypedData);
+  }, [account, configured]);
+
+  useEffect(() => {
+    if (!configured) return;
+
+    async function handleExecution(event: Event) {
+      const detail = (event as CustomEvent<SmartExecutionRequest>).detail;
+      if (!detail?.requestId) return;
+      try {
+        if (!account)
+          throw new Error("Smart wallet is not active. Sign in again before executing.");
+        if (account.address.toLowerCase() !== detail.address.toLowerCase()) {
+          throw new Error("Active smart wallet does not match the Conviction account.");
+        }
+        const chain = getThirdwebChain(detail.call.chainId);
+        if (!chain) throw new Error("Execution chain is not supported by smart wallet auth.");
+
+        if (detail.allowanceCheck) {
+          const token = getContract({
+            address: detail.allowanceCheck.token,
+            chain,
+            client: thirdwebClient,
+          });
+          const allowance = await readContract({
+            contract: token,
+            method: "function allowance(address owner,address spender) view returns (uint256)",
+            params: [detail.allowanceCheck.owner, detail.allowanceCheck.spender],
+          });
+          const required = parseUnits(detail.allowanceCheck.requiredAssets, 6);
+          if (BigInt(String(allowance)) >= required) {
+            window.dispatchEvent(
+              new CustomEvent("conviction-thirdweb-execution-result", {
+                detail: { requestId: detail.requestId, skipped: true },
+              }),
+            );
+            return;
+          }
+        }
+
+        const submitted = await sendTransaction({
+          account,
+          transaction: prepareTransaction({
+            chain,
+            client: thirdwebClient,
+            data: detail.call.data as `0x${string}`,
+            to: detail.call.to,
+            value: BigInt(detail.call.value),
+          }),
+        });
+        await waitForReceipt({
+          chain,
+          client: thirdwebClient,
+          transactionHash: submitted.transactionHash,
+        });
+        window.dispatchEvent(
+          new CustomEvent("conviction-thirdweb-execution-result", {
+            detail: { requestId: detail.requestId, transactionHash: submitted.transactionHash },
+          }),
+        );
+      } catch (error) {
+        window.dispatchEvent(
+          new CustomEvent("conviction-thirdweb-execution-error", {
+            detail: {
+              requestId: detail.requestId,
+              message: error instanceof Error ? error.message : "Smart wallet execution failed.",
+            },
+          }),
+        );
+      }
+    }
+
+    window.addEventListener("conviction-thirdweb-execution", handleExecution);
+    return () => window.removeEventListener("conviction-thirdweb-execution", handleExecution);
+  }, [account, configured]);
+
+  const detailsButton = useMemo(
+    () => ({
+      displayBalanceToken: {
+        [baseSepoliaId]: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      },
+    }),
+    [],
+  );
 
   if (!configured) {
     return null;
@@ -328,7 +497,19 @@ function encodeApproveCall(spender: string, amount: bigint) {
   });
 }
 
-function encodeDepositCall(collateralTokenAddress: string, amount: bigint) {
+function encodeDepositCall(
+  chainId: number,
+  receiver: string,
+  collateralTokenAddress: string,
+  amount: bigint,
+) {
+  if (chainId === 137) {
+    return encodeFunctionData({
+      abi: parseAbi(["function deposit(uint256 assets,address receiver) returns (uint256)"]),
+      functionName: "deposit",
+      args: [amount, receiver as `0x${string}`],
+    });
+  }
   return encodeFunctionData({
     abi: parseAbi(["function deposit(address collateralToken, uint256 amount)"]),
     functionName: "deposit",
