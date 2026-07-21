@@ -55,7 +55,6 @@ const terminalStates = new Set([
   "CLOSED",
   "FAILED",
   "CANCELLED",
-  "RECONCILIATION_REQUIRED",
 ]);
 
 export function PolymarketPositionLifecycle({
