@@ -2561,7 +2561,9 @@ function getCoreRequestTimeoutMs() {
 }
 
 function isAbortError(error: unknown) {
-  return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
+  if (typeof error !== "object" || error === null || !("name" in error)) return false;
+
+  return error.name === "AbortError" || error.name === "TimeoutError";
 }
 
 export function getCoreApiUrl() {

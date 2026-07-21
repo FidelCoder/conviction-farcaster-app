@@ -34,6 +34,7 @@ import type {
 import { getMarketDiscoveryProfile, getRegionLabel, getTopicLabel } from "../lib/market-discovery";
 import { getMarketDisplayCase, getMarketPrice } from "../lib/market-display";
 import { trackProductEvent, useProductAnalytics } from "../lib/product-analytics";
+import { isClaimedVictionHandle } from "../lib/viction-profile";
 import {
   getNoWalletDetectedMessage,
   isMobileWalletEnvironment,
@@ -303,24 +304,28 @@ export function BrowserTerminal({
 
   useEffect(() => {
     let isCurrent = true;
-    const params = new URLSearchParams({ limit: "80", scope: session ? "all" : "all" });
+    const params = new URLSearchParams({ limit: "80", scope: "all" });
     if (session?.user.id) params.set("userId", session.user.id);
 
-    fetch("/api/social/timeline?" + params.toString())
-      .then((response) => response.json())
-      .then((body: unknown) => {
-        if (!isCurrent) return;
-        const events = parseTimelineEvents(body);
-        setTimelineEvents(events);
-      })
-      .catch(() => {
-        if (isCurrent) setTimelineEvents([]);
-      });
+    async function loadTimeline() {
+      try {
+        const response = await fetch("/api/social/timeline?" + params.toString());
+        const body = (await response.json()) as unknown;
+
+        if (isCurrent) setTimelineEvents(parseTimelineEvents(body));
+      } catch {
+        // Preserve the current preview when a background refresh fails.
+      }
+    }
+
+    void loadTimeline();
+    const interval = isLandingTab ? window.setInterval(loadTimeline, 30_000) : null;
 
     return () => {
       isCurrent = false;
+      if (interval) window.clearInterval(interval);
     };
-  }, [session]);
+  }, [isLandingTab, session?.user.id]);
 
   useEffect(() => {
     if (!portfolio.connected || !portfolio.address || !evmAddressPattern.test(portfolio.address))
@@ -1310,13 +1315,15 @@ export function BrowserTerminal({
           {activeTab === "landing" ? (
             <LandingView
               activeMarket={currentMarket}
+              markets={displayMarkets}
               marketCount={markets.length}
               maxLeverage={getMaxLeverage(vaults)}
               onExploreVaults={() => setActiveTab("vaults")}
               onLaunchTerminal={() => setActiveTab("markets")}
+              onOpenMarket={handleOpenMargin}
               onOpenPulse={() => setActiveTab("activity")}
               socialCount={socialFeed.length}
-              socialPreview={getLandingSocialPreview(socialFeed)}
+              socialPreview={getLandingSocialPreview(socialFeed, timelineEvents)}
               vaultCount={vaults.length}
               walletConnected={portfolio.connected}
             />
@@ -1509,23 +1516,96 @@ function getNonTerminalRoute(tab: string) {
   return routes[tab] ?? null;
 }
 
-function getLandingSocialPreview(feed: SocialFeedItem[]) {
-  const item = feed.find((entry) => entry.signal.status === "PUBLISHED") ?? feed[0];
+function getLandingSocialPreview(feed: SocialFeedItem[], timelineEvents: SocialTimelineEvent[]) {
+  const timelinePreview = [...timelineEvents]
+    .sort((left, right) => parseDate(right.createdAt) - parseDate(left.createdAt))
+    .map(mapLandingTimelinePreview)
+    .find((preview) => preview !== null);
 
-  if (!item) return null;
+  if (timelinePreview) return timelinePreview;
 
-  const handle = item.trader?.handle ?? item.author.handle;
+  const feedItem = [...feed]
+    .filter((item) => item.signal.status === "PUBLISHED")
+    .sort((left, right) => parseDate(right.signal.createdAt) - parseDate(left.signal.createdAt))
+    .find((item) => isClaimedVictionHandle(item.trader?.handle ?? item.author.handle));
+
+  return feedItem ? mapLandingSignalPreview(feedItem) : null;
+}
+
+function mapLandingTimelinePreview(event: SocialTimelineEvent) {
+  if (event.type === "SIGNAL" && event.signal) {
+    return mapLandingSignalPreview(event.signal);
+  }
+
+  if (event.type !== "POST" || !event.post || event.post.status !== "PUBLISHED") {
+    return null;
+  }
+
+  const actor = event.post.author ?? event.actor;
+  const handle = actor.handle;
+
+  if (!handle || !isClaimedVictionHandle(handle)) return null;
 
   return {
-    author: handle
-      ? "@" + (handle.endsWith(".viction") ? handle : handle + ".viction")
-      : "@conviction",
+    author: formatLandingVictionHandle(handle),
+    avatarUrl: normalizeLandingAvatar(actor.avatarUrl ?? actor.profileUrl),
+    convictionLevel: null,
+    displayName: getLandingDisplayName(actor, handle),
+    marketTitle: null,
+    side: null,
+    thesis: event.post.body,
+    time: formatRelativeTime(event.post.createdAt),
+  };
+}
+
+function mapLandingSignalPreview(item: SocialFeedItem) {
+  const handle = item.trader?.handle ?? item.author.handle;
+
+  if (!handle || !isClaimedVictionHandle(handle)) return null;
+
+  return {
+    author: formatLandingVictionHandle(handle),
+    avatarUrl: normalizeLandingAvatar(
+      item.trader?.avatarUrl ?? item.author.avatarUrl ?? item.author.profileUrl,
+    ),
     convictionLevel: item.signal.convictionLevel,
-    marketTitle: item.market?.title ?? "Market discussion",
+    displayName: getLandingDisplayName(item.author, handle),
+    marketTitle: item.market?.title ?? null,
     side: item.signal.side,
     thesis: item.signal.thesis,
     time: formatRelativeTime(item.signal.createdAt),
   };
+}
+
+function formatLandingVictionHandle(handle: string) {
+  const cleanHandle = handle.trim().replace(/^@/, "");
+
+  return "@" + (cleanHandle.endsWith(".viction") ? cleanHandle : cleanHandle + ".viction");
+}
+
+function getLandingDisplayName(
+  actor: { displayName?: string | null; username?: string | null },
+  handle: string,
+) {
+  const displayName = actor.displayName?.trim();
+  const username = actor.username?.trim();
+
+  if (displayName && !/^0x[a-f0-9]+$/i.test(displayName)) return displayName;
+  if (username && username.toLowerCase() !== handle.toLowerCase()) return username;
+
+  return handle.replace(/\.viction$/i, "");
+}
+
+function normalizeLandingAvatar(value: string | null | undefined) {
+  const avatarUrl = value?.trim();
+
+  return avatarUrl || null;
+}
+
+function parseDate(value: string) {
+  const timestamp = Date.parse(value);
+
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function mapMarketToPredictionMarket(market: Market): PredictionMarket {

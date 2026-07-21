@@ -1,25 +1,29 @@
 "use client";
 
 import Image from "next/image";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRight, MessageCircle, Search, Send, ShieldCheck, TrendingUp } from "lucide-react";
 
 import type { PredictionMarket } from "../types";
 
 export type LandingSocialPreview = {
   author: string;
+  avatarUrl: string | null;
   convictionLevel: number | null;
-  marketTitle: string;
-  side: "YES" | "NO";
+  displayName: string;
+  marketTitle: string | null;
+  side: "YES" | "NO" | null;
   thesis: string;
   time: string;
 };
 
 interface LandingViewProps {
   activeMarket: PredictionMarket;
+  markets: PredictionMarket[];
   marketCount: number;
   maxLeverage: number;
   onLaunchTerminal: () => void;
+  onOpenMarket: (market: PredictionMarket) => void;
   onExploreVaults: () => void;
   onOpenPulse: () => void;
   socialCount: number;
@@ -30,9 +34,11 @@ interface LandingViewProps {
 
 export default function LandingView({
   activeMarket,
+  markets,
   marketCount,
   maxLeverage,
   onLaunchTerminal,
+  onOpenMarket,
   onExploreVaults,
   onOpenPulse,
   socialCount,
@@ -44,6 +50,29 @@ export default function LandingView({
   const [outcome, setOutcome] = useState<"YES" | "NO">("YES");
   const [leverage, setLeverage] = useState(Math.min(5, leverageLimit));
   const [collateral, setCollateral] = useState(1000);
+  const heroMarkets = useMemo(() => getLandingHeroMarkets(markets), [markets]);
+  const [heroMarketIndex, setHeroMarketIndex] = useState(0);
+
+  useEffect(() => {
+    if (heroMarkets.length <= 1) {
+      setHeroMarketIndex(0);
+      return;
+    }
+
+    const syncRotation = () => {
+      setHeroMarketIndex(Math.floor(Date.now() / 8_000) % heroMarkets.length);
+    };
+
+    syncRotation();
+    const interval = window.setInterval(syncRotation, 1_000);
+
+    return () => window.clearInterval(interval);
+  }, [heroMarkets.length]);
+
+  const heroMarket = heroMarkets[heroMarketIndex] ?? activeMarket;
+  const heroYesProbability = clamp(heroMarket.currentOdds, 0, 100);
+  const heroNoProbability = 100 - heroYesProbability;
+  const hasHeroMarketImage = isLandingMarketImage(heroMarket.imageUrl);
 
   const yesProbability = clamp(activeMarket.currentOdds, 0, 100);
   const noProbability = 100 - yesProbability;
@@ -54,10 +83,6 @@ export default function LandingView({
   const positionSize = collateral * effectiveLeverage;
   const estimatedShares = Math.floor(positionSize / selectedPrice);
   const liquidationPrice = selectedPrice * 0.82;
-  const hasMarketImage = activeMarket.imageUrl?.startsWith(
-    "https://polymarket-upload.s3.us-east-2.amazonaws.com/",
-  );
-
   return (
     <main className="landing-v2">
       <section className="landing-v2-hero">
@@ -88,11 +113,12 @@ export default function LandingView({
           </div>
 
           <MarketSnapshot
-            market={activeMarket}
-            hasImage={Boolean(hasMarketImage)}
-            noProbability={noProbability}
-            onOpenMarket={onLaunchTerminal}
-            yesProbability={yesProbability}
+            key={heroMarket.id}
+            market={heroMarket}
+            hasImage={hasHeroMarketImage}
+            noProbability={heroNoProbability}
+            onOpenMarket={() => onOpenMarket(heroMarket)}
+            yesProbability={heroYesProbability}
           />
         </div>
       </section>
@@ -272,6 +298,46 @@ export default function LandingView({
   );
 }
 
+function getLandingHeroMarkets(markets: PredictionMarket[]) {
+  return markets
+    .filter((market) => market.status === "LIVE" && isLandingMarketImage(market.imageUrl))
+    .sort((left, right) => {
+      const scoreDifference = getLandingHeroScore(right) - getLandingHeroScore(left);
+
+      return scoreDifference || left.id.localeCompare(right.id);
+    })
+    .slice(0, 6);
+}
+
+function getLandingHeroScore(market: PredictionMarket) {
+  const volume = market.volume24hValue ?? parseLandingMarketValue(market.vol24h);
+  const liquidity = market.liquidityValue ?? parseLandingMarketValue(market.liquidity);
+  const movement = Math.abs(market.oneDayPriceChange ?? 0);
+
+  return (
+    Math.log10(Math.max(0, volume) + 1) * 24 +
+    Math.log10(Math.max(0, liquidity) + 1) * 14 +
+    Math.min(movement, 25) * 2 +
+    market.convictionValue * 0.25
+  );
+}
+
+function parseLandingMarketValue(value: string) {
+  const normalized = value.trim().replace(/[$,]/g, "").toUpperCase();
+  const numericValue = Number.parseFloat(normalized);
+
+  if (!Number.isFinite(numericValue)) return 0;
+  if (normalized.endsWith("B")) return numericValue * 1_000_000_000;
+  if (normalized.endsWith("M")) return numericValue * 1_000_000;
+  if (normalized.endsWith("K")) return numericValue * 1_000;
+
+  return numericValue;
+}
+
+function isLandingMarketImage(value?: string | null): value is string {
+  return Boolean(value?.startsWith("https://polymarket-upload.s3.us-east-2.amazonaws.com/"));
+}
+
 function MarketSnapshot({
   market,
   hasImage,
@@ -343,24 +409,40 @@ function PulsePreview({
     );
   }
 
-  const initial = preview.author.replace(/^@/, "").charAt(0).toUpperCase() || "V";
+  const initial =
+    preview.displayName.replace(/^@/, "").charAt(0).toUpperCase() ||
+    preview.author.replace(/^@/, "").charAt(0).toUpperCase() ||
+    "V";
 
   return (
     <button className="landing-v2-pulse-preview" onClick={onOpenPulse} type="button">
       <div className="landing-v2-pulse-author">
-        <span className="landing-v2-avatar">{initial}</span>
-        <strong>{preview.author}</strong>
+        <span className="landing-v2-avatar">
+          {preview.avatarUrl ? (
+            // Claimed avatars may be hosted outside the market-image allowlist.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img alt="" loading="lazy" src={preview.avatarUrl} />
+          ) : (
+            initial
+          )}
+        </span>
+        <span className="landing-v2-pulse-identity">
+          <strong>{preview.displayName}</strong>
+          <span>{preview.author}</span>
+        </span>
         <small>{preview.time}</small>
       </div>
       <p>{preview.thesis}</p>
-      <div className="landing-v2-linked-market">
-        <span>Linked market</span>
-        <strong>{preview.marketTitle}</strong>
-        <small className={preview.side === "YES" ? "is-yes" : "is-no"}>
-          {preview.side} signal
-          {preview.convictionLevel ? " · " + preview.convictionLevel + "% conviction" : ""}
-        </small>
-      </div>
+      {preview.marketTitle && preview.side ? (
+        <div className="landing-v2-linked-market">
+          <span>Linked market</span>
+          <strong>{preview.marketTitle}</strong>
+          <small className={preview.side === "YES" ? "is-yes" : "is-no"}>
+            {preview.side} signal
+            {preview.convictionLevel ? " · " + preview.convictionLevel + "% conviction" : ""}
+          </small>
+        </div>
+      ) : null}
       <span className="landing-v2-open-link">
         View in Pulse <ArrowRight size={13} />
       </span>
