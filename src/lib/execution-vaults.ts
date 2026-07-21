@@ -25,7 +25,7 @@ export function mapExecutionToVaults(execution: ExecutionCapabilities): Vault[] 
       utilization: 0,
       healthRatio: 0,
       maxLeverage: execution.maxPendingMarginLeverage ?? 10,
-      asset: collateralSymbol === "WETH" ? "WETH" : "USDC",
+      asset: collateralSymbol === "WETH" ? "WETH" : collateralSymbol === "pUSD" ? "pUSD" : "USDC",
       accentColor: index % 2 === 0 ? "orange" : "purple",
       userDeposited: 0,
       chainId: chain.chainId,

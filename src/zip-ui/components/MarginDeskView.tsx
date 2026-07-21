@@ -1,9 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { OddsFlowChart, type OddsFlowHitTarget, type OddsFlowSeries } from '../../components/OddsFlowChart';
-import { getVaultAvailableBalance } from '../../lib/wallet-balances';
-import { PredictionMarket, Vault, MarketTapeItem, UserPortfolio } from '../types';
-import { Info, Bolt, BookOpen, RefreshCw, TrendingUp, X } from 'lucide-react';
-
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  OddsFlowChart,
+  type OddsFlowHitTarget,
+  type OddsFlowSeries,
+} from "../../components/OddsFlowChart";
+import { getVaultAvailableBalance } from "../../lib/wallet-balances";
+import { PredictionMarket, Vault, MarketTapeItem, UserPortfolio } from "../types";
+import { Info, Bolt, BookOpen, RefreshCw, TrendingUp, X } from "lucide-react";
+import { PolymarketMarginPanel } from "../../components/PolymarketMarginPanel";
+import type { ExecutionCapabilities, UserSession } from "../../lib/core-api";
 
 type MarketCandle = {
   close: number;
@@ -14,9 +19,9 @@ type MarketCandle = {
   volume?: number | null;
 };
 
-type MarketHistoryRange = '1h' | '1w' | '1m' | '1y';
+type MarketHistoryRange = "1h" | "1w" | "1m" | "1y";
 
-type MarketHistoryStatus = 'loading' | 'ready' | 'snapshot_only' | 'empty';
+type MarketHistoryStatus = "loading" | "ready" | "snapshot_only" | "empty";
 
 type MarketHistoryState = {
   status: MarketHistoryStatus;
@@ -28,13 +33,13 @@ type MarketHistoryState = {
 type CompareHistoryStore = Record<string, MarketHistoryState>;
 
 const HISTORY_RANGES: Array<{ label: string; value: MarketHistoryRange }> = [
-  { label: '1H', value: '1h' },
-  { label: '1W', value: '1w' },
-  { label: '1M', value: '1m' },
-  { label: '1Y', value: '1y' },
+  { label: "1H", value: "1h" },
+  { label: "1W", value: "1w" },
+  { label: "1M", value: "1m" },
+  { label: "1Y", value: "1y" },
 ];
 
-const COMPARE_COLORS = ['#8b5cf6', '#10b981', '#38bdf8', '#f43f5e'];
+const COMPARE_COLORS = ["#8b5cf6", "#10b981", "#38bdf8", "#f43f5e"];
 
 interface MarginDeskViewProps {
   markets: PredictionMarket[];
@@ -43,7 +48,18 @@ interface MarginDeskViewProps {
   activeMarket: PredictionMarket;
   setActiveMarket: (market: PredictionMarket) => void;
   portfolio: UserPortfolio;
-  onRequestMargin: (vaultId: string, marginAmt: number, leverage: number, estPosition: number, liqPrice: number, outcomeType?: 'YES' | 'NO', visibility?: 'PUBLIC' | 'PRIVATE') => Promise<void> | void;
+  onRequestMargin: (
+    vaultId: string,
+    marginAmt: number,
+    leverage: number,
+    estPosition: number,
+    liqPrice: number,
+    outcomeType?: "YES" | "NO",
+    visibility?: "PUBLIC" | "PRIVATE",
+  ) => Promise<void> | void;
+  execution: ExecutionCapabilities;
+  session: UserSession | null;
+  onStatus: (type: "success" | "info", message: string) => void;
 }
 
 export default function MarginDeskView({
@@ -53,28 +69,35 @@ export default function MarginDeskView({
   activeMarket,
   setActiveMarket,
   portfolio,
-  onRequestMargin
+  onRequestMargin,
+  execution,
+  session,
+  onStatus,
 }: MarginDeskViewProps) {
-  const [selectedVaultId, setSelectedVaultId] = useState<string>(vaults[0]?.id || 'usdc-core-vault');
+  const [selectedVaultId, setSelectedVaultId] = useState<string>(
+    vaults[0]?.id || "usdc-core-vault",
+  );
   const [leverage, setLeverage] = useState<number>(5);
-  const [marginAmount, setMarginAmount] = useState<string>('');
-  const [outcomeType, setOutcomeType] = useState<'YES' | 'NO'>('YES');
-  const [tradeVisibility, setTradeVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PRIVATE');
+  const [marginAmount, setMarginAmount] = useState<string>("");
+  const [outcomeType, setOutcomeType] = useState<"YES" | "NO">("YES");
+  const [tradeVisibility, setTradeVisibility] = useState<"PUBLIC" | "PRIVATE">("PRIVATE");
   const [isRequesting, setIsRequesting] = useState<boolean>(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
-  const [historyRange, setHistoryRange] = useState<MarketHistoryRange>('1w');
+  const [historyRange, setHistoryRange] = useState<MarketHistoryRange>("1w");
   const [compareMarketIds, setCompareMarketIds] = useState<string[]>([]);
   const [compareHistory, setCompareHistory] = useState<CompareHistoryStore>({});
   const chartTargetsRef = useRef<OddsFlowHitTarget[]>([]);
   const [hoveredPoint, setHoveredPoint] = useState<OddsFlowHitTarget | null>(null);
   const [historyState, setHistoryState] = useState<MarketHistoryState>({
-    status: 'loading',
+    status: "loading",
     candles: [],
-    range: '1w',
-    source: 'CONVICTION_LOADING',
+    range: "1w",
+    source: "CONVICTION_LOADING",
   });
 
-  const selectedVault = vaults.find(v => v.id === selectedVaultId) || vaults[0];
+  const selectedVault = vaults.find((v) => v.id === selectedVaultId) || vaults[0];
+  const usePolymarketExecution =
+    execution.contractLayer?.status?.startsWith("POLYGON_PUSD") ?? false;
 
   useEffect(() => {
     if (selectedVault && leverage > selectedVault.maxLeverage) {
@@ -85,10 +108,15 @@ export default function MarginDeskView({
   useEffect(() => {
     let isCurrent = true;
 
-    setHistoryState({ status: 'loading', candles: [], range: historyRange, source: 'CONVICTION_LOADING' });
+    setHistoryState({
+      status: "loading",
+      candles: [],
+      range: historyRange,
+      source: "CONVICTION_LOADING",
+    });
     setHoveredPoint(null);
 
-    fetch('/api/markets/' + encodeURIComponent(activeMarket.id) + '/history?range=' + historyRange)
+    fetch("/api/markets/" + encodeURIComponent(activeMarket.id) + "/history?range=" + historyRange)
       .then((response) => response.json())
       .then((body: unknown) => {
         if (!isCurrent) return;
@@ -101,10 +129,10 @@ export default function MarginDeskView({
 
         const fallback = buildSnapshotCandles(activeMarket);
         setHistoryState({
-          status: fallback.length > 0 ? 'snapshot_only' : 'empty',
+          status: fallback.length > 0 ? "snapshot_only" : "empty",
           candles: fallback,
           range: historyRange,
-          source: 'CONVICTION_SNAPSHOT',
+          source: "CONVICTION_SNAPSHOT",
         });
       });
 
@@ -113,9 +141,10 @@ export default function MarginDeskView({
     };
   }, [activeMarket, historyRange]);
 
-
   useEffect(() => {
-    setCompareMarketIds((current) => current.filter((marketId) => marketId !== activeMarket.id).slice(0, 3));
+    setCompareMarketIds((current) =>
+      current.filter((marketId) => marketId !== activeMarket.id).slice(0, 3),
+    );
   }, [activeMarket.id]);
 
   useEffect(() => {
@@ -128,27 +157,39 @@ export default function MarginDeskView({
 
     const loadingState: CompareHistoryStore = {};
     compareMarketIds.forEach((marketId) => {
-      loadingState[marketId] = { status: 'loading', candles: [], range: historyRange, source: 'CONVICTION_LOADING' };
+      loadingState[marketId] = {
+        status: "loading",
+        candles: [],
+        range: historyRange,
+        source: "CONVICTION_LOADING",
+      };
     });
     setCompareHistory(loadingState);
 
-    Promise.all(compareMarketIds.map(async (marketId) => {
-      const market = markets.find((entry) => entry.id === marketId);
+    Promise.all(
+      compareMarketIds.map(async (marketId) => {
+        const market = markets.find((entry) => entry.id === marketId);
 
-      try {
-        const response = await fetch('/api/markets/' + encodeURIComponent(marketId) + '/history?range=' + historyRange);
-        const body = (await response.json()) as unknown;
-        return [marketId, parseHistoryResponse(body)] as const;
-      } catch {
-        const fallback = market ? buildSnapshotCandles(market) : [];
-        return [marketId, {
-          status: fallback.length > 0 ? 'snapshot_only' : 'empty',
-          candles: fallback,
-          range: historyRange,
-          source: 'CONVICTION_SNAPSHOT',
-        } satisfies MarketHistoryState] as const;
-      }
-    })).then((entries) => {
+        try {
+          const response = await fetch(
+            "/api/markets/" + encodeURIComponent(marketId) + "/history?range=" + historyRange,
+          );
+          const body = (await response.json()) as unknown;
+          return [marketId, parseHistoryResponse(body)] as const;
+        } catch {
+          const fallback = market ? buildSnapshotCandles(market) : [];
+          return [
+            marketId,
+            {
+              status: fallback.length > 0 ? "snapshot_only" : "empty",
+              candles: fallback,
+              range: historyRange,
+              source: "CONVICTION_SNAPSHOT",
+            } satisfies MarketHistoryState,
+          ] as const;
+        }
+      }),
+    ).then((entries) => {
       if (!isCurrent) return;
       setCompareHistory(Object.fromEntries(entries));
     });
@@ -162,30 +203,31 @@ export default function MarginDeskView({
     ? getVaultAvailableBalance({ portfolio, vault: selectedVault })
     : 0;
 
-  const currentOutcomeOdds = outcomeType === 'YES' ? activeMarket.currentOdds : (100 - activeMarket.currentOdds);
+  const currentOutcomeOdds =
+    outcomeType === "YES" ? activeMarket.currentOdds : 100 - activeMarket.currentOdds;
   const numericAmount = parseFloat(marginAmount) || 0;
   const pricePerShare = Math.max(0.01, currentOutcomeOdds / 100);
   const tradingPower = numericAmount * leverage;
   const borrowedLiquidity = Math.max(0, tradingPower - numericAmount);
   const contractShares = Math.floor(tradingPower / pricePerShare);
   const estimatedPosition = contractShares * pricePerShare;
-  const liquidationOdds = activeMarket.status === 'HALTED'
-    ? 0
-    : currentOutcomeOdds * (1 - 0.70 / Math.max(leverage, 1));
+  const liquidationOdds =
+    activeMarket.status === "HALTED" ? 0 : currentOutcomeOdds * (1 - 0.7 / Math.max(leverage, 1));
   const reviewRows = useMemo(() => buildMarketReviewRows(activeMarket), [activeMarket]);
   const compareCandidates = useMemo(
     () => getCompareCandidates(markets, activeMarket).slice(0, 12),
     [activeMarket, markets],
   );
   const selectedCompareMarkets = useMemo(
-    () => compareMarketIds
-      .map((marketId) => markets.find((market) => market.id === marketId))
-      .filter((market): market is PredictionMarket => Boolean(market)),
+    () =>
+      compareMarketIds
+        .map((marketId) => markets.find((market) => market.id === marketId))
+        .filter((market): market is PredictionMarket => Boolean(market)),
     [compareMarketIds, markets],
   );
   const chartSeries = useMemo<OddsFlowSeries[]>(() => {
     const primary: OddsFlowSeries = {
-      color: '#f97316',
+      color: "#f97316",
       id: activeMarket.id,
       label: activeMarket.title,
       points: historyState.candles,
@@ -199,7 +241,9 @@ export default function MarginDeskView({
 
     return [primary, ...peers];
   }, [activeMarket, compareHistory, historyState.candles, selectedCompareMarkets]);
-  const comparedReadyCount = selectedCompareMarkets.filter((market) => (compareHistory[market.id]?.candles.length ?? 0) > 0).length;
+  const comparedReadyCount = selectedCompareMarkets.filter(
+    (market) => (compareHistory[market.id]?.candles.length ?? 0) > 0,
+  ).length;
 
   const handleMaxCollateral = () => {
     setMarginAmount(maxCollateral.toFixed(2));
@@ -225,14 +269,19 @@ export default function MarginDeskView({
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    if (x < firstTarget.plotLeft || x > firstTarget.plotRight || y < firstTarget.plotTop || y > firstTarget.plotBottom) {
+    if (
+      x < firstTarget.plotLeft ||
+      x > firstTarget.plotRight ||
+      y < firstTarget.plotTop ||
+      y > firstTarget.plotBottom
+    ) {
       if (hoveredPoint) setHoveredPoint(null);
       return;
     }
 
-    const nearest = targets.reduce((closest, target) => (
-      Math.abs(target.x - x) < Math.abs(closest.x - x) ? target : closest
-    ));
+    const nearest = targets.reduce((closest, target) =>
+      Math.abs(target.x - x) < Math.abs(closest.x - x) ? target : closest,
+    );
 
     if (hoveredPoint?.index !== nearest.index) {
       setHoveredPoint(nearest);
@@ -247,17 +296,21 @@ export default function MarginDeskView({
     e.preventDefault();
 
     if (!portfolio.connected) {
-      alert('Sign in before requesting margin. Your request is tied to your active Conviction account.');
+      alert(
+        "Sign in before requesting margin. Your request is tied to your active Conviction account.",
+      );
       return;
     }
 
     if (numericAmount <= 0) {
-      alert('Enter a positive collateral amount.');
+      alert("Enter a positive collateral amount.");
       return;
     }
 
     if (numericAmount > maxCollateral) {
-      alert(`Insufficient vault balance. You can use up to ${maxCollateral.toFixed(2)} ${selectedVault.asset}.`);
+      alert(
+        `Insufficient vault balance. You can use up to ${maxCollateral.toFixed(2)} ${selectedVault.asset}.`,
+      );
       return;
     }
 
@@ -271,9 +324,9 @@ export default function MarginDeskView({
         estimatedPosition,
         liquidationOdds,
         outcomeType,
-        tradeVisibility
+        tradeVisibility,
       );
-      setMarginAmount('');
+      setMarginAmount("");
     } finally {
       setIsRequesting(false);
     }
@@ -287,7 +340,9 @@ export default function MarginDeskView({
             <TrendingUp size={12} className="text-deep-orange" />
             <span>Market Tape</span>
           </h3>
-          <span className="font-mono text-[9px] text-[#ccc3d8]/60 bg-[#262626] px-1.5 py-0.5 rounded uppercase">LIVE</span>
+          <span className="font-mono text-[9px] text-[#ccc3d8]/60 bg-[#262626] px-1.5 py-0.5 rounded uppercase">
+            LIVE
+          </span>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -301,7 +356,7 @@ export default function MarginDeskView({
             </thead>
             <tbody className="divide-y divide-[#262626]">
               {tape.map((item) => {
-                const matchedMarket = markets.find(m => m.id === item.id);
+                const matchedMarket = markets.find((m) => m.id === item.id);
                 const isSelected = item.id === activeMarket.id;
 
                 return (
@@ -312,12 +367,14 @@ export default function MarginDeskView({
                     }}
                     className={`cursor-pointer transition-colors ${
                       isSelected
-                        ? 'bg-deep-orange/15 text-white border-l-2 border-l-deep-orange'
-                        : 'hover:bg-[#1A1A1A] text-[#ccc3d8]'
+                        ? "bg-deep-orange/15 text-white border-l-2 border-l-deep-orange"
+                        : "hover:bg-[#1A1A1A] text-[#ccc3d8]"
                     }`}
                   >
                     <td className="py-2.5 px-3 font-semibold text-white">{item.market}</td>
-                    <td className={`py-2.5 px-3 text-right font-medium ${item.isPositive ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
+                    <td
+                      className={`py-2.5 px-3 text-right font-medium ${item.isPositive ? "text-[#10B981]" : "text-[#EF4444]"}`}
+                    >
                       {formatPercent(item.price * 100)}
                     </td>
                     <td className="py-2.5 px-3 text-right text-[#ccc3d8]/80">{item.size}</td>
@@ -333,9 +390,15 @@ export default function MarginDeskView({
         <div className="px-4 sm:px-6 py-4 border-b border-[#262626] flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 bg-[#0e0e0e] z-10 relative">
           <div>
             <div className="mb-2 flex flex-wrap gap-2 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]">
-              <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">Conviction market</span>
-              <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">{activeMarket.discoveryTopic ?? 'World'}</span>
-              <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">{activeMarket.discoveryRegion ?? 'Global'}</span>
+              <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">
+                Conviction market
+              </span>
+              <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">
+                {activeMarket.discoveryTopic ?? "World"}
+              </span>
+              <span className="rounded border border-[#262626] bg-[#161616] px-2 py-1">
+                {activeMarket.discoveryRegion ?? "Global"}
+              </span>
             </div>
             <h2 className="font-sans font-bold text-lg text-white leading-tight">
               {activeMarket.title}
@@ -360,7 +423,9 @@ export default function MarginDeskView({
             <article className="min-w-0 rounded border border-[#262626] bg-[#161616] p-3 sm:p-5">
               <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Market Flow</p>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">
+                    Market Flow
+                  </p>
                   <h3 className="mt-1 text-lg font-bold text-white">Multi-market YES odds flow</h3>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -372,15 +437,19 @@ export default function MarginDeskView({
                       aria-pressed={historyRange === range.value}
                       className={`rounded border px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
                         historyRange === range.value
-                          ? 'border-deep-orange bg-deep-orange text-black'
-                          : 'border-[#262626] bg-[#0e0e0e] text-[#ccc3d8] hover:border-white/40 hover:text-white'
+                          ? "border-deep-orange bg-deep-orange text-black"
+                          : "border-[#262626] bg-[#0e0e0e] text-[#ccc3d8] hover:border-white/40 hover:text-white"
                       }`}
                     >
                       {range.label}
                     </button>
                   ))}
                   <span className="rounded border border-[#262626] bg-[#0e0e0e] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]">
-                    {getMultiMarketStatusLabel(historyState, comparedReadyCount, selectedCompareMarkets.length)}
+                    {getMultiMarketStatusLabel(
+                      historyState,
+                      comparedReadyCount,
+                      selectedCompareMarkets.length,
+                    )}
                   </span>
                 </div>
               </div>
@@ -389,7 +458,11 @@ export default function MarginDeskView({
                 <div className="flex flex-wrap gap-2" aria-label="Compare markets">
                   {compareCandidates.map((market) => {
                     const selected = compareMarketIds.includes(market.id);
-                    const color = selected ? COMPARE_COLORS[Math.max(0, compareMarketIds.indexOf(market.id)) % COMPARE_COLORS.length] : '#ccc3d8';
+                    const color = selected
+                      ? COMPARE_COLORS[
+                          Math.max(0, compareMarketIds.indexOf(market.id)) % COMPARE_COLORS.length
+                        ]
+                      : "#ccc3d8";
 
                     return (
                       <button
@@ -399,11 +472,14 @@ export default function MarginDeskView({
                         aria-pressed={selected}
                         className={`inline-flex max-w-full items-center gap-2 rounded border px-2.5 py-1.5 font-mono text-[9px] font-bold uppercase tracking-widest transition-colors ${
                           selected
-                            ? 'border-deep-orange bg-deep-orange/10 text-white'
-                            : 'border-[#262626] bg-[#0e0e0e] text-[#ccc3d8] hover:border-white/40 hover:text-white'
+                            ? "border-deep-orange bg-deep-orange/10 text-white"
+                            : "border-[#262626] bg-[#0e0e0e] text-[#ccc3d8] hover:border-white/40 hover:text-white"
                         }`}
                       >
-                        <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                        <span
+                          className="h-2 w-2 flex-shrink-0 rounded-full"
+                          style={{ backgroundColor: color }}
+                        />
                         <span className="truncate">{getShortMarketTitle(market.title)}</span>
                       </button>
                     );
@@ -445,18 +521,31 @@ export default function MarginDeskView({
                     }}
                   >
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="font-bold uppercase tracking-widest text-deep-orange">Odds</span>
-                      <span className="text-[#ccc3d8]/70">{formatChartTime(hoveredPoint.point.timestamp)}</span>
+                      <span className="font-bold uppercase tracking-widest text-deep-orange">
+                        Odds
+                      </span>
+                      <span className="text-[#ccc3d8]/70">
+                        {formatChartTime(hoveredPoint.point.timestamp)}
+                      </span>
                     </div>
                     <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
                       <TooltipRow label="YES" value={formatPercent(hoveredPoint.point.close)} />
-                      <TooltipRow label="NO" value={formatPercent(100 - hoveredPoint.point.close)} />
-                      <TooltipRow label="Move" value={formatSignedPercent(hoveredPoint.point.close - (hoveredPoint.point.open ?? hoveredPoint.point.close))} />
+                      <TooltipRow
+                        label="NO"
+                        value={formatPercent(100 - hoveredPoint.point.close)}
+                      />
+                      <TooltipRow
+                        label="Move"
+                        value={formatSignedPercent(
+                          hoveredPoint.point.close -
+                            (hoveredPoint.point.open ?? hoveredPoint.point.close),
+                        )}
+                      />
                       <TooltipRow label="Volume" value={formatVolume(hoveredPoint.point.volume)} />
                     </dl>
                   </div>
                 ) : null}
-                {historyState.status === 'loading' ? (
+                {historyState.status === "loading" ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-[#050505]/70 font-mono text-[10px] uppercase tracking-widest text-[#ccc3d8]">
                     Loading odds flow...
                   </div>
@@ -464,36 +553,60 @@ export default function MarginDeskView({
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-3 min-[1500px]:grid-cols-6">
-                <PriceTile label="YES chance" value={formatPercent(activeMarket.currentOdds)} tone="yes" />
-                <PriceTile label="NO chance" value={formatPercent(100 - activeMarket.currentOdds)} tone="no" />
-                <PriceTile label="Last trade" value={formatRawProbability(activeMarket.lastTradePrice)} />
+                <PriceTile
+                  label="YES chance"
+                  value={formatPercent(activeMarket.currentOdds)}
+                  tone="yes"
+                />
+                <PriceTile
+                  label="NO chance"
+                  value={formatPercent(100 - activeMarket.currentOdds)}
+                  tone="no"
+                />
+                <PriceTile
+                  label="Last trade"
+                  value={formatRawProbability(activeMarket.lastTradePrice)}
+                />
                 <PriceTile label="Best bid" value={formatRawProbability(activeMarket.bestBid)} />
                 <PriceTile label="Best ask" value={formatRawProbability(activeMarket.bestAsk)} />
-                <PriceTile label="Min order" value={activeMarket.orderMinSize ? activeMarket.orderMinSize + ' contracts' : 'Pending'} />
+                <PriceTile
+                  label="Min order"
+                  value={
+                    activeMarket.orderMinSize ? activeMarket.orderMinSize + " contracts" : "Pending"
+                  }
+                />
               </div>
             </article>
 
             <article className="rounded border border-[#262626] bg-[#161616] p-5">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Event Details</p>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">
+                    Event Details
+                  </p>
                   <h3 className="mt-1 text-xl font-bold text-white">Resolution summary</h3>
                 </div>
-                <span className={`rounded border px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest ${
-                  activeMarket.status === 'LIVE'
-                    ? 'border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]'
-                    : 'border-[#EF4444]/30 bg-[#EF4444]/10 text-[#EF4444]'
-                }`}>
+                <span
+                  className={`rounded border px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-widest ${
+                    activeMarket.status === "LIVE"
+                      ? "border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]"
+                      : "border-[#EF4444]/30 bg-[#EF4444]/10 text-[#EF4444]"
+                  }`}
+                >
                   {activeMarket.status}
                 </span>
               </div>
 
-              <p className="line-clamp-6 text-sm leading-relaxed text-[#ccc3d8]">{activeMarket.description}</p>
+              <p className="line-clamp-6 text-sm leading-relaxed text-[#ccc3d8]">
+                {activeMarket.description}
+              </p>
 
               <dl className="mt-5 grid gap-3 sm:grid-cols-2 min-[1500px]:grid-cols-4">
                 {reviewRows.slice(1, 5).map((row) => (
                   <div key={row.label} className="rounded border border-[#262626] bg-[#0e0e0e] p-3">
-                    <dt className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">{row.label}</dt>
+                    <dt className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">
+                      {row.label}
+                    </dt>
                     <dd className="mt-1 text-sm font-semibold text-white">{row.value}</dd>
                   </div>
                 ))}
@@ -512,13 +625,19 @@ export default function MarginDeskView({
         </div>
       </section>
 
-
       {isRulesOpen ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Market rules">
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Market rules"
+        >
           <section className="max-h-[86vh] w-full max-w-3xl overflow-y-auto rounded border border-[#262626] bg-[#161616] shadow-2xl">
             <div className="sticky top-0 flex items-start justify-between gap-4 border-b border-[#262626] bg-[#0e0e0e] p-5">
               <div>
-                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">Market rules</p>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-deep-orange">
+                  Market rules
+                </p>
                 <h3 className="mt-1 text-xl font-bold text-white">{activeMarket.title}</h3>
               </div>
               <button
@@ -535,7 +654,9 @@ export default function MarginDeskView({
               <dl className="mt-5 grid gap-3 sm:grid-cols-2">
                 {reviewRows.map((row) => (
                   <div key={row.label} className="rounded border border-[#262626] bg-[#0e0e0e] p-3">
-                    <dt className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">{row.label}</dt>
+                    <dt className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">
+                      {row.label}
+                    </dt>
                     <dd className="mt-1 text-sm font-semibold text-white">{row.value}</dd>
                   </div>
                 ))}
@@ -546,209 +667,246 @@ export default function MarginDeskView({
       ) : null}
 
       <section className="w-full flex flex-col gap-4 overflow-visible xl:overflow-y-auto xl:max-h-full">
-        <form
-          onSubmit={handleOrderSubmit}
-          className="bg-[#161616] border-t-2 border-t-deep-orange border-x border-b border-[#262626] rounded p-6 glow-orange transition-all duration-300"
-        >
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="font-sans font-bold text-lg text-white">Margin Request</h3>
-            <Bolt size={18} className="text-deep-orange" />
-          </div>
-
-          <div className="mb-6">
-            <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">Pick Outcome</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setOutcomeType('YES')}
-                className={`py-3 px-4 rounded text-center transition-all cursor-pointer font-sans font-bold text-xs ${
-                  outcomeType === 'YES'
-                    ? 'bg-deep-orange text-black font-extrabold shadow-md'
-                    : 'bg-[#0e0e0e] text-[#ccc3d8] border border-[#262626] hover:border-white/25'
-                }`}
-              >
-                YES ({formatPercent(activeMarket.currentOdds)})
-              </button>
-              <button
-                type="button"
-                onClick={() => setOutcomeType('NO')}
-                className={`py-3 px-4 rounded text-center transition-all cursor-pointer font-sans font-bold text-xs ${
-                  outcomeType === 'NO'
-                    ? 'bg-[#EF4444] text-white font-extrabold shadow-md'
-                    : 'bg-[#0e0e0e] text-[#ccc3d8] border border-[#262626] hover:border-white/25'
-                }`}
-              >
-                NO ({formatPercent(100 - activeMarket.currentOdds)})
-              </button>
+        {usePolymarketExecution ? (
+          <PolymarketMarginPanel
+            execution={execution}
+            market={activeMarket}
+            onStatus={onStatus}
+            portfolio={portfolio}
+            session={session}
+          />
+        ) : (
+          <form
+            onSubmit={handleOrderSubmit}
+            className="bg-[#161616] border-t-2 border-t-deep-orange border-x border-b border-[#262626] rounded p-6 glow-orange transition-all duration-300"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-sans font-bold text-lg text-white">Margin Request</h3>
+              <Bolt size={18} className="text-deep-orange" />
             </div>
-          </div>
 
-          <div className="mb-6">
-            <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">Select Vault</label>
-            <div className="relative">
-              <select
-                value={selectedVaultId}
-                onChange={(e) => setSelectedVaultId(e.target.value)}
-                className="w-full bg-[#0A0A0A] border border-[#262626] text-white rounded p-3 font-mono text-xs focus:outline-none focus:border-deep-orange transition-colors cursor-pointer appearance-none"
-              >
-                {vaults.map((vault) => (
-                  <option key={vault.id} value={vault.id}>
-                    {vault.name} ({vault.riskTag})
-                  </option>
-                ))}
-              </select>
-              <div className="absolute right-3 top-3.5 pointer-events-none">
-                <span className="text-[#ccc3d8] text-xs">▼</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <div className="flex justify-between mb-2">
-              <label className="font-mono text-[10px] text-[#ccc3d8] uppercase tracking-widest font-bold">Leverage</label>
-              <span className="font-mono text-xs text-deep-orange font-extrabold">{leverage}X</span>
-            </div>
-            <input
-              type="range"
-              min="1"
-              max={selectedVault.maxLeverage}
-              value={leverage}
-              onChange={(e) => setLeverage(parseInt(e.target.value))}
-              className="w-full accent-deep-orange bg-[#262626] h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none"
-            />
-            <div className="flex justify-between text-[9px] text-[#ccc3d8]/60 font-mono mt-1 font-bold">
-              <span>1X</span>
-              <span>{Math.floor(selectedVault.maxLeverage / 2)}X</span>
-              <span>{selectedVault.maxLeverage}X Max</span>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">Trade Visibility</label>
-            <div className="grid grid-cols-2 gap-3">
-              {(['PRIVATE', 'PUBLIC'] as const).map((visibility) => (
+            <div className="mb-6">
+              <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">
+                Pick Outcome
+              </label>
+              <div className="grid grid-cols-2 gap-3">
                 <button
-                  key={visibility}
                   type="button"
-                  onClick={() => setTradeVisibility(visibility)}
-                  aria-pressed={tradeVisibility === visibility}
-                  className={`rounded border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
-                    tradeVisibility === visibility
-                      ? 'border-deep-orange bg-deep-orange text-black'
-                      : 'border-[#262626] bg-[#0e0e0e] text-[#ccc3d8] hover:border-white/30'
+                  onClick={() => setOutcomeType("YES")}
+                  className={`py-3 px-4 rounded text-center transition-all cursor-pointer font-sans font-bold text-xs ${
+                    outcomeType === "YES"
+                      ? "bg-deep-orange text-black font-extrabold shadow-md"
+                      : "bg-[#0e0e0e] text-[#ccc3d8] border border-[#262626] hover:border-white/25"
                   }`}
                 >
-                  {visibility === 'PUBLIC' ? 'Public' : 'Private'}
+                  YES ({formatPercent(activeMarket.currentOdds)})
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => setOutcomeType("NO")}
+                  className={`py-3 px-4 rounded text-center transition-all cursor-pointer font-sans font-bold text-xs ${
+                    outcomeType === "NO"
+                      ? "bg-[#EF4444] text-white font-extrabold shadow-md"
+                      : "bg-[#0e0e0e] text-[#ccc3d8] border border-[#262626] hover:border-white/25"
+                  }`}
+                >
+                  NO ({formatPercent(100 - activeMarket.currentOdds)})
+                </button>
+              </div>
             </div>
-            <p className="mt-2 text-[11px] leading-relaxed text-[#ccc3d8]/75">
-              Public trades appear in Market Pulse for followers. Private trades stay in your portfolio.
-            </p>
-          </div>
 
-          <div className="mb-6">
-            <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">
-              Collateral From Vault ({selectedVault.asset})
-            </label>
-            <div className="relative">
+            <div className="mb-6">
+              <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">
+                Select Vault
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedVaultId}
+                  onChange={(e) => setSelectedVaultId(e.target.value)}
+                  className="w-full bg-[#0A0A0A] border border-[#262626] text-white rounded p-3 font-mono text-xs focus:outline-none focus:border-deep-orange transition-colors cursor-pointer appearance-none"
+                >
+                  {vaults.map((vault) => (
+                    <option key={vault.id} value={vault.id}>
+                      {vault.name} ({vault.riskTag})
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3 top-3.5 pointer-events-none">
+                  <span className="text-[#ccc3d8] text-xs">▼</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="flex justify-between mb-2">
+                <label className="font-mono text-[10px] text-[#ccc3d8] uppercase tracking-widest font-bold">
+                  Leverage
+                </label>
+                <span className="font-mono text-xs text-deep-orange font-extrabold">
+                  {leverage}X
+                </span>
+              </div>
               <input
-                type="number"
-                step="any"
-                placeholder="0.00"
-                value={marginAmount}
-                onChange={(e) => setMarginAmount(e.target.value)}
-                className="w-full bg-[#0A0A0A] border border-[#262626] text-white rounded p-3 font-mono text-lg text-right focus:outline-none focus:border-deep-orange focus:ring-1 focus:ring-deep-orange/50 transition-colors"
-                disabled={activeMarket.status === 'HALTED'}
+                type="range"
+                min="1"
+                max={selectedVault.maxLeverage}
+                value={leverage}
+                onChange={(e) => setLeverage(parseInt(e.target.value))}
+                className="w-full accent-deep-orange bg-[#262626] h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none"
               />
-              <span className="absolute left-3 top-4 text-xs font-mono font-extrabold text-[#ccc3d8]/60 italic">
-                {selectedVault.asset}
-              </span>
+              <div className="flex justify-between text-[9px] text-[#ccc3d8]/60 font-mono mt-1 font-bold">
+                <span>1X</span>
+                <span>{Math.floor(selectedVault.maxLeverage / 2)}X</span>
+                <span>{selectedVault.maxLeverage}X Max</span>
+              </div>
             </div>
 
-            <div className="flex justify-between mt-2 font-mono text-[11px]">
-              <span className="text-[#ccc3d8]/80">Vault balance: {maxCollateral.toFixed(2)} {selectedVault.asset}</span>
+            <div className="mb-6">
+              <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">
+                Trade Visibility
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {(["PRIVATE", "PUBLIC"] as const).map((visibility) => (
+                  <button
+                    key={visibility}
+                    type="button"
+                    onClick={() => setTradeVisibility(visibility)}
+                    aria-pressed={tradeVisibility === visibility}
+                    className={`rounded border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                      tradeVisibility === visibility
+                        ? "border-deep-orange bg-deep-orange text-black"
+                        : "border-[#262626] bg-[#0e0e0e] text-[#ccc3d8] hover:border-white/30"
+                    }`}
+                  >
+                    {visibility === "PUBLIC" ? "Public" : "Private"}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-[#ccc3d8]/75">
+                Public trades appear in Market Pulse for followers. Private trades stay in your
+                portfolio.
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <label className="block font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">
+                Collateral From Vault ({selectedVault.asset})
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="0.00"
+                  value={marginAmount}
+                  onChange={(e) => setMarginAmount(e.target.value)}
+                  className="w-full bg-[#0A0A0A] border border-[#262626] text-white rounded p-3 font-mono text-lg text-right focus:outline-none focus:border-deep-orange focus:ring-1 focus:ring-deep-orange/50 transition-colors"
+                  disabled={activeMarket.status === "HALTED"}
+                />
+                <span className="absolute left-3 top-4 text-xs font-mono font-extrabold text-[#ccc3d8]/60 italic">
+                  {selectedVault.asset}
+                </span>
+              </div>
+
+              <div className="flex justify-between mt-2 font-mono text-[11px]">
+                <span className="text-[#ccc3d8]/80">
+                  Vault balance: {maxCollateral.toFixed(2)} {selectedVault.asset}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleMaxCollateral}
+                  className="text-deep-orange hover:text-white font-extrabold transition-colors uppercase tracking-wider text-[10px]"
+                  disabled={activeMarket.status === "HALTED"}
+                >
+                  Max
+                </button>
+              </div>
+            </div>
+
+            {activeMarket.status === "HALTED" ? (
               <button
                 type="button"
-                onClick={handleMaxCollateral}
-                className="text-deep-orange hover:text-white font-extrabold transition-colors uppercase tracking-wider text-[10px]"
-                disabled={activeMarket.status === 'HALTED'}
+                disabled
+                className="w-full bg-[#2a2a2a] text-[#4a4455] font-mono font-bold text-xs py-4 rounded tracking-wider uppercase cursor-not-allowed text-center"
               >
-                Max
+                Market Halted
               </button>
-            </div>
-          </div>
+            ) : (
+              <button
+                type="submit"
+                disabled={isRequesting}
+                className={`w-full bg-deep-orange text-black font-sans font-bold text-xs py-4 rounded tracking-wider transition-all duration-300 shadow-lg hover:shadow-deep-orange/20 hover:scale-[1.01] uppercase flex items-center justify-center gap-2 cursor-pointer ${
+                  isRequesting ? "opacity-70 cursor-wait" : ""
+                }`}
+              >
+                {isRequesting ? (
+                  <>
+                    <RefreshCw className="animate-spin" size={14} />
+                    <span>Submitting request...</span>
+                  </>
+                ) : (
+                  <>
+                    <Bolt size={14} />
+                    <span>Request Margin</span>
+                  </>
+                )}
+              </button>
+            )}
 
-          {activeMarket.status === 'HALTED' ? (
-            <button
-              type="button"
-              disabled
-              className="w-full bg-[#2a2a2a] text-[#4a4455] font-mono font-bold text-xs py-4 rounded tracking-wider uppercase cursor-not-allowed text-center"
-            >
-              Market Halted
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={isRequesting}
-              className={`w-full bg-deep-orange text-black font-sans font-bold text-xs py-4 rounded tracking-wider transition-all duration-300 shadow-lg hover:shadow-deep-orange/20 hover:scale-[1.01] uppercase flex items-center justify-center gap-2 cursor-pointer ${
-                isRequesting ? 'opacity-70 cursor-wait' : ''
-              }`}
-            >
-              {isRequesting ? (
-                <>
-                  <RefreshCw className="animate-spin" size={14} />
-                  <span>Submitting request...</span>
-                </>
-              ) : (
-                <>
-                  <Bolt size={14} />
-                  <span>Request Margin</span>
-                </>
-              )}
-            </button>
-          )}
-
-          <div className="mt-5 pt-4 border-t border-[#262626] flex flex-col gap-2">
-            <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
-              <span>Outcome:</span>
-              <span className={`font-bold ${outcomeType === 'YES' ? 'text-deep-orange' : 'text-[#EF4444]'}`}>
-                {outcomeType}
-              </span>
+            <div className="mt-5 pt-4 border-t border-[#262626] flex flex-col gap-2">
+              <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
+                <span>Outcome:</span>
+                <span
+                  className={`font-bold ${outcomeType === "YES" ? "text-deep-orange" : "text-[#EF4444]"}`}
+                >
+                  {outcomeType}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
+                <span>Your collateral:</span>
+                <span className="text-white font-semibold">
+                  ${numericAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
+                <span>Vault liquidity used:</span>
+                <span className="text-white font-semibold">
+                  ${borrowedLiquidity.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
+                <span>Total position size:</span>
+                <span className="text-white font-semibold">
+                  ${tradingPower.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
+                <span>Estimated shares:</span>
+                <span className="text-white font-semibold">
+                  {contractShares > 0 ? contractShares.toLocaleString() : "--"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
+                <span>Visibility:</span>
+                <span className="text-white font-semibold">{tradeVisibility}</span>
+              </div>
+              <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
+                <span>Liquidation trigger:</span>
+                <span
+                  className={`font-semibold ${liquidationOdds > 0 ? "text-[#EF4444]" : "text-white"}`}
+                >
+                  {liquidationOdds > 0 ? formatPercent(liquidationOdds) : "--"}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
-              <span>Your collateral:</span>
-              <span className="text-white font-semibold">${numericAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
-              <span>Vault liquidity used:</span>
-              <span className="text-white font-semibold">${borrowedLiquidity.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
-              <span>Total position size:</span>
-              <span className="text-white font-semibold">${tradingPower.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
-              <span>Estimated shares:</span>
-              <span className="text-white font-semibold">{contractShares > 0 ? contractShares.toLocaleString() : '--'}</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
-              <span>Visibility:</span>
-              <span className="text-white font-semibold">{tradeVisibility}</span>
-            </div>
-            <div className="flex justify-between items-center text-[11px] font-mono text-[#ccc3d8]">
-              <span>Liquidation trigger:</span>
-              <span className={`font-semibold ${liquidationOdds > 0 ? 'text-[#EF4444]' : 'text-white'}`}>
-                {liquidationOdds > 0 ? formatPercent(liquidationOdds) : '--'}
-              </span>
-            </div>
-          </div>
-        </form>
+          </form>
+        )}
 
         <div className="bg-[#1c1b1b] border border-[#262626] rounded p-4 text-[11px] font-mono text-[#ccc3d8] flex gap-3 items-start">
           <Info size={16} className="text-electric-purple flex-shrink-0 mt-0.5" />
           <p className="leading-relaxed">
-            Vault deposits form the liquidity pool. Traders use their deposited balance as collateral, then borrow extra pool liquidity for leverage. Vault depositors earn yield from fees and risk premiums as the system matures.
+            Vault deposits form the liquidity pool. Traders use their deposited balance as
+            collateral, then borrow extra pool liquidity for leverage. Vault depositors earn yield
+            from fees and risk premiums as the system matures.
           </p>
         </div>
       </section>
@@ -758,30 +916,28 @@ export default function MarginDeskView({
 
 function parseHistoryResponse(body: unknown): MarketHistoryState {
   if (!isRecord(body) || body.ok !== true || !isRecord(body.data)) {
-    return { status: 'empty', candles: [], range: '1w', source: 'CONVICTION_EMPTY' };
+    return { status: "empty", candles: [], range: "1w", source: "CONVICTION_EMPTY" };
   }
 
   const candlesValue = body.data.candles;
-  const candles = Array.isArray(candlesValue)
-    ? candlesValue.filter(isMarketCandle)
-    : [];
-  const statusValue = typeof body.data.status === 'string' ? body.data.status : 'empty';
-  const source = typeof body.data.source === 'string' ? body.data.source : 'CONVICTION_HISTORY';
-  const range = isMarketHistoryRange(body.data.range) ? body.data.range : '1w';
+  const candles = Array.isArray(candlesValue) ? candlesValue.filter(isMarketCandle) : [];
+  const statusValue = typeof body.data.status === "string" ? body.data.status : "empty";
+  const source = typeof body.data.source === "string" ? body.data.source : "CONVICTION_HISTORY";
+  const range = isMarketHistoryRange(body.data.range) ? body.data.range : "1w";
 
   if (candles.length === 0) {
-    return { status: 'empty', candles: [], range, source };
+    return { status: "empty", candles: [], range, source };
   }
 
-  if (statusValue === 'snapshot_only') {
-    return { status: 'snapshot_only', candles, range, source };
+  if (statusValue === "snapshot_only") {
+    return { status: "snapshot_only", candles, range, source };
   }
 
-  return { status: 'ready', candles, range, source };
+  return { status: "ready", candles, range, source };
 }
 
 function isMarketHistoryRange(value: unknown): value is MarketHistoryRange {
-  return value === '1h' || value === '1w' || value === '1m' || value === '1y';
+  return value === "1h" || value === "1w" || value === "1m" || value === "1y";
 }
 
 function buildSnapshotCandles(market: PredictionMarket): MarketCandle[] {
@@ -809,23 +965,25 @@ function buildSnapshotCandles(market: PredictionMarket): MarketCandle[] {
 }
 
 function getHistoryStatusLabel(history: MarketHistoryState) {
-  if (history.status === 'loading') return 'Loading';
-  if (history.status === 'ready') return 'Synced history';
-  if (history.status === 'snapshot_only') return 'Latest snapshot';
-  return 'Awaiting data';
+  if (history.status === "loading") return "Loading";
+  if (history.status === "ready") return "Synced history";
+  if (history.status === "snapshot_only") return "Latest snapshot";
+  return "Awaiting data";
 }
 
 function isMarketCandle(value: unknown): value is MarketCandle {
-  return isRecord(value) &&
-    typeof value.timestamp === 'string' &&
+  return (
+    isRecord(value) &&
+    typeof value.timestamp === "string" &&
     Number.isFinite(value.open) &&
     Number.isFinite(value.high) &&
     Number.isFinite(value.low) &&
-    Number.isFinite(value.close);
+    Number.isFinite(value.close)
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === "object" && value !== null;
 }
 
 function parseProbabilityValue(value: string | null | undefined) {
@@ -850,7 +1008,6 @@ function TooltipRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-
 function ChartLegendDot({ color, label }: { color: string; label: string }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-2">
@@ -871,37 +1028,50 @@ function getCompareCandidates(markets: PredictionMarket[], activeMarket: Predict
     .map(({ market }) => market);
 }
 
-function getCompareMarketScore(market: PredictionMarket, activeTopic?: string | null, activeRegion?: string | null) {
+function getCompareMarketScore(
+  market: PredictionMarket,
+  activeTopic?: string | null,
+  activeRegion?: string | null,
+) {
   let score = market.convictionValue;
 
-  if (activeTopic && (market.discoveryTopic === activeTopic || market.category === activeTopic)) score += 70;
+  if (activeTopic && (market.discoveryTopic === activeTopic || market.category === activeTopic))
+    score += 70;
   if (activeRegion && market.discoveryRegion === activeRegion) score += 35;
-  if (market.status === 'LIVE') score += 20;
+  if (market.status === "LIVE") score += 20;
 
   return score;
 }
 
 function getShortMarketTitle(title: string) {
   return title
-    .replace(/^will\s+/i, '')
-    .replace(/\?$/, '')
+    .replace(/^will\s+/i, "")
+    .replace(/\?$/, "")
     .slice(0, 44);
 }
 
-function getMultiMarketStatusLabel(history: MarketHistoryState, readyPeers: number, selectedPeers: number) {
+function getMultiMarketStatusLabel(
+  history: MarketHistoryState,
+  readyPeers: number,
+  selectedPeers: number,
+) {
   const base = getHistoryStatusLabel(history);
 
   if (selectedPeers === 0) return base;
-  if (readyPeers === selectedPeers) return base + ' + ' + readyPeers + ' peers';
-  if (readyPeers > 0) return base + ' + ' + readyPeers + '/' + selectedPeers + ' peers';
-  return base + ' + loading peers';
+  if (readyPeers === selectedPeers) return base + " + " + readyPeers + " peers";
+  if (readyPeers > 0) return base + " + " + readyPeers + "/" + selectedPeers + " peers";
+  return base + " + loading peers";
 }
 
-function PriceTile({ label, value, tone }: { label: string; value: string; tone?: 'yes' | 'no' }) {
+function PriceTile({ label, value, tone }: { label: string; value: string; tone?: "yes" | "no" }) {
   return (
     <div className="rounded border border-[#262626] bg-[#0e0e0e] p-3">
-      <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">{label}</span>
-      <strong className={`mt-1 block font-mono text-base ${tone === 'yes' ? 'text-[#10B981]' : tone === 'no' ? 'text-[#EF4444]' : 'text-white'}`}>
+      <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-[#ccc3d8]/60">
+        {label}
+      </span>
+      <strong
+        className={`mt-1 block font-mono text-base ${tone === "yes" ? "text-[#10B981]" : tone === "no" ? "text-[#EF4444]" : "text-white"}`}
+      >
         {value}
       </strong>
     </div>
@@ -910,48 +1080,48 @@ function PriceTile({ label, value, tone }: { label: string; value: string; tone?
 
 function buildMarketReviewRows(market: PredictionMarket) {
   return [
-    { label: 'Market feed', value: 'Conviction synced' },
-    { label: 'Category', value: market.category },
-    { label: 'Region', value: market.discoveryRegion ?? 'Global' },
-    { label: 'Topic', value: market.discoveryTopic ?? 'World' },
-    { label: 'Resolution', value: formatDate(market.resolutionDate) },
-    { label: 'Last synced', value: formatDateTime(market.syncedAt) },
-    { label: 'YES token', value: market.yesTokenId ? 'Mapped' : 'Pending' },
-    { label: 'NO token', value: market.noTokenId ? 'Mapped' : 'Pending' },
+    { label: "Market feed", value: "Conviction synced" },
+    { label: "Category", value: market.category },
+    { label: "Region", value: market.discoveryRegion ?? "Global" },
+    { label: "Topic", value: market.discoveryTopic ?? "World" },
+    { label: "Resolution", value: formatDate(market.resolutionDate) },
+    { label: "Last synced", value: formatDateTime(market.syncedAt) },
+    { label: "YES token", value: market.yesTokenId ? "Mapped" : "Pending" },
+    { label: "NO token", value: market.noTokenId ? "Mapped" : "Pending" },
   ];
 }
 
 function formatSignedPercent(value: number) {
-  if (!Number.isFinite(value)) return '--';
-  const prefix = value > 0 ? '+' : '';
-  return prefix + value.toFixed(1) + ' pts';
+  if (!Number.isFinite(value)) return "--";
+  const prefix = value > 0 ? "+" : "";
+  return prefix + value.toFixed(1) + " pts";
 }
 
 function formatVolume(value: number | null | undefined) {
-  if (!Number.isFinite(value)) return '--';
+  if (!Number.isFinite(value)) return "--";
   return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 function formatChartTime(value: string) {
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) return 'Latest';
+  if (Number.isNaN(date.getTime())) return "Latest";
 
   return date.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 function formatPercent(value: number) {
-  if (!Number.isFinite(value)) return '--';
-  return value.toFixed(1) + '%';
+  if (!Number.isFinite(value)) return "--";
+  return value.toFixed(1) + "%";
 }
 
 function formatRawProbability(value: string | null | undefined) {
-  if (!value) return 'Pending';
+  if (!value) return "Pending";
   const numericValue = Number(value);
 
   if (Number.isFinite(numericValue) && numericValue >= 0 && numericValue <= 1) {
@@ -962,24 +1132,24 @@ function formatRawProbability(value: string | null | undefined) {
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return 'Pending';
+  if (!value) return "Pending";
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) return 'Pending';
+  if (Number.isNaN(date.getTime())) return "Pending";
 
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 function formatDateTime(value: string | null | undefined) {
-  if (!value) return 'Pending';
+  if (!value) return "Pending";
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) return 'Pending';
+  if (Number.isNaN(date.getTime())) return "Pending";
 
   return date.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }

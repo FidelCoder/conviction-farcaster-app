@@ -8,7 +8,27 @@ export const thirdwebClient = createThirdwebClient({
   clientId: thirdwebClientId || "missing-thirdweb-client-id",
 });
 
-export const convictionThirdwebChains = [baseSepolia, sepolia, arbitrumSepolia, base] as const;
+const polygon = {
+  blockExplorers: [
+    {
+      apiUrl: "https://api.polygonscan.com/api",
+      name: "Polygonscan",
+      url: "https://polygonscan.com",
+    },
+  ],
+  id: 137,
+  name: "Polygon",
+  nativeCurrency: { decimals: 18, name: "POL", symbol: "POL" },
+  rpc: "https://137.rpc.thirdweb.com",
+} as const;
+
+export const convictionThirdwebChains = [
+  polygon,
+  baseSepolia,
+  sepolia,
+  arbitrumSepolia,
+  base,
+] as const;
 
 export const convictionAccountAbstraction = {
   chain: baseSepolia,

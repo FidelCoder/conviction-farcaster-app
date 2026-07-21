@@ -69,7 +69,8 @@ export async function POST(request: Request) {
       idempotencyKey: "farcaster-margin-" + randomUUID(),
       visibility,
     });
-    const executionAttempt = await startPositionExecution(position.id);
+    const executionAttempt =
+      chainId === 137 ? undefined : await startPositionExecution(position.id);
 
     return NextResponse.json(
       {

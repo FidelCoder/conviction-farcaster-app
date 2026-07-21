@@ -1,4 +1,4 @@
-import type { PortfolioWalletBalance, UserPortfolio } from "../zip-ui/types";
+import type { PortfolioWalletBalance, UserPortfolio, VaultOnchainMetrics } from "../zip-ui/types";
 import { mergeReadyVaultBalances } from "./execution-vaults";
 
 type WalletBalancesResponse =
@@ -9,6 +9,7 @@ type WalletBalancesResponse =
         lockedBalances: Record<string, PortfolioWalletBalance>;
         totalVaultBalances: Record<string, PortfolioWalletBalance>;
         walletBalances: Record<string, PortfolioWalletBalance>;
+        vaultMetrics: Record<string, VaultOnchainMetrics>;
       };
     }
   | { ok: false; error: { code: string; message: string } };
@@ -33,9 +34,12 @@ export function applyWalletBalanceSnapshot(
     lockedBalances?: Record<string, PortfolioWalletBalance>;
     totalVaultBalances?: Record<string, PortfolioWalletBalance>;
     walletBalances: Record<string, PortfolioWalletBalance>;
+    vaultMetrics?: Record<string, VaultOnchainMetrics>;
   },
 ): UserPortfolio {
-  const readyBalances = Object.values(snapshot.walletBalances).filter((balance) => balance.status === "ready");
+  const readyBalances = Object.values(snapshot.walletBalances).filter(
+    (balance) => balance.status === "ready",
+  );
   const usdcBalance = sumReadyBalances(readyBalances, "USDC");
   const wethBalance = sumReadyBalances(readyBalances, "WETH");
 
@@ -44,9 +48,16 @@ export function applyWalletBalanceSnapshot(
     usdcBalance: usdcBalance ?? portfolio.usdcBalance,
     wethBalance: wethBalance ?? portfolio.wethBalance,
     vaultBalances: mergeReadyVaultBalances(portfolio.vaultBalances, snapshot.depositedBalances),
-    vaultLockedBalances: mergeReadyVaultBalances(portfolio.vaultLockedBalances, snapshot.lockedBalances ?? {}),
-    vaultTotalBalances: mergeReadyVaultBalances(portfolio.vaultTotalBalances, snapshot.totalVaultBalances ?? {}),
+    vaultLockedBalances: mergeReadyVaultBalances(
+      portfolio.vaultLockedBalances,
+      snapshot.lockedBalances ?? {},
+    ),
+    vaultTotalBalances: mergeReadyVaultBalances(
+      portfolio.vaultTotalBalances,
+      snapshot.totalVaultBalances ?? {},
+    ),
     walletBalances: snapshot.walletBalances,
+    vaultMetrics: snapshot.vaultMetrics ?? {},
     walletBalancesMessage: "Wallet token balances updated.",
     walletBalancesStatus: "ready",
   };

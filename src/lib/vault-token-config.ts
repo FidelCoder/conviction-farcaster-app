@@ -5,10 +5,17 @@ export type VaultCollateralConfig = {
   chainName: string;
   tokenAddress: Address;
   tokenDecimals: number;
-  tokenSymbol: "USDC";
+  tokenSymbol: "USDC" | "pUSD";
 };
 
 const configuredVaultCollateralByChainId: Record<number, VaultCollateralConfig> = {
+  137: {
+    chainId: 137,
+    chainName: "Polygon",
+    tokenAddress: "0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB",
+    tokenDecimals: 6,
+    tokenSymbol: "pUSD",
+  },
   84532: {
     chainId: 84532,
     chainName: "Base Sepolia",
