@@ -62,6 +62,12 @@ test("restores an existing EVM session and wallet kind after navigation or refre
   assert.deepEqual(getStoredBrowserWalletSession(), session);
   assert.equal(getStoredBrowserSessionWalletKind(), "smart");
 });
+test("restores a primary Polymarket session after navigation or refresh", () => {
+  installBrowser();
+  setStoredBrowserWalletSession(walletSession());
+  setStoredBrowserSessionWalletKind("polymarket");
+  assert.equal(getStoredBrowserSessionWalletKind(), "polymarket");
+});
 
 test("rejects malformed stored sessions and clears them", () => {
   const storage = installBrowser();

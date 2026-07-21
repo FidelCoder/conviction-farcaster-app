@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { UserSession } from "../../lib/core-api";
 import {
   BrowserWalletMarks,
+  PolymarketWalletMark,
   GoogleWalletMark,
   ThirdwebMark,
   TonWalletMark,
@@ -26,7 +27,7 @@ interface HeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   portfolio: UserPortfolio;
-  onConnectWallet: (mode?: "smart" | "eoa" | "ton") => void;
+  onConnectWallet: (mode?: "smart" | "eoa" | "ton" | "polymarket") => void;
   onOpenSignInMenu?: () => void;
   onDisconnectWallet?: () => void;
   onOpenPortfolio?: () => void;
@@ -102,10 +103,12 @@ export default function Header({
       return;
     }
 
-    if (portfolio.connected) {
-      handleOpenPortfolio();
+    if (!portfolio.connected) {
+      setWalletMenuOpen(true);
       return;
     }
+
+    handleOpenPortfolio();
   }
 
   function handleWalletMenuButtonClick() {
@@ -123,7 +126,7 @@ export default function Header({
     window.location.href = tab.href;
   }
 
-  function handleSignInMode(mode: "smart" | "eoa" | "ton") {
+  function handleSignInMode(mode: "smart" | "eoa" | "ton" | "polymarket") {
     setWalletMenuOpen(false);
     onConnectWallet(mode);
   }
@@ -344,12 +347,27 @@ export default function Header({
                         Choose sign-in method
                       </p>
                       <p className="mt-1 text-xs leading-relaxed text-[#ccc3d8]/80">
-                        Start with Google smart wallet, TON wallet, or an EVM wallet where you
-                        already hold funds.
+                        Enter with Polymarket, Google smart wallet, TON, or another wallet.
                       </p>
                     </div>
                     <button
                       className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-white/5"
+                      onClick={() => handleSignInMode("polymarket")}
+                      role="menuitem"
+                      type="button"
+                    >
+                      <PolymarketWalletMark className="h-9 w-9" />
+                      <span>
+                        <strong className="block font-mono text-[10px] uppercase tracking-widest text-white">
+                          Polymarket
+                        </strong>
+                        <small className="mt-1 block text-xs leading-relaxed text-[#ccc3d8]/75">
+                          Restore a linked account with its owner wallet
+                        </small>
+                      </span>
+                    </button>
+                    <button
+                      className="flex w-full items-center gap-3 border-t border-[#262626] px-3 py-3 text-left transition-colors hover:bg-white/5"
                       onClick={() => handleSignInMode("smart")}
                       role="menuitem"
                       type="button"

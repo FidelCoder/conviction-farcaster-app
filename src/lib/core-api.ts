@@ -102,6 +102,7 @@ export type AdminFallbackProfilesResult = {
 
 export type AuthProvider =
   | "EVM_EOA"
+  | "POLYMARKET_WALLET"
   | "THIRDWEB_SMART_WALLET"
   | "TON_WALLET"
   | "TELEGRAM"
@@ -458,6 +459,14 @@ export type PolymarketAccountChallenge = {
   id: string;
   purpose: "LINK" | "UNLINK";
   message: string;
+  expiresAt: string;
+};
+export type PolymarketAuthChallenge = {
+  id: string;
+  message: string;
+  ownerAddress: string;
+  funderAddress: string;
+  walletType: PolymarketWalletType;
   expiresAt: string;
 };
 
@@ -1283,6 +1292,27 @@ export async function listPolymarketAccounts(userId: string) {
     "/users/" + encodeURIComponent(userId) + "/polymarket/accounts",
   );
   return response.accounts;
+}
+
+export async function createPolymarketAuthChallenge(ownerAddress: string) {
+  const response = await coreRequest<{ challenge: PolymarketAuthChallenge }>(
+    "/auth/polymarket/challenges",
+    {
+      method: "POST",
+      body: { ownerAddress },
+    },
+  );
+  return response.challenge;
+}
+
+export async function completePolymarketAuth(input: { challengeId: string; signature: string }) {
+  return coreRequest<{ session: UserSession; account: PolymarketAccount }>(
+    "/auth/polymarket/sessions",
+    {
+      method: "POST",
+      body: input,
+    },
+  );
 }
 
 export async function createPolymarketLinkChallenge(input: {

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { CoreApiError, recordUsageEvent, type AuthProvider, type UsageEventType } from "../../../../lib/core-api";
+import {
+  CoreApiError,
+  recordUsageEvent,
+  type AuthProvider,
+  type UsageEventType,
+} from "../../../../lib/core-api";
 
 const usageEventTypes: UsageEventType[] = [
   "PAGE_VIEW",
@@ -21,6 +26,7 @@ const usageEventTypes: UsageEventType[] = [
 
 const authProviders: AuthProvider[] = [
   "EVM_EOA",
+  "POLYMARKET_WALLET",
   "THIRDWEB_SMART_WALLET",
   "TON_WALLET",
   "TELEGRAM",
@@ -74,7 +80,13 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { ok: false, error: { code: "ANALYTICS_EVENT_FAILED", message: "Core API did not accept the analytics event." } },
+      {
+        ok: false,
+        error: {
+          code: "ANALYTICS_EVENT_FAILED",
+          message: "Core API did not accept the analytics event.",
+        },
+      },
       { status: 502 },
     );
   }
