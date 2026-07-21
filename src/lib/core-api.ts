@@ -305,6 +305,45 @@ export type ExecutionCapabilities = {
   chains: ExecutionCapabilityChain[];
 };
 
+export type PolymarketReadinessGate = {
+  id: string;
+  label: string;
+  ready: boolean;
+  detail: string;
+};
+
+export type PolymarketExecutionReadiness = {
+  status: "READY" | "READY_FOR_CANARY" | "BLOCKED";
+  venueFillEnabled: boolean;
+  canaryVenueFillEnabled: boolean;
+  productionVenueFillEnabled: boolean;
+  chainId: 137;
+  custody: "ONE_POSITION_ONE_ISOLATED_ACCOUNT";
+  orderType: "FOK";
+  signatureType: "POLY_1271";
+  gates: PolymarketReadinessGate[];
+  releasePolicy: {
+    mode: "INVITE_ONLY_CANARY" | "PRODUCTION";
+    canaryPassed: boolean;
+    inviteOnly: boolean;
+    allowedWalletsCount: number;
+    allowedMarketsCount: number;
+    caps: {
+      dailyLossLimitAssets: string;
+      maxLeverageBps: number;
+      maxPositionAssets: string;
+      maxTvlAssets: string;
+      maxUtilizationBps: number;
+    };
+    dailyRealizedLossAssets: string | null;
+    currentTvlAssets: string | null;
+    currentUtilizationBps: number | null;
+    missing: string[];
+  };
+  missing: string[];
+  warnings: string[];
+};
+
 export type TraderProfile = {
   id: string;
   userId: string;
@@ -1363,6 +1402,21 @@ export async function getExecutionCapabilities() {
       ? response.execution
       : (response as ExecutionCapabilities);
   }, unavailableExecutionCapabilities);
+}
+
+export async function getPolymarketExecutionReadiness() {
+  return readOrFallback(
+    async () => {
+      const response = await coreRequest<
+        { readiness?: PolymarketExecutionReadiness } | PolymarketExecutionReadiness
+      >("/execution/polymarket/readiness", { allowNotFound: true });
+      if (!response) return null;
+      return "readiness" in response && response.readiness
+        ? response.readiness
+        : (response as PolymarketExecutionReadiness);
+    },
+    null as PolymarketExecutionReadiness | null,
+  );
 }
 
 export async function upsertTraderProfile(input: UpsertTraderProfileInput) {

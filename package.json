@@ -12,6 +12,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "tsc -p tsconfig.test.json && node --experimental-specifier-resolution=node --test .test-dist/tests/*.test.js",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
