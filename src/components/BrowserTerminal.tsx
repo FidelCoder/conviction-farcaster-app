@@ -59,6 +59,7 @@ import MarginDeskView from "../zip-ui/components/MarginDeskView";
 import MarketsView from "../zip-ui/components/MarketsView";
 import StatusBar from "../zip-ui/components/StatusBar";
 import VaultsView from "../zip-ui/components/VaultsView";
+import StocksView from "./StocksView";
 import type {
   ActivityItem,
   GlobalRiskParameter,
@@ -70,7 +71,7 @@ import type {
   VaultDepositTransaction,
 } from "../zip-ui/types";
 
-export type TerminalTab = "landing" | "markets" | "margin-desk" | "vaults" | "activity";
+export type TerminalTab = "landing" | "markets" | "margin-desk" | "vaults" | "activity" | "stocks";
 
 type BrowserTerminalProps = {
   execution: ExecutionCapabilities;
@@ -139,13 +140,14 @@ type ActivityPostResponse =
   | { ok: true; data: { post: { id: string; createdAt: string } } }
   | { ok: false; error: { code: string; message: string } };
 
-const TERMINAL_TABS: TerminalTab[] = ["landing", "markets", "margin-desk", "vaults", "activity"];
+const TERMINAL_TABS: TerminalTab[] = ["landing", "markets", "margin-desk", "vaults", "activity", "stocks"];
 const TERMINAL_TAB_PATHS: Record<TerminalTab, string> = {
   activity: "/activity",
   landing: "/",
   markets: "/markets",
   "margin-desk": "/margin-desk",
   vaults: "/vaults",
+  stocks: "/stocks",
 };
 const TERMINAL_PATH_TABS: Record<string, TerminalTab> = {
   "/": "landing",
@@ -154,6 +156,7 @@ const TERMINAL_PATH_TABS: Record<string, TerminalTab> = {
   "/margin": "margin-desk",
   "/margin-desk": "margin-desk",
   "/vaults": "vaults",
+  "/stocks": "stocks",
 };
 const TERMINAL_TAB_STORAGE_KEY = "conviction-active-terminal-tab";
 const evmAddressPattern = /^0x[a-fA-F0-9]{40}$/;
@@ -1364,6 +1367,10 @@ export function BrowserTerminal({
               riskParameters={riskParameters}
               vaults={vaults}
             />
+          ) : null}
+
+          {activeTab === "stocks" ? (
+            <StocksView />
           ) : null}
 
           {activeTab === "activity" ? (

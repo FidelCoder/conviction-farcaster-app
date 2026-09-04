@@ -55,6 +55,7 @@ export default function Header({
     session?.traderProfile?.handle ?? (portfolio.connected ? "Conviction wallet" : "Guest");
   const tabs = [
     { id: "markets", label: "Markets", href: "/markets" },
+    { id: "stocks", label: "Stocks", href: "/stocks" },
     { id: "activity", label: "Pulse", href: "/activity" },
     { id: "vaults", label: "Vaults", href: "/vaults" },
     { id: "leaderboard", label: "Leaderboard", href: "/leaderboard" },
