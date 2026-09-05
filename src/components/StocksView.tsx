@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   listEquityStocks,
   listEquityPrices,
@@ -18,6 +18,9 @@ import {
   ChevronDown,
   ShieldCheck,
   Cpu,
+  TrendingUp,
+  ArrowUpRight,
+  ArrowDownRight,
 } from "lucide-react";
 
 // ---------------------------------------------------------------
@@ -85,8 +88,6 @@ interface TradeDetails {
 
 // ---------------------------------------------------------------
 //  Seed data — all 13 Coinbase B20 tokenized stocks on Base mainnet
-//  Real contract addresses from https://docs.base.org/specifications/b20
-//  Prices are updated from Chainlink oracles on mount
 // ---------------------------------------------------------------
 
 const SEED_ASSETS: SyntheticAsset[] = [
@@ -114,7 +115,7 @@ const STRATEGIES: CoveredCallStrategy[] = [
     id: "conservative",
     label: "Conservative",
     riskBadge: "Low Risk",
-    riskClass: "text-text-secondary bg-[#141724] border border-[#1F2436]",
+    riskClass: "text-[#94a3b8] border-[#333]",
     otmPercentage: 10,
     strikeOffset: 1.10,
     expiryDays: 30,
@@ -125,7 +126,7 @@ const STRATEGIES: CoveredCallStrategy[] = [
     id: "moderate",
     label: "Moderate",
     riskBadge: "Balanced",
-    riskClass: "text-[#FF6B00] bg-[#FF6B00]/10 border border-[#FF6B00]/30",
+    riskClass: "text-[#FF6B00] border-[#FF6B00]/40",
     otmPercentage: 5,
     strikeOffset: 1.0506,
     expiryDays: 14,
@@ -137,7 +138,7 @@ const STRATEGIES: CoveredCallStrategy[] = [
     id: "aggressive",
     label: "Aggressive",
     riskBadge: "Assignment Risk",
-    riskClass: "text-[#F04438] bg-[#F04438]/10 border border-[#F04438]/30",
+    riskClass: "text-[#F04438] border-[#F04438]/40",
     otmPercentage: 5,
     isItm: true,
     strikeOffset: 0.95,
@@ -152,7 +153,7 @@ const DEFAULT_VAULT =
   "0x0000000000000000000000000000000000000000";
 
 // ---------------------------------------------------------------
-//  Props from parent (BrowserTerminal wallet context)
+//  Props from parent
 // ---------------------------------------------------------------
 
 interface StocksViewProps {
@@ -174,39 +175,46 @@ function StocksGrid({
   onSelect: (a: SyntheticAsset) => void;
 }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="text-[10px] text-[#5C658E] uppercase">
-        Tokenized Stocks on Base — 13 Coinbase B20 Assets
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-        {assets.map((asset) => (
-          <button
-            key={asset.symbol}
-            onClick={() => onSelect(asset)}
-            className="bg-[#141724] border border-[#1F2436] p-3 text-left hover:border-[#FF6B00]/50 transition-colors cursor-pointer group"
-          >
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-[#F8FAFC] text-[11px] group-hover:text-[#FF6B00]">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {assets.map((asset) => (
+        <button
+          key={asset.symbol}
+          onClick={() => onSelect(asset)}
+          className="rounded-lg border border-[#232323] bg-[#161616] p-4 text-left transition-colors hover:border-[#FF6B00]/50 group"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="font-bold text-white text-sm group-hover:text-[#FF6B00]">
                 {asset.symbol}
               </span>
-              <span
-                className={`text-[9px] font-bold px-1.5 py-0.5 ${
-                  asset.change24h >= 0
-                    ? "text-[#00D084] bg-[#00D084]/10"
-                    : "text-[#F04438] bg-[#F04438]/10"
-                }`}
-              >
-                {asset.change24h >= 0 ? "+" : ""}
-                {asset.change24h.toFixed(2)}%
-              </span>
+              <span className="text-[11px] text-[#77717e] ml-2">{asset.name}</span>
             </div>
-            <div className="text-[9px] text-[#5C658E] mt-1">{asset.name}</div>
-            <div className="text-sm font-bold text-[#F8FAFC] mt-1">
-              ${asset.price.toFixed(2)}
-            </div>
-          </button>
-        ))}
-      </div>
+            <span
+              className={`text-[11px] font-bold flex items-center gap-0.5 ${
+                asset.change24h >= 0 ? "text-[#00D084]" : "text-[#F04438]"
+              }`}
+            >
+              {asset.change24h >= 0 ? (
+                <ArrowUpRight className="w-3 h-3" />
+              ) : (
+                <ArrowDownRight className="w-3 h-3" />
+              )}
+              {asset.change24h >= 0 ? "+" : ""}
+              {asset.change24h.toFixed(2)}%
+            </span>
+          </div>
+          <div className="text-xl font-bold text-white mt-3">
+            ${asset.price.toFixed(2)}
+          </div>
+          <div className="flex items-center gap-3 mt-2 text-[10px] text-[#77717e]">
+            <span className="flex items-center gap-1">
+              <Cpu className="w-3 h-3" />
+              {asset.oracleFeed}
+            </span>
+            <span>Vol {asset.impliedVol}%</span>
+          </div>
+        </button>
+      ))}
     </div>
   );
 }
@@ -228,9 +236,7 @@ function TerminalView({
   positions: PositionContract[];
   onExecuteTrade: (d: TradeDetails) => void;
 }) {
-  const [collateralAmount, setCollateralAmount] = useState(
-    selectedAsset?.userHoldings || 1,
-  );
+  const [collateralAmount, setCollateralAmount] = useState(1);
   const [selectedStrategyId, setSelectedStrategyId] = useState<
     "conservative" | "moderate" | "aggressive"
   >("moderate");
@@ -253,126 +259,207 @@ function TerminalView({
     ).toFixed(2),
   );
 
-  const handleExecute = () => {
-    onExecuteTrade({
-      asset: selectedAsset,
-      collateralAmount,
-      strategy: selectedStrategy,
-      premiumEth: premiumEstimate / 4000,
-      premiumUsd: premiumEstimate,
-    });
-  };
-
   return (
-    <div className="flex flex-col gap-3">
-      {/* Asset selector */}
-      <div className="flex items-center gap-2">
-        <div className="relative">
-          <button
-            onClick={() => setIsAssetDropdownOpen(!isAssetDropdownOpen)}
-            className="flex items-center gap-2 px-3 py-2 bg-[#141724] border border-[#1F2436] hover:border-[#FF6B00]/50 transition-colors cursor-pointer"
-          >
-            <span className="font-bold text-[#F8FAFC] text-xs">
-              {selectedAsset.symbol}
-            </span>
-            <span className="text-[10px] text-[#5C658E]">
-              ${selectedAsset.price.toFixed(2)}
-            </span>
-            <ChevronDown className="w-3 h-3 text-[#5C658E]" />
-          </button>
-          {isAssetDropdownOpen && (
-            <div className="absolute top-full left-0 z-20 mt-1 w-64 bg-[#0E111A] border border-[#1F2436] shadow-xl max-h-60 overflow-y-auto">
-              {assets.map((a) => (
+    <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
+      {/* Header */}
+      <div className="mb-5 flex items-center gap-2">
+        <TrendingUp className="text-[#FF6B00]" size={16} />
+        <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#d7d0db]">
+          Covered Call Terminal
+        </h2>
+        <span className="h-1.5 w-1.5 rounded-full bg-market-green" />
+        <span className="font-mono text-[10px] text-[#827b88]">
+          {assets.length} assets live
+        </span>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
+        {/* Left: Trading panel */}
+        <div className="flex flex-col gap-4">
+          {/* Asset selector */}
+          <div className="relative">
+            <button
+              onClick={() => setIsAssetDropdownOpen(!isAssetDropdownOpen)}
+              className="flex items-center gap-3 rounded-lg border border-[#232323] bg-[#161616] px-4 py-3 hover:border-[#FF6B00]/40 transition-colors cursor-pointer w-full"
+            >
+              <span className="font-bold text-white">{selectedAsset.symbol}</span>
+              <span className="text-[12px] text-[#77717e]">${selectedAsset.price.toFixed(2)}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#77717e] ml-auto" />
+            </button>
+            {isAssetDropdownOpen && (
+              <div className="absolute top-full left-0 z-20 mt-1 w-full rounded-lg border border-[#232323] bg-[#161616] shadow-2xl max-h-60 overflow-y-auto">
+                {assets.map((a) => (
+                  <button
+                    key={a.symbol}
+                    onClick={() => {
+                      onSelectAsset(a);
+                      setIsAssetDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-[#232323] transition-colors cursor-pointer text-left"
+                  >
+                    <div>
+                      <span className="text-[12px] text-white font-bold">{a.symbol}</span>
+                      <span className="text-[11px] text-[#77717e] ml-2">{a.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[12px] text-[#d7d0db]">${a.price.toFixed(2)}</span>
+                      <span className={`text-[11px] font-bold ${a.change24h >= 0 ? "text-[#00D084]" : "text-[#F04438]"}`}>
+                        {a.change24h >= 0 ? "+" : ""}{a.change24h.toFixed(2)}%
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Price cards */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg border border-[#232323] bg-[#161616] p-3">
+              <div className="text-[10px] text-[#77717e] uppercase">Spot Price</div>
+              <div className="text-lg font-bold text-white mt-1">
+                ${selectedAsset.price.toFixed(2)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-[#232323] bg-[#161616] p-3">
+              <div className="text-[10px] text-[#77717e] uppercase">Strike Price</div>
+              <div className="text-lg font-bold text-[#FF6B00] mt-1">
+                ${strikePrice.toFixed(2)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-[#232323] bg-[#161616] p-3">
+              <div className="text-[10px] text-[#77717e] uppercase">Est. Premium</div>
+              <div className="text-lg font-bold text-[#00D084] mt-1">
+                ${premiumEstimate.toFixed(2)}
+              </div>
+            </div>
+          </div>
+
+          {/* Strategy selector */}
+          <div>
+            <div className="text-[10px] text-[#77717e] uppercase mb-2">
+              Covered Call Strategy
+            </div>
+            <div className="flex gap-2">
+              {STRATEGIES.map((s) => (
                 <button
-                  key={a.symbol}
-                  onClick={() => {
-                    onSelectAsset(a);
-                    setIsAssetDropdownOpen(false);
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-[#141724] transition-colors cursor-pointer text-left"
+                  key={s.id}
+                  onClick={() => setSelectedStrategyId(s.id)}
+                  className={`flex-1 py-2.5 px-3 rounded-lg text-[11px] font-bold uppercase transition-colors cursor-pointer border ${
+                    selectedStrategyId === s.id
+                      ? s.riskClass + " bg-white/5"
+                      : "text-[#77717e] bg-[#161616] border-[#232323] hover:text-white"
+                  }`}
                 >
-                  <span className="text-[11px] text-[#F8FAFC] font-bold">
-                    {a.symbol}
-                  </span>
-                  <span className="text-[10px] text-[#5C658E]">
-                    ${a.price.toFixed(2)}
-                  </span>
+                  <div>{s.label}</div>
+                  <div className="text-[9px] mt-0.5 opacity-70 font-normal">{s.apyRange}</div>
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Collateral input */}
+          <div>
+            <div className="text-[10px] text-[#77717e] uppercase mb-2">
+              Collateral Amount ({selectedAsset.symbol})
+            </div>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={collateralAmount}
+              onChange={(e) => setCollateralAmount(parseFloat(e.target.value) || 0)}
+              className="w-full rounded-lg border border-[#232323] bg-[#161616] px-4 py-3 text-white font-mono text-sm focus:border-[#FF6B00] focus:outline-none transition-colors"
+            />
+          </div>
+
+          {/* Execute */}
+          <button
+            onClick={() =>
+              onExecuteTrade({
+                asset: selectedAsset,
+                collateralAmount,
+                strategy: selectedStrategy,
+                premiumEth: premiumEstimate / 4000,
+                premiumUsd: premiumEstimate,
+              })
+            }
+            disabled={collateralAmount <= 0}
+            className="w-full py-3 rounded-lg bg-[#FF6B00] hover:bg-[#FF7A1A] text-black font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
+          >
+            <Lock className="w-4 h-4" />
+            Write {selectedStrategy.label} Covered Call
+          </button>
+        </div>
+
+        {/* Right: Summary */}
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+            <div className="text-[10px] text-[#77717e] uppercase mb-3">Position Summary</div>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[#94a3b8]">Asset</span>
+                <span className="text-[12px] text-white font-bold">{selectedAsset.name}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[#94a3b8]">Strategy</span>
+                <span className="text-[12px] text-white">{selectedStrategy.label}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[#94a3b8]">Expiry</span>
+                <span className="text-[12px] text-white">{selectedStrategy.expiryDays} days</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[#94a3b8]">Est. APY</span>
+                <span className="text-[12px] text-[#FF6B00] font-bold">{selectedStrategy.apyRange}</span>
+              </div>
+              <div className="h-px bg-[#232323]" />
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[#94a3b8]">Oracle</span>
+                <span className="text-[10px] text-[#00D084] flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-[#00D084] rounded-full animate-pulse" />
+                  {selectedAsset.oracleFeed}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[#94a3b8]">Network</span>
+                <span className="text-[10px] text-[#827b88]">Base L2</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Active positions */}
+          {positions.length > 0 && (
+            <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+              <div className="text-[10px] text-[#77717e] uppercase mb-3">
+                Active Positions ({positions.length})
+              </div>
+              <div className="space-y-2">
+                {positions.slice(0, 3).map((pos) => (
+                  <div
+                    key={pos.id}
+                    className="flex items-center justify-between py-2 border-b border-[#232323] last:border-0"
+                  >
+                    <div>
+                      <span className="text-[11px] text-white font-bold">{pos.symbol}</span>
+                      <span className="text-[10px] text-[#77717e] ml-2">{pos.strategyName}</span>
+                    </div>
+                    <span
+                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                        pos.status === "Safe (OTM)"
+                          ? "text-[#00D084] bg-[#00D084]/10"
+                          : "text-[#F04438] bg-[#F04438]/10"
+                      }`}
+                    >
+                      {pos.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
       </div>
-
-      {/* Price & oracle */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="bg-[#141724] border border-[#1F2436] p-2">
-          <div className="text-[9px] text-[#5C658E] uppercase">Spot Price</div>
-          <div className="text-lg font-bold text-[#F8FAFC]">
-            ${selectedAsset.price.toFixed(2)}
-          </div>
-        </div>
-        <div className="bg-[#141724] border border-[#1F2436] p-2">
-          <div className="text-[9px] text-[#5C658E] uppercase">Strike</div>
-          <div className="text-lg font-bold text-[#FF6B00]">
-            ${strikePrice.toFixed(2)}
-          </div>
-        </div>
-        <div className="bg-[#141724] border border-[#1F2436] p-2">
-          <div className="text-[9px] text-[#5C658E] uppercase">Premium</div>
-          <div className="text-lg font-bold text-[#00D084]">
-            ${premiumEstimate.toFixed(2)}
-          </div>
-        </div>
-      </div>
-
-      {/* Strategy selector */}
-      <div className="flex flex-col gap-1.5">
-        <div className="text-[10px] text-[#5C658E] uppercase">
-          Covered Call Strategy
-        </div>
-        <div className="flex gap-1.5">
-          {STRATEGIES.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setSelectedStrategyId(s.id)}
-              className={`flex-1 py-2 px-2 text-[10px] font-bold uppercase transition-colors cursor-pointer border ${
-                selectedStrategyId === s.id
-                  ? s.riskClass
-                  : "text-[#5C658E] bg-[#141724] border-[#1F2436] hover:text-[#F8FAFC]"
-              }`}
-            >
-              <div>{s.label}</div>
-              <div className="text-[8px] mt-0.5 opacity-70">{s.apyRange}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Collateral input */}
-      <div className="flex flex-col gap-1">
-        <div className="text-[10px] text-[#5C658E] uppercase">
-          Collateral Amount ({selectedAsset.symbol})
-        </div>
-        <input
-          type="number"
-          min="0.01"
-          step="0.01"
-          value={collateralAmount}
-          onChange={(e) => setCollateralAmount(parseFloat(e.target.value) || 0)}
-          className="bg-[#141724] border border-[#1F2436] px-3 py-2 text-[#F8FAFC] font-mono text-sm focus:border-[#FF6B00] focus:outline-none"
-        />
-      </div>
-
-      {/* Execute button */}
-      <button
-        onClick={handleExecute}
-        disabled={collateralAmount <= 0}
-        className="w-full py-3 bg-[#FF6B00] hover:bg-[#FF7A1A] text-[#090A0F] font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-      >
-        <Lock className="w-3.5 h-3.5" />
-        Write {selectedStrategy.label} Covered Call
-      </button>
     </div>
   );
 }
@@ -403,103 +490,123 @@ function VaultDesk({
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <ShieldCheck className="w-4 h-4 text-[#FF6B00]" />
-        <span className="text-[11px] text-[#F8FAFC] font-bold uppercase">
+    <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
+      <div className="mb-5 flex items-center gap-2">
+        <ShieldCheck className="text-[#FF6B00]" size={16} />
+        <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#d7d0db]">
           Deposit {asset.symbol} & Write Covered Call
-        </span>
+        </h2>
       </div>
 
-      <div className="bg-[#141724] border border-[#1F2436] p-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] text-[#5C658E] uppercase">Asset</span>
-          <span className="text-[11px] text-[#F8FAFC] font-bold">
-            {asset.name} ({asset.symbol})
-          </span>
-        </div>
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-[10px] text-[#5C658E] uppercase">Oracle Feed</span>
-          <span className="text-[10px] text-[#00D084] flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-[#00D084] rounded-full animate-pulse"></span>
-            {asset.oracleFeed} (Chainlink)
-          </span>
-        </div>
-      </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
+        <div className="flex flex-col gap-4">
+          {/* Asset info */}
+          <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-white font-bold">{asset.name}</div>
+                <div className="text-[11px] text-[#77717e]">{asset.symbol}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-white font-bold text-lg">${asset.price.toFixed(2)}</div>
+                <div className={`text-[11px] font-bold ${asset.change24h >= 0 ? "text-[#00D084]" : "text-[#F04438]"}`}>
+                  {asset.change24h >= 0 ? "+" : ""}{asset.change24h.toFixed(2)}%
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 mt-3 text-[10px] text-[#00D084]">
+              <span className="w-1.5 h-1.5 bg-[#00D084] rounded-full animate-pulse" />
+              {asset.oracleFeed} (Chainlink on Base)
+            </div>
+          </div>
 
-      {/* Strategy selector */}
-      <div className="flex gap-1.5">
-        {STRATEGIES.map((s) => (
+          {/* Strategy selector */}
+          <div>
+            <div className="text-[10px] text-[#77717e] uppercase mb-2">Strategy</div>
+            <div className="flex gap-2">
+              {STRATEGIES.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedStrategyId(s.id)}
+                  className={`flex-1 py-2.5 px-3 rounded-lg text-[11px] font-bold uppercase transition-colors cursor-pointer border ${
+                    selectedStrategyId === s.id
+                      ? s.riskClass + " bg-white/5"
+                      : "text-[#77717e] bg-[#161616] border-[#232323] hover:text-white"
+                  }`}
+                >
+                  <div>{s.label}</div>
+                  <div className="text-[9px] mt-0.5 opacity-70 font-normal">{s.apyRange}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Collateral */}
+          <div>
+            <div className="text-[10px] text-[#77717e] uppercase mb-2">
+              Amount to Deposit ({asset.symbol})
+            </div>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={collateralAmount}
+              onChange={(e) => setCollateralAmount(parseFloat(e.target.value) || 0)}
+              className="w-full rounded-lg border border-[#232323] bg-[#161616] px-4 py-3 text-white font-mono text-sm focus:border-[#FF6B00] focus:outline-none transition-colors"
+            />
+          </div>
+
+          {/* Execute */}
           <button
-            key={s.id}
-            onClick={() => setSelectedStrategyId(s.id)}
-            className={`flex-1 py-2 px-2 text-[10px] font-bold uppercase transition-colors cursor-pointer border ${
-              selectedStrategyId === s.id
-                ? s.riskClass
-                : "text-[#5C658E] bg-[#141724] border-[#1F2436] hover:text-[#F8FAFC]"
-            }`}
+            onClick={() =>
+              onExecuteTrade({
+                asset,
+                collateralAmount,
+                strategy: selectedStrategy,
+                premiumEth: premiumEstimate / 4000,
+                premiumUsd: premiumEstimate,
+              })
+            }
+            disabled={collateralAmount <= 0}
+            className="w-full py-3 rounded-lg bg-[#FF6B00] hover:bg-[#FF7A1A] text-black font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
           >
-            <div>{s.label}</div>
-            <div className="text-[8px] mt-0.5 opacity-70">{s.apyRange}</div>
+            <Lock className="w-4 h-4" />
+            Deposit & Write Covered Call
           </button>
-        ))}
-      </div>
-
-      {/* Collateral */}
-      <div className="flex flex-col gap-1">
-        <div className="text-[10px] text-[#5C658E] uppercase">
-          Amount to Deposit ({asset.symbol})
         </div>
-        <input
-          type="number"
-          min="0.01"
-          step="0.01"
-          value={collateralAmount}
-          onChange={(e) => setCollateralAmount(parseFloat(e.target.value) || 0)}
-          className="bg-[#141724] border border-[#1F2436] px-3 py-2 text-[#F8FAFC] font-mono text-sm focus:border-[#FF6B00] focus:outline-none"
-        />
-      </div>
 
-      {/* Summary */}
-      <div className="bg-[#141724] border border-[#1F2436] p-3 grid grid-cols-2 gap-2 text-[10px]">
-        <div>
-          <div className="text-[#5C658E] uppercase">Strike Price</div>
-          <div className="text-[#F8FAFC] font-bold text-sm mt-0.5">
-            ${strikePrice.toFixed(2)}
+        {/* Right: Summary */}
+        <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+          <div className="text-[10px] text-[#77717e] uppercase mb-3">Trade Summary</div>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-[12px] text-[#94a3b8]">Strike Price</span>
+              <span className="text-[12px] text-white font-bold">${strikePrice.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[12px] text-[#94a3b8]">Est. Premium</span>
+              <span className="text-[12px] text-[#00D084] font-bold">${premiumEstimate.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[12px] text-[#94a3b8]">Expiry</span>
+              <span className="text-[12px] text-white">{selectedStrategy.expiryDays} days</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[12px] text-[#94a3b8]">OTM %</span>
+              <span className="text-[12px] text-white">{selectedStrategy.otmPercentage}%</span>
+            </div>
+            <div className="h-px bg-[#232323]" />
+            <div className="flex justify-between items-center">
+              <span className="text-[12px] text-[#94a3b8]">Est. APY</span>
+              <span className="text-[12px] text-[#FF6B00] font-bold">{selectedStrategy.apyRange}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[12px] text-[#94a3b8]">Network</span>
+              <span className="text-[10px] text-[#827b88]">Base L2</span>
+            </div>
           </div>
         </div>
-        <div>
-          <div className="text-[#5C658E] uppercase">Est. Premium</div>
-          <div className="text-[#00D084] font-bold text-sm mt-0.5">
-            ${premiumEstimate.toFixed(2)}
-          </div>
-        </div>
-        <div>
-          <div className="text-[#5C658E] uppercase">Expiry</div>
-          <div className="text-[#F8FAFC] mt-0.5">{selectedStrategy.expiryDays} days</div>
-        </div>
-        <div>
-          <div className="text-[#5C658E] uppercase">Est. APY</div>
-          <div className="text-[#FF6B00] mt-0.5">{selectedStrategy.apyRange}</div>
-        </div>
       </div>
-
-      <button
-        onClick={() =>
-          onExecuteTrade({
-            asset,
-            collateralAmount,
-            strategy: selectedStrategy,
-            premiumEth: premiumEstimate / 4000,
-            premiumUsd: premiumEstimate,
-          })
-        }
-        disabled={collateralAmount <= 0}
-        className="w-full py-3 bg-[#FF6B00] hover:bg-[#FF7A1A] text-[#090A0F] font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-      >
-        <Lock className="w-3.5 h-3.5" />
-        Deposit & Write Covered Call
-      </button>
     </div>
   );
 }
@@ -517,80 +624,88 @@ function PositionsList({
 }) {
   if (positions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-[#5C658E]">
-        <Lock className="w-8 h-8 mb-3 opacity-30" />
-        <div className="text-[11px] uppercase">No Active Positions</div>
-        <div className="text-[10px] mt-1 opacity-60">
-          Deposit collateral and write a covered call to get started
+      <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
+        <div className="flex flex-col items-center justify-center py-20 text-[#77717e]">
+          <Lock className="w-10 h-10 mb-4 opacity-30" />
+          <div className="text-[12px] uppercase font-bold">No Active Positions</div>
+          <div className="text-[11px] mt-1 opacity-60">
+            Deposit collateral and write a covered call to get started
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="text-[10px] text-[#5C658E] uppercase">
-        Active Positions ({positions.length})
+    <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
+      <div className="mb-5 flex items-center gap-2">
+        <Lock className="text-[#FF6B00]" size={16} />
+        <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#d7d0db]">
+          Active Positions ({positions.length})
+        </h2>
       </div>
-      {positions.map((pos) => (
-        <div
-          key={pos.id}
-          className="bg-[#141724] border border-[#1F2436] p-3"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-[#F8FAFC] font-bold">
-              {pos.symbol} — {pos.strategyName}
-            </span>
-            <span
-              className={`text-[9px] font-bold px-1.5 py-0.5 ${
-                pos.status === "Safe (OTM)"
-                  ? "text-[#00D084] bg-[#00D084]/10"
-                  : pos.status === "In The Money (ITM)"
-                    ? "text-[#F04438] bg-[#F04438]/10"
-                    : "text-[#FF6B00] bg-[#FF6B00]/10"
-              }`}
-            >
-              {pos.status}
-            </span>
-          </div>
-          <div className="grid grid-cols-4 gap-2 mt-2 text-[9px]">
-            <div>
-              <div className="text-[#5C658E]">Strike</div>
-              <div className="text-[#F8FAFC] font-bold">${pos.strikePrice.toFixed(2)}</div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {positions.map((pos) => (
+          <div
+            key={pos.id}
+            className="rounded-lg border border-[#232323] bg-[#161616] p-4"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-white font-bold text-sm">{pos.symbol}</span>
+                <span className="text-[10px] text-[#77717e] ml-2">{pos.strategyName}</span>
+              </div>
+              <span
+                className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                  pos.status === "Safe (OTM)"
+                    ? "text-[#00D084] bg-[#00D084]/10"
+                    : pos.status === "In The Money (ITM)"
+                      ? "text-[#F04438] bg-[#F04438]/10"
+                      : "text-[#FF6B00] bg-[#FF6B00]/10"
+                }`}
+              >
+                {pos.status}
+              </span>
             </div>
-            <div>
-              <div className="text-[#5C658E]">Spot</div>
-              <div className="text-[#F8FAFC] font-bold">${pos.oracleSpot.toFixed(2)}</div>
+            <div className="grid grid-cols-2 gap-3 mt-3 text-[11px]">
+              <div>
+                <div className="text-[#77717e]">Strike</div>
+                <div className="text-white font-bold">${pos.strikePrice.toFixed(2)}</div>
+              </div>
+              <div>
+                <div className="text-[#77717e]">Spot</div>
+                <div className="text-white font-bold">${pos.oracleSpot.toFixed(2)}</div>
+              </div>
+              <div>
+                <div className="text-[#77717e]">Locked</div>
+                <div className="text-white font-bold">{pos.lockedCollateral} {pos.symbol}</div>
+              </div>
+              <div>
+                <div className="text-[#77717e]">Expires</div>
+                <div className="text-white font-bold">{pos.expiryDateFormatted}</div>
+              </div>
             </div>
-            <div>
-              <div className="text-[#5C658E]">Locked</div>
-              <div className="text-[#F8FAFC] font-bold">{pos.lockedCollateral} {pos.symbol}</div>
+            <div className="mt-3 h-1 rounded-full bg-[#232323]">
+              <div
+                className="h-full rounded-full bg-[#FF6B00] transition-all"
+                style={{ width: `${pos.cyclePercentElapsed}%` }}
+              />
             </div>
-            <div>
-              <div className="text-[#5C658E]">Expires</div>
-              <div className="text-[#F8FAFC] font-bold">{pos.expiryDateFormatted}</div>
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-[10px] text-[#77717e]">
+                {pos.daysRemaining}d remaining
+              </span>
+              <button
+                onClick={() => onRoll(pos)}
+                className="text-[10px] text-[#FF6B00] hover:text-[#FF7A1A] flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Roll
+              </button>
             </div>
           </div>
-          <div className="mt-2 h-1 bg-[#0E111A]">
-            <div
-              className="h-full bg-[#FF6B00] transition-all"
-              style={{ width: `${pos.cyclePercentElapsed}%` }}
-            />
-          </div>
-          <div className="flex justify-between items-center mt-2">
-            <span className="text-[9px] text-[#5C658E]">
-              {pos.daysRemaining}d remaining
-            </span>
-            <button
-              onClick={() => onRoll(pos)}
-              className="text-[9px] text-[#FF6B00] hover:text-[#FF7A1A] flex items-center gap-1 cursor-pointer"
-            >
-              <RefreshCw className="w-3 h-3" />
-              Roll Position
-            </button>
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -611,57 +726,60 @@ function YieldPanel({ onHarvest }: { onHarvest: (eth: number, usd: number) => vo
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="text-[10px] text-[#5C658E] uppercase">
-        Yield Dashboard
+    <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
+      <div className="mb-5 flex items-center gap-2">
+        <Bolt className="text-[#FF6B00]" size={16} />
+        <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#d7d0db]">
+          Yield Dashboard
+        </h2>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-[#141724] border border-[#1F2436] p-3">
-          <div className="text-[10px] text-[#5C658E] uppercase">
-            Total Yield Harvested
-          </div>
-          <div className="text-xl font-bold text-[#F8FAFC] mt-1">
-            $0.00
-          </div>
-          <div className="text-[#00D084] text-[10px] mt-0.5">
-            0.000 ETH cumulative
-          </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+          <div className="text-[10px] text-[#77717e] uppercase">Total Yield</div>
+          <div className="text-xl font-bold text-white mt-1">$0.00</div>
+          <div className="text-[10px] text-[#77717e] mt-1">0.000 ETH</div>
         </div>
-        <div className="bg-[#141724] border border-[#1F2436] p-3">
-          <div className="text-[10px] text-[#5C658E] uppercase">
-            Current Blended APY
-          </div>
-          <div className="text-xl font-bold text-[#FF6B00] mt-1">
-            14.2%
-          </div>
-          <div className="text-[#00D084] text-[10px] mt-0.5">
-            +3.8% vs buy & hold
-          </div>
+        <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+          <div className="text-[10px] text-[#77717e] uppercase">Blended APY</div>
+          <div className="text-xl font-bold text-[#FF6B00] mt-1">14.2%</div>
+          <div className="text-[10px] text-[#00D084] mt-1">+3.8% vs buy & hold</div>
+        </div>
+        <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+          <div className="text-[10px] text-[#77717e] uppercase">Active Positions</div>
+          <div className="text-xl font-bold text-white mt-1">0</div>
+          <div className="text-[10px] text-[#77717e] mt-1">writing premium</div>
+        </div>
+        <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+          <div className="text-[10px] text-[#77717e] uppercase">Available</div>
+          <div className="text-xl font-bold text-white mt-1">—</div>
+          <div className="text-[10px] text-[#77717e] mt-1">harvest premium</div>
         </div>
       </div>
-      <button
-        onClick={handleHarvest}
-        disabled={isHarvesting}
-        className="w-full py-3 bg-[#FF6B00] hover:bg-[#FF7A1A] text-[#090A0F] font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-      >
-        {isHarvesting ? (
-          <>
-            <RefreshCw className="w-4 h-4 animate-spin" />
-            Transferring...
-          </>
-        ) : (
-          <>
-            <Bolt className="w-4 h-4" />
-            Harvest Premium
-          </>
-        )}
-      </button>
+      <div className="mt-6">
+        <button
+          onClick={handleHarvest}
+          disabled={isHarvesting}
+          className="w-full sm:w-auto px-6 py-3 rounded-lg bg-[#FF6B00] hover:bg-[#FF7A1A] text-black font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
+        >
+          {isHarvesting ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Transferring...
+            </>
+          ) : (
+            <>
+              <Bolt className="w-4 h-4" />
+              Harvest Premium
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------
-//  Main StocksView — pure component, no WagmiProvider wrapper
+//  Main StocksView
 // ---------------------------------------------------------------
 
 export default function StocksView({
@@ -677,27 +795,20 @@ export default function StocksView({
     SEED_ASSETS[0],
   );
   const [positions, setPositions] = useState<PositionContract[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
 
   const priceHistoryRef = useRef<
     Map<string, { price: number; timestamp: number }[]>
   >(new Map());
 
-  // Load real prices from API on mount, updating seed data
   useEffect(() => {
     loadRealPrices();
   }, []);
 
-  // Poll prices every 30s
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadRealPrices();
-    }, 30000);
+    const interval = setInterval(loadRealPrices, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Load positions when wallet connects
   useEffect(() => {
     if (walletConnected && DEFAULT_VAULT !== "0x".padEnd(42, "0")) {
       loadPositions();
@@ -748,12 +859,9 @@ export default function StocksView({
             return asset;
           }),
         );
-        setApiError(null);
       }
     } catch {
-      // API not available — keep seed data, no error shown
-    } finally {
-      setIsLoading(false);
+      // Keep seed data
     }
   };
 
@@ -778,14 +886,9 @@ export default function StocksView({
           harvestedEth: 0,
           harvestedUsd: opt.premium,
           cyclePercentElapsed: opt.progressPct ?? 0,
-          daysRemaining: Math.max(
-            0,
-            Math.ceil(opt.timeRemaining / 86400),
-          ),
+          daysRemaining: Math.max(0, Math.ceil(opt.timeRemaining / 86400)),
           totalCycleDays: 14,
-          expiryDateFormatted: new Date(
-            opt.expiry * 1000,
-          ).toUTCString(),
+          expiryDateFormatted: new Date(opt.expiry * 1000).toUTCString(),
           oracleFeedAddress: "—",
           status:
             opt.status === "ACTIVE"
@@ -795,7 +898,7 @@ export default function StocksView({
       );
       setPositions(mapped);
     } catch {
-      // Positions load failed — acceptable
+      // Acceptable
     }
   };
 
@@ -819,10 +922,7 @@ export default function StocksView({
     setAssets((prev) =>
       prev.map((a) => {
         if (a.symbol === details.asset.symbol) {
-          const newHoldings = Math.max(
-            0,
-            a.userHoldings - details.collateralAmount,
-          );
+          const newHoldings = Math.max(0, a.userHoldings - details.collateralAmount);
           return {
             ...a,
             userHoldings: Number(newHoldings.toFixed(2)),
@@ -876,7 +976,7 @@ export default function StocksView({
 
   const handleRollPosition = (pos: PositionContract) => {
     showToast(
-      `Roll request submitted for ${pos.symbol} position. New cycle will begin after settlement.`,
+      `Roll request submitted for ${pos.symbol} position.`,
     );
   };
 
@@ -888,86 +988,92 @@ export default function StocksView({
 
   const safeSelected = selectedAsset ?? assets[0];
 
+  const tabs: { id: TerminalTab; label: string }[] = [
+    { id: "all-screen", label: "Terminal" },
+    { id: "vaults", label: "Vaults" },
+    { id: "markets", label: "Stocks" },
+    { id: "positions", label: "Positions" },
+    { id: "yield", label: "Yield" },
+  ];
+
   return (
-    <div className="flex flex-col gap-3 font-mono text-xs">
+    <main className="min-h-[calc(100vh-64px)] flex-1 bg-[#080808] pb-32 text-white">
       {/* Toast */}
       {toastMessage && (
-        <div className="fixed top-14 right-4 z-50 max-w-sm bg-[#0E111A] border border-[#FF6B00] p-2.5 shadow-2xl font-mono text-xs text-[#F8FAFC] flex items-start gap-2 animate-in fade-in duration-150">
+        <div className="fixed top-14 right-4 z-50 max-w-sm rounded-lg bg-[#161616] border border-[#FF6B00] p-3 shadow-2xl text-xs text-white flex items-start gap-2 animate-in fade-in duration-150">
           <CheckCircle2 className="w-4 h-4 text-[#00D084] shrink-0 mt-0.5" />
           <div className="flex-1">
             <span className="font-bold text-[#FF6B00] block text-[10px] uppercase">
               Base L2 Confirmed
             </span>
-            <span className="text-[#94A3B8] leading-tight">
-              {toastMessage}
-            </span>
+            <span className="text-[#94a3b8] leading-tight">{toastMessage}</span>
           </div>
           <button
             onClick={() => setToastMessage(null)}
-            className="text-[#5C658E] hover:text-[#F8FAFC] text-xs ml-1"
+            className="text-[#77717e] hover:text-white text-xs ml-1"
           >
             ✕
           </button>
         </div>
       )}
 
-      {/* Wallet bar */}
-      {!walletConnected && (
-        <div className="px-3 py-2 bg-[#141724] border border-[#1F2436] flex items-center justify-between">
-          <span className="text-[10px] text-[#5C658E]">
-            Connect your Base wallet to trade tokenized stocks
-          </span>
-          <button
-            onClick={() => onConnectWallet?.()}
-            className="flex items-center gap-1.5 px-3 py-1 bg-[#FF6B00] hover:bg-[#FF7A1A] text-[#090A0F] font-mono text-[11px] font-bold uppercase transition-colors cursor-pointer"
-          >
-            <Wallet className="w-3.5 h-3.5" />
-            Connect
-          </button>
+      <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
+        {/* Wallet bar */}
+        <div className="mb-5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="text-[#FF6B00]" size={16} />
+            <h1 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#d7d0db]">
+              Coinbase B20 Tokenized Stocks
+            </h1>
+            <span className="h-1.5 w-1.5 rounded-full bg-market-green" />
+            <span className="font-mono text-[10px] text-[#827b88]">
+              Base L2 · Chainlink Oracles
+            </span>
+          </div>
+          {!walletConnected ? (
+            <button
+              onClick={() => onConnectWallet?.()}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#FF6B00] hover:bg-[#FF7A1A] text-black font-mono text-[11px] font-bold uppercase transition-colors cursor-pointer"
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              Connect Wallet
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-[#00D084] flex items-center gap-1.5 font-mono">
+                <span className="w-1.5 h-1.5 bg-[#00D084] rounded-full animate-pulse" />
+                {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
+              </span>
+              <button
+                onClick={() => onDisconnectWallet?.()}
+                className="text-[10px] text-[#77717e] hover:text-[#F04438] flex items-center gap-1 cursor-pointer"
+              >
+                <LogOut className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
-      )}
-      {walletConnected && walletAddress && (
-        <div className="px-3 py-1 bg-[#00D084]/5 border border-[#00D084]/20 flex items-center justify-between">
-          <span className="text-[10px] text-[#00D084] flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 bg-[#00D084] rounded-full animate-pulse"></span>
-            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-          </span>
-          <button
-            onClick={() => onDisconnectWallet?.()}
-            className="text-[10px] text-[#5C658E] hover:text-[#F04438] flex items-center gap-1 cursor-pointer"
-          >
-            <LogOut className="w-3 h-3" />
-          </button>
-        </div>
-      )}
 
-      {/* Sub-tabs */}
-      <div className="flex gap-1 bg-[#0E111A] border border-[#1F2436] p-1">
-        {(
-          [
-            { id: "all-screen", label: "Terminal" },
-            { id: "vaults", label: "Vaults" },
-            { id: "markets", label: "Stocks" },
-            { id: "positions", label: "Positions" },
-            { id: "yield", label: "Yield" },
-          ] as const
-        ).map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 py-1.5 px-2 text-[10px] uppercase tracking-wider transition-colors cursor-pointer ${
-              activeTab === tab.id
-                ? "text-[#FF6B00] bg-[#FF6B00]/10 border border-[#FF6B00]/30 font-bold"
-                : "text-[#5C658E] hover:text-[#F8FAFC] border border-transparent"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {/* Sub-tabs */}
+        <div className="mb-6 flex gap-1 overflow-x-auto border-b border-[#232323] pb-5">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex flex-shrink-0 items-center gap-2 rounded px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
+                activeTab === tab.id
+                  ? "bg-[#FF6B00]/10 text-[#FF6B00] border border-[#FF6B00]/30"
+                  : "text-[#77717e] hover:text-white"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Content */}
-      <div className="bg-[#0E111A] border border-[#1F2436] p-3 min-h-[400px]">
+      <div>
         {activeTab === "all-screen" && safeSelected && (
           <TerminalView
             assets={assets}
@@ -978,13 +1084,15 @@ export default function StocksView({
           />
         )}
         {activeTab === "markets" && (
-          <StocksGrid
-            assets={assets}
-            onSelect={(a) => {
-              setSelectedAsset(a);
-              setActiveTab("vaults");
-            }}
-          />
+          <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
+            <StocksGrid
+              assets={assets}
+              onSelect={(a) => {
+                setSelectedAsset(a);
+                setActiveTab("vaults");
+              }}
+            />
+          </div>
         )}
         {activeTab === "vaults" && safeSelected && (
           <VaultDesk
@@ -1002,44 +1110,6 @@ export default function StocksView({
           <YieldPanel onHarvest={handleHarvestPremium} />
         )}
       </div>
-
-      {/* Footer ticker */}
-      <div className="h-8 bg-[#0E111A] border border-[#1F2436] px-3 flex items-center justify-between text-[10px] text-[#5C658E] select-none">
-        <div className="flex items-center space-x-3 overflow-x-auto py-1">
-          <div className="flex items-center gap-1.5 text-[#00D084] font-semibold shrink-0">
-            <span className="w-1.5 h-1.5 bg-[#00D084] rounded-full animate-pulse"></span>
-            <span>ORACLE ORBIT</span>
-          </div>
-          <span className="text-[#1F2436]">|</span>
-          {assets.map((asset) => (
-            <div
-              key={asset.symbol}
-              className="flex items-center space-x-1.5 shrink-0"
-            >
-              <span className="text-[#94A3B8] font-bold">
-                {asset.symbol}
-              </span>
-              <span className="text-[#F8FAFC]">
-                ${asset.price.toFixed(2)}
-              </span>
-              <span
-                className={`text-[9px] ${
-                  asset.change24h >= 0
-                    ? "text-[#00D084]"
-                    : "text-[#F04438]"
-                }`}
-              >
-                {asset.change24h >= 0 ? "+" : ""}
-                {asset.change24h.toFixed(1)}%
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0 ml-3">
-          <Cpu className="w-3 h-3" />
-          <span>BASE L2</span>
-        </div>
-      </div>
-    </div>
+    </main>
   );
 }
