@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   WagmiProvider,
   useAccount,
@@ -17,30 +17,17 @@ import {
   listEquityStrategies,
   writeEquityOption,
   getEquityVaultOptions,
-  getEquityVaultYield,
-  settleEquityOptions,
-  type EquityStock,
-  type EquityPrice,
-  type EquityStrategy,
+  type EquityOptionPosition,
 } from "../lib/core-api";
 import {
   CheckCircle2,
   Wallet,
   LogOut,
-  ArrowUpRight,
   Bolt,
-  Download,
-  ExternalLink,
   RefreshCw,
-  TrendingUp,
   Lock,
-  Unlock,
-  Layers,
   ChevronDown,
   ShieldCheck,
-  Zap,
-  Info,
-  Activity,
   Cpu,
 } from "lucide-react";
 
@@ -113,6 +100,14 @@ interface PositionContract {
   status: "Safe (OTM)" | "In The Money (ITM)" | "At The Money (ATM)";
 }
 
+interface TradeDetails {
+  asset: SyntheticAsset;
+  collateralAmount: number;
+  strategy: CoveredCallStrategy;
+  premiumEth: number;
+  premiumUsd: number;
+}
+
 // ---------------------------------------------------------------
 //  Strategy presets (hardcoded — same as conviction-core-api config)
 // ---------------------------------------------------------------
@@ -182,7 +177,6 @@ function StocksTerminal() {
     null,
   );
   const [positions, setPositions] = useState<PositionContract[]>([]);
-  const [walletBalanceUsdc, setWalletBalanceUsdc] = useState<number>(0);
 
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -216,7 +210,7 @@ function StocksTerminal() {
     setIsLoading(true);
     setApiError(null);
     try {
-      const [stocks, prices, strategies] = await Promise.all([
+      const [stocks, prices] = await Promise.all([
         listEquityStocks(),
         listEquityPrices(),
         listEquityStrategies(),
@@ -319,7 +313,7 @@ function StocksTerminal() {
     try {
       const data = await getEquityVaultOptions(DEFAULT_VAULT);
       const mapped: PositionContract[] = (data.options ?? []).map(
-        (opt: any) => ({
+        (opt: EquityOptionPosition) => ({
           id: `pos-${opt.optionId}`,
           symbol: opt.symbol,
           assetName: opt.symbol,
@@ -425,9 +419,6 @@ function StocksTerminal() {
     };
 
     setPositions((prev) => [newContract, ...prev]);
-    setWalletBalanceUsdc((prev) =>
-      Number((prev + details.premiumUsd).toFixed(2)),
-    );
 
     showToast(
       `Deposit Confirmed: Locked ${details.collateralAmount} ${details.asset.symbol}. Earned +$${details.premiumUsd.toFixed(2)} upfront premium!`,
@@ -452,18 +443,12 @@ function StocksTerminal() {
   };
 
   const handleHarvestPremium = (ethAmount: number, usdAmount: number) => {
-    setWalletBalanceUsdc((prev) =>
-      Number((prev + usdAmount).toFixed(2)),
-    );
     showToast(
       `Harvested ${ethAmount} ETH (~$${usdAmount.toFixed(2)} USD) to wallet.`,
     );
   };
 
   const handleWithdrawCollateral = (amountUsdc: number) => {
-    setWalletBalanceUsdc((prev) =>
-      Number((prev + amountUsdc).toFixed(2)),
-    );
     showToast(
       `Redeemed and transferred $${amountUsdc.toFixed(2)} USDC to wallet.`,
     );
@@ -627,10 +612,8 @@ function StocksTerminal() {
             onRoll={handleRollPosition}
           />
         )}
-        {activeTab === "yield" && (
-          <YieldPanel
+        {activeTab === "yield" && (           <YieldPanel
             onHarvest={handleHarvestPremium}
-            onWithdraw={handleWithdrawCollateral}
           />
         )}
       </div>
@@ -700,7 +683,7 @@ function TerminalView({
   selectedAsset: SyntheticAsset;
   onSelectAsset: (a: SyntheticAsset) => void;
   positions: PositionContract[];
-  onExecuteTrade: (d: any) => void;
+  onExecuteTrade: (d: TradeDetails) => void;
 }) {
   const [collateralAmount, setCollateralAmount] = useState(
     selectedAsset?.userHoldings || 1,
@@ -975,7 +958,7 @@ function VaultDesk({
   onExecuteTrade,
 }: {
   asset: SyntheticAsset;
-  onExecuteTrade: (d: any) => void;
+  onExecuteTrade: (d: TradeDetails) => void;
 }) {
   const [collateralAmount, setCollateralAmount] = useState(1);
   const [selectedStrategyId, setSelectedStrategyId] = useState<
@@ -1179,10 +1162,8 @@ function PositionsList({
 
 function YieldPanel({
   onHarvest,
-  onWithdraw,
 }: {
   onHarvest: (eth: number, usd: number) => void;
-  onWithdraw: (usdc: number) => void;
 }) {
   const [isHarvesting, setIsHarvesting] = useState(false);
 

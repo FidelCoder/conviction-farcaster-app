@@ -2672,12 +2672,67 @@ export async function listEquityStrategies() {
   }, [] as EquityStrategy[]);
 }
 
+export interface EquityOptionQuote {
+  symbol: string;
+  strategy: string;
+  strikePrice: number;
+  premium: number;
+  collateralRequired: number;
+  impliedVolatility: number;
+  daysToExpiry: number;
+  delta: number;
+  gamma: number;
+  theta: number;
+  apyEstimate: number;
+}
+
+export interface EquityVaultResponse {
+  success: boolean;
+  transactionHash?: string;
+  optionId?: string;
+  message?: string;
+}
+
+export interface EquitySettlementResponse {
+  success: boolean;
+  optionId?: string;
+  finalPrice?: number;
+  payout?: number;
+  message?: string;
+}
+
+export interface EquityVaultYieldData {
+  epochNumber: number;
+  totalDeposits: number;
+  totalYieldEarned: number;
+  apy: number;
+  currentEpochYield: number;
+  yieldHistory: Array<{ epoch: number; yield: number; apy: number }>;
+}
+
+export interface EquityOptionPosition {
+  optionId: string;
+  symbol: string;
+  strategy: string;
+  strikePrice: number;
+  premium: number;
+  collateral: number;
+  collateralLocked: number;
+  daysToExpiry: number;
+  expiryDate: string;
+  expiry: number;
+  timeRemaining: number;
+  progressPct: number;
+  status: string;
+  pnl?: number;
+}
+
 export async function getEquityOptionQuote(
   symbol: string,
   strategy: string,
   collateralAmount: number,
 ) {
-  return coreRequest<{ quote: any }>("/equity-vaults/quote", {
+  return coreRequest<{ quote: EquityOptionQuote }>("/equity-vaults/quote", {
     method: "POST",
     body: { symbol, strategy, collateralAmount },
   });
@@ -2688,7 +2743,7 @@ export async function depositEquityVault(
   symbol: string,
   amount: number,
 ) {
-  return coreRequest<any>(`/equity-vaults/${encodeURIComponent(vaultAddress)}/deposit`, {
+  return coreRequest<EquityVaultResponse>(`/equity-vaults/${encodeURIComponent(vaultAddress)}/deposit`, {
     method: "POST",
     body: { symbol, amount },
   });
@@ -2700,24 +2755,24 @@ export async function writeEquityOption(
   strategy: string,
   collateralAmount: number,
 ) {
-  return coreRequest<any>(`/equity-vaults/${encodeURIComponent(vaultAddress)}/write-option`, {
+  return coreRequest<EquityVaultResponse>(`/equity-vaults/${encodeURIComponent(vaultAddress)}/write-option`, {
     method: "POST",
     body: { symbol, strategy, collateralAmount },
   });
 }
 
 export async function settleEquityOptions(vaultAddress: string) {
-  return coreRequest<any>(`/equity-vaults/${encodeURIComponent(vaultAddress)}/settle`, {
+  return coreRequest<EquitySettlementResponse>(`/equity-vaults/${encodeURIComponent(vaultAddress)}/settle`, {
     method: "POST",
   });
 }
 
 export async function getEquityVaultYield(vaultAddress: string) {
-  return coreRequest<any>(`/equity-vaults/${encodeURIComponent(vaultAddress)}/yield`);
+  return coreRequest<EquityVaultYieldData>(`/equity-vaults/${encodeURIComponent(vaultAddress)}/yield`);
 }
 
 export async function getEquityVaultOptions(vaultAddress: string) {
-  return coreRequest<{ options: any[] }>(
+  return coreRequest<{ options: EquityOptionPosition[] }>(
     `/equity-vaults/${encodeURIComponent(vaultAddress)}/options`,
   );
 }
