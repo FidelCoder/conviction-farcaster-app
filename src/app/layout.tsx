@@ -59,6 +59,19 @@ export const metadata: Metadata = {
   },
   other: {
     "llms-txt": appUrl + "/llms.txt",
+    "fc:miniapp": appUrl,
+    "fc:frame": JSON.stringify({
+      version: "1",
+      imageUrl: appUrl + "/logo/conviction-markets-3d-black-bg.png",
+      button: {
+        title: "Trade Stocks",
+        action: {
+          type: "launch_miniapp",
+          url: appUrl + "/stocks",
+          name: "Conviction Stocks",
+        },
+      },
+    }),
   },
   openGraph: {
     title: "Conviction Markets | Leveraged Prediction Markets",

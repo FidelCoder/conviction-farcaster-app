@@ -1370,7 +1370,12 @@ export function BrowserTerminal({
           ) : null}
 
           {activeTab === "stocks" ? (
-            <StocksView />
+            <StocksView
+              walletAddress={portfolio.address}
+              walletConnected={portfolio.connected}
+              onConnectWallet={() => handleConnectWallet()}
+              onDisconnectWallet={handleDisconnectWallet}
+            />
           ) : null}
 
           {activeTab === "activity" ? (
