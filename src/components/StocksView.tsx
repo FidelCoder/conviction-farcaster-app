@@ -997,7 +997,7 @@ export default function StocksView({
   ];
 
   return (
-    <main className="min-h-[calc(100vh-64px)] flex-1 bg-[#080808] pb-32 text-white">
+    <main className="flex-1 pb-32 text-white">
       {/* Toast */}
       {toastMessage && (
         <div className="fixed top-14 right-4 z-50 max-w-sm rounded-lg bg-[#161616] border border-[#FF6B00] p-3 shadow-2xl text-xs text-white flex items-start gap-2 animate-in fade-in duration-150">
