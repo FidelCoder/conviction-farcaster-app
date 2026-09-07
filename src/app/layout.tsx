@@ -72,6 +72,7 @@ export const metadata: Metadata = {
         },
       },
     }),
+    "base:app_id": "6a9e5772e46e9f251a1969a0",
   },
   openGraph: {
     title: "Conviction Markets | Leveraged Prediction Markets",
