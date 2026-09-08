@@ -183,7 +183,7 @@ export default function VaultsView({
   }
 
   return (
-    <main className="flex-1 bg-grid-tech pt-8 px-4 md:px-10 pb-32 max-w-[1280px] mx-auto w-full">
+    <main className="flex-1 bg-[#080808] pt-8 px-4 md:px-10 pb-32 max-w-[1280px] mx-auto w-full">
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <MetricCard
           label="Total Value Locked (TVL)"

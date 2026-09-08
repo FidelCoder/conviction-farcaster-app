@@ -675,7 +675,7 @@ export default function ActivityView({
   };
 
   return (
-    <main className="flex-1 bg-grid-tech overflow-y-auto relative z-10 w-full min-h-[calc(100vh-64px)]">
+    <main className="flex-1 bg-[#080808] overflow-y-auto relative z-10 w-full min-h-[calc(100vh-64px)]">
       <div className="mx-auto w-full max-w-[1320px] px-4 py-6 pb-32 md:px-8 md:py-10">
         <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
