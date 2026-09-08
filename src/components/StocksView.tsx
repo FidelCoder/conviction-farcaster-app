@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   listEquityStocks,
   listEquityPrices,
@@ -16,20 +16,17 @@ import {
   LogOut,
   Bolt,
   RefreshCw,
-  Lock,
-  ChevronDown,
-  ShieldCheck,
-  Cpu,
   TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
+  Lock,
 } from "lucide-react";
 
 // ---------------------------------------------------------------
 //  Types
 // ---------------------------------------------------------------
 
-type TerminalTab = "all-screen" | "vaults" | "markets" | "positions" | "yield";
+type StockTab = "stocks" | "vaults" | "positions" | "yield";
 
 interface SyntheticAsset {
   symbol: string;
@@ -98,49 +95,45 @@ const SEED_ASSETS: SyntheticAsset[] = [
   { symbol: "GOOGLc", name: "Alphabet Inc", shortCode: "GO", price: 165.20, change24h: -0.45, impliedVol: 32, vaultApy: 11.8, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase GOOGL", contractAddress: "0xb2000000000000000000002D0BA3164cc74f58B7" },
   { symbol: "METAc", name: "Meta Platforms", shortCode: "ME", price: 563.80, change24h: 1.15, impliedVol: 38, vaultApy: 12.4, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase META", contractAddress: "0xb2000000000000000000008bC8786B856E61707C" },
   { symbol: "AMZNc", name: "Amazon.com Inc", shortCode: "AM", price: 231.50, change24h: 0.67, impliedVol: 30, vaultApy: 11.2, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase AMZN", contractAddress: "0xb200000000000000000000d9192b6B456483C2E8" },
-  { symbol: "TSLAc", name: "Tesla Inc", shortCode: "TS", price: 348.90, change24h: -1.23, impliedVol: 55, vaultApy: 18.5, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase TSLA", contractAddress: "0xb2000000000000000000001e800a7f5189430cD0" },
-  { symbol: "MSFTc", name: "Microsoft Corp", shortCode: "MS", price: 420.15, change24h: 0.34, impliedVol: 25, vaultApy: 9.8, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase MSFT", contractAddress: "0xB200000000000000000000Ab99cFa739E253872B" },
-  { symbol: "COINc", name: "Coinbase Global", shortCode: "CO", price: 265.40, change24h: 3.12, impliedVol: 52, vaultApy: 16.8, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase COIN", contractAddress: "0xb200000000000000000000c85a31389D71F3ecfb" },
-  { symbol: "INTCc", name: "Intel Corp", shortCode: "IN", price: 22.85, change24h: -0.78, impliedVol: 42, vaultApy: 13.5, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase INTC", contractAddress: "0xB2000000000000000000004AFF16039bA04bdFBc" },
-  { symbol: "MSTRc", name: "MicroStrategy", shortCode: "MU", price: 185.60, change24h: 4.50, impliedVol: 65, vaultApy: 22.0, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase MSTR", contractAddress: "0xB2000000000000000000004884b426556b92883d" },
-  { symbol: "CRCLc", name: "Circle (USDC)", shortCode: "CR", price: 1.00, change24h: 0.01, impliedVol: 5, vaultApy: 4.2, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase CRCL", contractAddress: "0xB20000000000000000000019f6E7C675b73C2e4D" },
-  { symbol: "SNDKc", name: "SanDisk Corp", shortCode: "SN", price: 62.30, change24h: -0.25, impliedVol: 35, vaultApy: 11.0, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase SNDK", contractAddress: "0xb200000000000000000000397293Cb8cda9a10c5" },
-  { symbol: "SPCXc", name: "SPACEX Token", shortCode: "SP", price: 180.00, change24h: 1.85, impliedVol: 48, vaultApy: 15.5, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase SPCX", contractAddress: "0xb2000000000000000000007b9fcbd005511aCBd5" },
+  { symbol: "TSLAc", name: "Tesla Inc", shortCode: "TS", price: 348.90, change24h: -1.23, impliedVol: 55, vaultApy: 16.8, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase TSLA", contractAddress: "0xb200000000000000000000f5e6d5C0f25e6178E4E4a9E7E8b4e6F1234AbCDef" },
+  { symbol: "MSFTc", name: "Microsoft Corp", shortCode: "MS", price: 420.15, change24h: 0.34, impliedVol: 25, vaultApy: 9.8, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase MSFT", contractAddress: "0xb200000000000000000000a1B2C3D4E5F6a7B8C9D0E1F2a3B4C5D6E7F8" },
+  { symbol: "COINc", name: "Coinbase Global", shortCode: "CO", price: 265.40, change24h: 3.12, impliedVol: 52, vaultApy: 15.5, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase COIN", contractAddress: "0xb200000000000000000000b3C4D5E6F7a8B9C0D1E2F3a4B5C6D7E8F9" },
+  { symbol: "INTCc", name: "Intel Corp", shortCode: "IN", price: 22.85, change24h: -0.78, impliedVol: 42, vaultApy: 13.1, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase INTC", contractAddress: "0xb200000000000000000000c4D5E6F7a8B9C0D1E2F3a4B5C6D7E8F9a0" },
+  { symbol: "MSTRc", name: "MicroStrategy", shortCode: "MS", price: 185.60, change24h: 4.50, impliedVol: 65, vaultApy: 19.2, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase MSTR", contractAddress: "0xb200000000000000000000d5E6F7a8B9C0D1E2F3a4B5C6D7E8F9a0B1" },
+  { symbol: "CRCLc", name: "Circle (USDC)", shortCode: "CR", price: 1.00, change24h: 0.01, impliedVol: 5, vaultApy: 2.1, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase CRCL", contractAddress: "0xb200000000000000000000e6F7a8B9C0D1E2F3a4B5C6D7E8F9a0B1c2" },
+  { symbol: "SNDKc", name: "SanDisk Corp", shortCode: "SN", price: 62.30, change24h: -0.25, impliedVol: 35, vaultApy: 11.0, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase SNDK", contractAddress: "0xb200000000000000000000f7a8B9C0D1E2F3a4B5C6D7E8F9a0B1c2d3" },
+  { symbol: "SPCXc", name: "SPACEX Token", shortCode: "SP", price: 180.00, change24h: 1.85, impliedVol: 48, vaultApy: 14.8, userHoldings: 0, holdingValue: 0, oracleFeed: "Coinbase SPCX", contractAddress: "0xb200000000000000000000a8B9C0D1E2F3a4B5C6D7E8F9a0B1c2d3E4" },
 ];
-
-// ---------------------------------------------------------------
-//  Strategy presets
-// ---------------------------------------------------------------
 
 const STRATEGIES: CoveredCallStrategy[] = [
   {
     id: "conservative",
     label: "Conservative",
     riskBadge: "Low Risk",
-    riskClass: "text-[#94a3b8] border-[#333]",
-    otmPercentage: 10,
-    strikeOffset: 1.10,
+    riskClass: "text-[#00D084] bg-[#00D084]/10",
+    otmPercentage: 15,
+    strikeOffset: 1.15,
     expiryDays: 30,
     apyRange: "8–12% APY",
-    premEstMultiplier: 0.034,
+    premEstMultiplier: 0.045,
   },
   {
     id: "moderate",
     label: "Moderate",
-    riskBadge: "Balanced",
-    riskClass: "text-[#FF6B00] border-[#FF6B00]/40",
-    otmPercentage: 5,
-    strikeOffset: 1.0506,
+    riskBadge: "Med Risk",
+    riskClass: "text-[#FF6B00] bg-[#FF6B00]/10",
+    otmPercentage: 10,
+    strikeOffset: 1.10,
     expiryDays: 14,
-    apyRange: "12–18% APY",
     recommended: true,
-    premEstMultiplier: 0.0736,
+    apyRange: "12–18% APY",
+    premEstMultiplier: 0.078,
   },
   {
     id: "aggressive",
     label: "Aggressive",
-    riskBadge: "Assignment Risk",
-    riskClass: "text-[#F04438] border-[#F04438]/40",
+    riskBadge: "High Risk",
+    riskClass: "text-[#ff4444] bg-[#ff4444]/10",
     otmPercentage: 5,
     isItm: true,
     strikeOffset: 0.95,
@@ -155,7 +148,7 @@ const DEFAULT_VAULT =
   "0x0000000000000000000000000000000000000000";
 
 // ---------------------------------------------------------------
-//  Props from parent
+//  Props
 // ---------------------------------------------------------------
 
 interface StocksViewProps {
@@ -166,458 +159,200 @@ interface StocksViewProps {
 }
 
 // ---------------------------------------------------------------
-//  StocksGrid — the stock picker
+//  Stock Card — matches mockup layout
 // ---------------------------------------------------------------
 
-function StocksGrid({
-  assets,
-  onSelect,
+function StockCard({
+  asset,
+  onClick,
 }: {
-  assets: SyntheticAsset[];
-  onSelect: (a: SyntheticAsset) => void;
+  asset: SyntheticAsset;
+  onClick: () => void;
 }) {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {assets.map((asset) => (
-        <button
-          key={asset.symbol}
-          onClick={() => onSelect(asset)}
-          className="rounded-lg border border-[#232323] p-4 text-left transition-colors hover:border-[#FF6B00]/50 group"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="font-bold text-white text-sm group-hover:text-[#FF6B00]">
-                {asset.symbol}
-              </span>
-              <span className="text-[11px] text-[#77717e] ml-2">{asset.name}</span>
-            </div>
-            <span
-              className={`text-[11px] font-bold flex items-center gap-0.5 ${
-                asset.change24h >= 0 ? "text-[#00D084]" : "text-[#F04438]"
-              }`}
-            >
-              {asset.change24h >= 0 ? (
-                <ArrowUpRight className="w-3 h-3" />
-              ) : (
-                <ArrowDownRight className="w-3 h-3" />
-              )}
-              {asset.change24h >= 0 ? "+" : ""}
-              {asset.change24h.toFixed(2)}%
-            </span>
-          </div>
-          <div className="text-xl font-bold text-white mt-3">
-            ${asset.price.toFixed(2)}
-          </div>
-          <div className="flex items-center gap-3 mt-2 text-[10px] text-[#77717e]">
-            <span className="flex items-center gap-1">
-              <Cpu className="w-3 h-3" />
-              {asset.oracleFeed}
-            </span>
-            <span>Vol {asset.impliedVol}%</span>
-          </div>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------
-//  TerminalView — full-screen trading terminal
-// ---------------------------------------------------------------
-
-function TerminalView({
-  assets,
-  selectedAsset,
-  onSelectAsset,
-  positions,
-  onExecuteTrade,
-}: {
-  assets: SyntheticAsset[];
-  selectedAsset: SyntheticAsset;
-  onSelectAsset: (a: SyntheticAsset) => void;
-  positions: PositionContract[];
-  onExecuteTrade: (d: TradeDetails) => void;
-}) {
-  const [collateralAmount, setCollateralAmount] = useState(1);
-  const [selectedStrategyId, setSelectedStrategyId] = useState<
-    "conservative" | "moderate" | "aggressive"
-  >("moderate");
-  const [isAssetDropdownOpen, setIsAssetDropdownOpen] = useState(false);
-
-  useEffect(() => {
-    setCollateralAmount(selectedAsset?.userHoldings || 1);
-  }, [selectedAsset]);
-
-  const selectedStrategy =
-    STRATEGIES.find((s) => s.id === selectedStrategyId) || STRATEGIES[1];
-  const strikePrice = Number(
-    (selectedAsset.price * selectedStrategy.strikeOffset).toFixed(2),
-  );
-  const premiumEstimate = Number(
-    (
-      selectedAsset.price *
-      collateralAmount *
-      selectedStrategy.premEstMultiplier
-    ).toFixed(2),
-  );
+  const isPositive = asset.change24h >= 0;
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
-      {/* Header */}
-      <div className="mb-5 flex items-center gap-2">
-        <TrendingUp className="text-[#FF6B00]" size={16} />
-        <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#d7d0db]">
-          Covered Call Terminal
-        </h2>
-        <span className="h-1.5 w-1.5 rounded-full bg-market-green" />
-        <span className="font-mono text-[10px] text-[#827b88]">
-          {assets.length} assets live
+    <button
+      onClick={onClick}
+      className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-white/[0.03] cursor-pointer border-b border-[#1a1a1a] last:border-b-0"
+    >
+      {/* Left: Symbol + Name */}
+      <div className="flex flex-col min-w-0">
+        <span className="font-mono text-sm font-bold text-white">
+          {asset.symbol}
+        </span>
+        <span className="text-[11px] text-[#77717e] truncate">
+          {asset.name}
         </span>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
-        {/* Left: Trading panel */}
-        <div className="flex flex-col gap-4">
-          {/* Asset selector */}
-          <div className="relative">
-            <button
-              onClick={() => setIsAssetDropdownOpen(!isAssetDropdownOpen)}
-              className="flex items-center gap-3 rounded-lg border border-[#232323] px-4 py-3 hover:border-[#FF6B00]/40 transition-colors cursor-pointer w-full"
-            >
-              <span className="font-bold text-white">{selectedAsset.symbol}</span>
-              <span className="text-[12px] text-[#77717e]">${selectedAsset.price.toFixed(2)}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#77717e] ml-auto" />
-            </button>
-            {isAssetDropdownOpen && (
-              <div className="absolute top-full left-0 z-20 mt-1 w-full rounded-lg border border-[#232323] shadow-2xl max-h-60 overflow-y-auto">
-                {assets.map((a) => (
-                  <button
-                    key={a.symbol}
-                    onClick={() => {
-                      onSelectAsset(a);
-                      setIsAssetDropdownOpen(false);
-                    }}
-                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-[#232323] transition-colors cursor-pointer text-left"
-                  >
-                    <div>
-                      <span className="text-[12px] text-white font-bold">{a.symbol}</span>
-                      <span className="text-[11px] text-[#77717e] ml-2">{a.name}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[12px] text-[#d7d0db]">${a.price.toFixed(2)}</span>
-                      <span className={`text-[11px] font-bold ${a.change24h >= 0 ? "text-[#00D084]" : "text-[#F04438]"}`}>
-                        {a.change24h >= 0 ? "+" : ""}{a.change24h.toFixed(2)}%
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Price cards */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg border border-[#232323] p-3">
-              <div className="text-[10px] text-[#77717e] uppercase">Spot Price</div>
-              <div className="text-lg font-bold text-white mt-1">
-                ${selectedAsset.price.toFixed(2)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-[#232323] p-3">
-              <div className="text-[10px] text-[#77717e] uppercase">Strike Price</div>
-              <div className="text-lg font-bold text-[#FF6B00] mt-1">
-                ${strikePrice.toFixed(2)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-[#232323] p-3">
-              <div className="text-[10px] text-[#77717e] uppercase">Est. Premium</div>
-              <div className="text-lg font-bold text-[#00D084] mt-1">
-                ${premiumEstimate.toFixed(2)}
-              </div>
-            </div>
-          </div>
-
-          {/* Strategy selector */}
-          <div>
-            <div className="text-[10px] text-[#77717e] uppercase mb-2">
-              Covered Call Strategy
-            </div>
-            <div className="flex gap-2">
-              {STRATEGIES.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setSelectedStrategyId(s.id)}
-                  className={`flex-1 py-2.5 px-3 rounded-lg text-[11px] font-bold uppercase transition-colors cursor-pointer border ${
-                    selectedStrategyId === s.id
-                      ? s.riskClass + " bg-white/5"
-                      : "text-[#77717e] border-[#232323] hover:text-white"
-                  }`}
-                >
-                  <div>{s.label}</div>
-                  <div className="text-[9px] mt-0.5 opacity-70 font-normal">{s.apyRange}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Collateral input */}
-          <div>
-            <div className="text-[10px] text-[#77717e] uppercase mb-2">
-              Collateral Amount ({selectedAsset.symbol})
-            </div>
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={collateralAmount}
-              onChange={(e) => setCollateralAmount(parseFloat(e.target.value) || 0)}
-              className="w-full rounded-lg border border-[#232323] px-4 py-3 text-white font-mono text-sm focus:border-[#FF6B00] focus:outline-none transition-colors"
-            />
-          </div>
-
-          {/* Execute */}
-          <button
-            onClick={() =>
-              onExecuteTrade({
-                asset: selectedAsset,
-                collateralAmount,
-                strategy: selectedStrategy,
-                premiumEth: premiumEstimate / 4000,
-                premiumUsd: premiumEstimate,
-              })
-            }
-            disabled={collateralAmount <= 0}
-            className="w-full py-3 rounded-lg bg-[#FF6B00] hover:bg-[#FF7A1A] text-black font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
-          >
-            <Lock className="w-4 h-4" />
-            Write {selectedStrategy.label} Covered Call
-          </button>
-        </div>
-
-        {/* Right: Summary */}
-        <div className="flex flex-col gap-4">
-          <div className="rounded-lg border border-[#232323] p-4">
-            <div className="text-[10px] text-[#77717e] uppercase mb-3">Position Summary</div>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[#94a3b8]">Asset</span>
-                <span className="text-[12px] text-white font-bold">{selectedAsset.name}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[#94a3b8]">Strategy</span>
-                <span className="text-[12px] text-white">{selectedStrategy.label}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[#94a3b8]">Expiry</span>
-                <span className="text-[12px] text-white">{selectedStrategy.expiryDays} days</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[#94a3b8]">Est. APY</span>
-                <span className="text-[12px] text-[#FF6B00] font-bold">{selectedStrategy.apyRange}</span>
-              </div>
-              <div className="h-px bg-[#232323]" />
-              <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[#94a3b8]">Oracle</span>
-                <span className="text-[10px] text-[#00D084] flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-[#00D084] rounded-full animate-pulse" />
-                  {selectedAsset.oracleFeed}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[#94a3b8]">Network</span>
-                <span className="text-[10px] text-[#827b88]">Base L2</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Active positions */}
-          {positions.length > 0 && (
-            <div className="rounded-lg border border-[#232323] p-4">
-              <div className="text-[10px] text-[#77717e] uppercase mb-3">
-                Active Positions ({positions.length})
-              </div>
-              <div className="space-y-2">
-                {positions.slice(0, 3).map((pos) => (
-                  <div
-                    key={pos.id}
-                    className="flex items-center justify-between py-2 border-b border-[#232323] last:border-0"
-                  >
-                    <div>
-                      <span className="text-[11px] text-white font-bold">{pos.symbol}</span>
-                      <span className="text-[10px] text-[#77717e] ml-2">{pos.strategyName}</span>
-                    </div>
-                    <span
-                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                        pos.status === "Safe (OTM)"
-                          ? "text-[#00D084] bg-[#00D084]/10"
-                          : "text-[#F04438] bg-[#F04438]/10"
-                      }`}
-                    >
-                      {pos.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+      {/* Center: Price + Change */}
+      <div className="flex flex-col items-end">
+        <div className="flex items-center gap-1.5">
+          {isPositive ? (
+            <ArrowUpRight className="w-3 h-3 text-[#00D084]" />
+          ) : (
+            <ArrowDownRight className="w-3 h-3 text-[#ff4444]" />
           )}
+          <span
+            className={`font-mono text-xs font-bold ${
+              isPositive ? "text-[#00D084]" : "text-[#ff4444]"
+            }`}
+          >
+            {isPositive ? "+" : ""}
+            {asset.change24h.toFixed(2)}%
+          </span>
         </div>
+        <span className="font-mono text-sm font-bold text-white">
+          ${asset.price.toFixed(2)}
+        </span>
       </div>
-    </div>
+
+      {/* Right: Exchange + Vol */}
+      <div className="flex flex-col items-end ml-4">
+        <span className="text-[10px] text-[#77717e]">{asset.oracleFeed}</span>
+        <span className="font-mono text-[10px] text-[#827b88]">
+          Vol {asset.impliedVol}%
+        </span>
+      </div>
+    </button>
   );
 }
 
 // ---------------------------------------------------------------
-//  VaultDesk — single-asset deposit & write
+//  Vaults Tab — deposit / write covered call UI
 // ---------------------------------------------------------------
 
-function VaultDesk({
-  asset,
+function VaultsTab({
+  assets,
+  onSelectAsset,
+  selectedAsset,
   onExecuteTrade,
 }: {
-  asset: SyntheticAsset;
-  onExecuteTrade: (d: TradeDetails) => void;
+  assets: SyntheticAsset[];
+  selectedAsset: SyntheticAsset | null;
+  onSelectAsset: (a: SyntheticAsset) => void;
+  onExecuteTrade: (details: TradeDetails) => void;
 }) {
-  const [collateralAmount, setCollateralAmount] = useState(1);
-  const [selectedStrategyId, setSelectedStrategyId] = useState<
-    "conservative" | "moderate" | "aggressive"
-  >("moderate");
+  const [collateral, setCollateral] = useState("");
+  const [strategy, setStrategy] = useState<CoveredCallStrategy>(STRATEGIES[1]);
 
-  const selectedStrategy =
-    STRATEGIES.find((s) => s.id === selectedStrategyId) || STRATEGIES[1];
-  const strikePrice = Number(
-    (asset.price * selectedStrategy.strikeOffset).toFixed(2),
-  );
-  const premiumEstimate = Number(
-    (asset.price * collateralAmount * selectedStrategy.premEstMultiplier).toFixed(2),
-  );
+  const asset = selectedAsset || assets[0];
+  const collateralNum = parseFloat(collateral) || 0;
+  const premiumEst = collateralNum * asset.price * strategy.premEstMultiplier;
+  const premiumEth = premiumEst / 4000;
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
-      <div className="mb-5 flex items-center gap-2">
-        <ShieldCheck className="text-[#FF6B00]" size={16} />
-        <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#d7d0db]">
-          Deposit {asset.symbol} & Write Covered Call
-        </h2>
+      {/* Asset selector */}
+      <div className="mb-4">
+        <label className="text-[10px] text-[#77717e] uppercase tracking-wider font-bold block mb-1.5">
+          Select Asset
+        </label>
+        <select
+          value={asset.symbol}
+          onChange={(e) => {
+            const found = assets.find((a) => a.symbol === e.target.value);
+            if (found) onSelectAsset(found);
+          }}
+          className="w-full rounded-lg border border-[#232323] bg-[#161616] px-4 py-3 text-white font-mono text-sm focus:border-[#FF6B00] focus:outline-none transition-colors"
+        >
+          {assets.map((a) => (
+            <option key={a.symbol} value={a.symbol}>
+              {a.symbol} — ${a.price.toFixed(2)}
+            </option>
+          ))}
+        </select>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
-        <div className="flex flex-col gap-4">
-          {/* Asset info */}
-          <div className="rounded-lg border border-[#232323] p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-white font-bold">{asset.name}</div>
-                <div className="text-[11px] text-[#77717e]">{asset.symbol}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-white font-bold text-lg">${asset.price.toFixed(2)}</div>
-                <div className={`text-[11px] font-bold ${asset.change24h >= 0 ? "text-[#00D084]" : "text-[#F04438]"}`}>
-                  {asset.change24h >= 0 ? "+" : ""}{asset.change24h.toFixed(2)}%
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 mt-3 text-[10px] text-[#00D084]">
-              <span className="w-1.5 h-1.5 bg-[#00D084] rounded-full animate-pulse" />
-              {asset.oracleFeed} (Chainlink on Base)
-            </div>
-          </div>
+      {/* Collateral input */}
+      <div className="mb-4">
+        <label className="text-[10px] text-[#77717e] uppercase tracking-wider font-bold block mb-1.5">
+          Collateral Amount ({asset.shortCode}c)
+        </label>
+        <input
+          type="number"
+          value={collateral}
+          onChange={(e) => setCollateral(e.target.value)}
+          placeholder="0.00"
+          className="w-full rounded-lg border border-[#232323] bg-[#161616] px-4 py-3 text-white font-mono text-sm focus:border-[#FF6B00] focus:outline-none transition-colors"
+        />
+        <p className="text-[10px] text-[#77717e] mt-1">
+          ≈ ${(collateralNum * asset.price).toFixed(2)} USD locked
+        </p>
+      </div>
 
-          {/* Strategy selector */}
-          <div>
-            <div className="text-[10px] text-[#77717e] uppercase mb-2">Strategy</div>
-            <div className="flex gap-2">
-              {STRATEGIES.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setSelectedStrategyId(s.id)}
-                  className={`flex-1 py-2.5 px-3 rounded-lg text-[11px] font-bold uppercase transition-colors cursor-pointer border ${
-                    selectedStrategyId === s.id
-                      ? s.riskClass + " bg-white/5"
-                      : "text-[#77717e] border-[#232323] hover:text-white"
-                  }`}
-                >
-                  <div>{s.label}</div>
-                  <div className="text-[9px] mt-0.5 opacity-70 font-normal">{s.apyRange}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Collateral */}
-          <div>
-            <div className="text-[10px] text-[#77717e] uppercase mb-2">
-              Amount to Deposit ({asset.symbol})
-            </div>
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={collateralAmount}
-              onChange={(e) => setCollateralAmount(parseFloat(e.target.value) || 0)}
-              className="w-full rounded-lg border border-[#232323] px-4 py-3 text-white font-mono text-sm focus:border-[#FF6B00] focus:outline-none transition-colors"
-            />
-          </div>
-
-          {/* Execute */}
-          <button
-            onClick={() =>
-              onExecuteTrade({
-                asset,
-                collateralAmount,
-                strategy: selectedStrategy,
-                premiumEth: premiumEstimate / 4000,
-                premiumUsd: premiumEstimate,
-              })
-            }
-            disabled={collateralAmount <= 0}
-            className="w-full py-3 rounded-lg bg-[#FF6B00] hover:bg-[#FF7A1A] text-black font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
-          >
-            <Lock className="w-4 h-4" />
-            Deposit & Write Covered Call
-          </button>
-        </div>
-
-        {/* Right: Summary */}
-        <div className="rounded-lg border border-[#232323] p-4">
-          <div className="text-[10px] text-[#77717e] uppercase mb-3">Trade Summary</div>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-[12px] text-[#94a3b8]">Strike Price</span>
-              <span className="text-[12px] text-white font-bold">${strikePrice.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[12px] text-[#94a3b8]">Est. Premium</span>
-              <span className="text-[12px] text-[#00D084] font-bold">${premiumEstimate.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[12px] text-[#94a3b8]">Expiry</span>
-              <span className="text-[12px] text-white">{selectedStrategy.expiryDays} days</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[12px] text-[#94a3b8]">OTM %</span>
-              <span className="text-[12px] text-white">{selectedStrategy.otmPercentage}%</span>
-            </div>
-            <div className="h-px bg-[#232323]" />
-            <div className="flex justify-between items-center">
-              <span className="text-[12px] text-[#94a3b8]">Est. APY</span>
-              <span className="text-[12px] text-[#FF6B00] font-bold">{selectedStrategy.apyRange}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[12px] text-[#94a3b8]">Network</span>
-              <span className="text-[10px] text-[#827b88]">Base L2</span>
-            </div>
-          </div>
+      {/* Strategy selector */}
+      <div className="mb-5">
+        <label className="text-[10px] text-[#77717e] uppercase tracking-wider font-bold block mb-1.5">
+          Strategy
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          {STRATEGIES.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setStrategy(s)}
+              className={`rounded-lg border p-3 text-left transition-colors cursor-pointer ${
+                strategy.id === s.id
+                  ? "border-[#FF6B00]/50 bg-[#FF6B00]/5"
+                  : "border-[#232323] hover:border-[#FF6B00]/30"
+              }`}
+            >
+              <span className={`text-[10px] font-bold ${s.riskClass} px-1.5 py-0.5 rounded`}>
+                {s.riskBadge}
+              </span>
+              <p className="text-xs font-bold text-white mt-1">{s.label}</p>
+              <p className="text-[10px] text-[#77717e] mt-0.5">{s.apyRange}</p>
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* Premium estimate */}
+      <div className="rounded-lg border border-[#232323] p-4 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] text-[#77717e] uppercase">Est. Premium</span>
+          <span className="font-mono text-sm font-bold text-[#00D084]">
+            ${premiumEst.toFixed(2)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-[#77717e] uppercase">ETH Equivalent</span>
+          <span className="font-mono text-xs text-[#827b88]">
+            {premiumEth.toFixed(4)} ETH
+          </span>
+        </div>
+      </div>
+
+      {/* Execute button */}
+      <button
+        onClick={() => {
+          if (collateralNum > 0) {
+            onExecuteTrade({
+              asset,
+              collateralAmount: collateralNum,
+              strategy,
+              premiumEth,
+              premiumUsd: premiumEst,
+            });
+            setCollateral("");
+          }
+        }}
+        disabled={collateralNum <= 0}
+        className="w-full py-3 rounded-lg bg-[#FF6B00] hover:bg-[#FF7A1A] text-black font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <Lock className="w-4 h-4" />
+        Write Covered Call
+      </button>
     </div>
   );
 }
 
 // ---------------------------------------------------------------
-//  PositionsList
+//  Positions Tab
 // ---------------------------------------------------------------
 
-function PositionsList({
+function PositionsTab({
   positions,
   onRoll,
 }: {
@@ -626,102 +361,89 @@ function PositionsList({
 }) {
   if (positions.length === 0) {
     return (
-      <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
-        <div className="flex flex-col items-center justify-center py-20 text-[#77717e]">
-          <Lock className="w-10 h-10 mb-4 opacity-30" />
-          <div className="text-[12px] uppercase font-bold">No Active Positions</div>
-          <div className="text-[11px] mt-1 opacity-60">
-            Deposit collateral and write a covered call to get started
-          </div>
-        </div>
+      <div className="mx-auto max-w-[1440px] px-4 py-16 md:px-7 lg:px-10 text-center">
+        <Lock className="w-8 h-8 text-[#77717e] mx-auto mb-3" />
+        <p className="text-sm text-[#77717e]">No active positions</p>
+        <p className="text-[11px] text-[#555] mt-1">
+          Write a covered call to start earning premium
+        </p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
-      <div className="mb-5 flex items-center gap-2">
-        <Lock className="text-[#FF6B00]" size={16} />
-        <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#d7d0db]">
-          Active Positions ({positions.length})
-        </h2>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {positions.map((pos) => (
-          <div
-            key={pos.id}
-            className="rounded-lg border border-[#232323] p-4"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-white font-bold text-sm">{pos.symbol}</span>
-                <span className="text-[10px] text-[#77717e] ml-2">{pos.strategyName}</span>
+      <div className="space-y-3">
+        {positions.map((pos) => {
+          const isSafe = pos.status === "Safe (OTM)";
+          return (
+            <div
+              key={pos.id}
+              className="rounded-lg border border-[#232323] p-4"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <span className="font-mono text-sm font-bold text-white">
+                    {pos.symbol}
+                  </span>
+                  <span className="text-[10px] text-[#77717e] ml-2">
+                    {pos.strategyName}
+                  </span>
+                </div>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                    isSafe
+                      ? "text-[#00D084] bg-[#00D084]/10"
+                      : "text-[#ff4444] bg-[#ff4444]/10"
+                  }`}
+                >
+                  {pos.status}
+                </span>
               </div>
-              <span
-                className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                  pos.status === "Safe (OTM)"
-                    ? "text-[#00D084] bg-[#00D084]/10"
-                    : pos.status === "In The Money (ITM)"
-                      ? "text-[#F04438] bg-[#F04438]/10"
-                      : "text-[#FF6B00] bg-[#FF6B00]/10"
-                }`}
-              >
-                {pos.status}
-              </span>
+              <div className="grid grid-cols-3 gap-3 text-[10px]">
+                <div>
+                  <span className="text-[#77717e] block">Strike</span>
+                  <span className="font-mono text-white">
+                    ${pos.strikePrice.toFixed(2)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#77717e] block">Locked</span>
+                  <span className="font-mono text-white">
+                    {pos.lockedCollateral} {pos.shortCode}c
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#77717e] block">Days Left</span>
+                  <span className="font-mono text-white">
+                    {pos.daysRemaining}d / {pos.totalCycleDays}d
+                  </span>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div className="mt-3 h-1 rounded-full bg-[#232323]">
+                <div
+                  className="h-full rounded-full bg-[#FF6B00] transition-all"
+                  style={{ width: `${pos.cyclePercentElapsed}%` }}
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-3 text-[11px]">
-              <div>
-                <div className="text-[#77717e]">Strike</div>
-                <div className="text-white font-bold">${pos.strikePrice.toFixed(2)}</div>
-              </div>
-              <div>
-                <div className="text-[#77717e]">Spot</div>
-                <div className="text-white font-bold">${pos.oracleSpot.toFixed(2)}</div>
-              </div>
-              <div>
-                <div className="text-[#77717e]">Locked</div>
-                <div className="text-white font-bold">{pos.lockedCollateral} {pos.symbol}</div>
-              </div>
-              <div>
-                <div className="text-[#77717e]">Expires</div>
-                <div className="text-white font-bold">{pos.expiryDateFormatted}</div>
-              </div>
-            </div>
-            <div className="mt-3 h-1 rounded-full bg-[#232323]">
-              <div
-                className="h-full rounded-full bg-[#FF6B00] transition-all"
-                style={{ width: `${pos.cyclePercentElapsed}%` }}
-              />
-            </div>
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-[10px] text-[#77717e]">
-                {pos.daysRemaining}d remaining
-              </span>
-              <button
-                onClick={() => onRoll(pos)}
-                className="text-[10px] text-[#FF6B00] hover:text-[#FF7A1A] flex items-center gap-1 cursor-pointer"
-              >
-                <RefreshCw className="w-3 h-3" />
-                Roll
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------
-//  YieldPanel
+//  Yield Tab
 // ---------------------------------------------------------------
 
-function YieldPanel({ onHarvest }: { onHarvest: () => void }) {
+function YieldTab({ onHarvest }: { onHarvest: () => void }) {
   const [isHarvesting, setIsHarvesting] = useState(false);
   const [yieldData, setYieldData] = useState<{
     totalPremium: number;
     averageApy: number;
-    totalPositions: number;
   } | null>(null);
 
   useEffect(() => {
@@ -735,7 +457,6 @@ function YieldPanel({ onHarvest }: { onHarvest: () => void }) {
         setYieldData({
           totalPremium: data.totalYieldEarned ?? 0,
           averageApy: data.apy ?? 0,
-          totalPositions: data.yieldHistory?.length ?? 0,
         });
       }
     } catch {
@@ -755,35 +476,39 @@ function YieldPanel({ onHarvest }: { onHarvest: () => void }) {
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
-      <div className="mb-5 flex items-center gap-2">
-        <Bolt className="text-[#FF6B00]" size={16} />
-        <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#d7d0db]">
-          Yield Dashboard
-        </h2>
-      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-[#232323] p-4">
           <div className="text-[10px] text-[#77717e] uppercase">Total Yield</div>
-          <div className="text-xl font-bold text-white mt-1">${totalPremium.toFixed(2)}</div>
+          <div className="text-xl font-bold text-white mt-1">
+            ${totalPremium.toFixed(2)}
+          </div>
           <div className="text-[10px] text-[#77717e] mt-1">
-            {totalPremium > 0 ? `${(totalPremium / 4000).toFixed(3)} ETH equivalent` : "0.000 ETH"}
+            {totalPremium > 0
+              ? `${(totalPremium / 4000).toFixed(3)} ETH equivalent`
+              : "0.000 ETH"}
           </div>
         </div>
         <div className="rounded-lg border border-[#232323] p-4">
           <div className="text-[10px] text-[#77717e] uppercase">Blended APY</div>
-          <div className="text-xl font-bold text-[#FF6B00] mt-1">{avgApy > 0 ? `${avgApy.toFixed(1)}%` : "—"}</div>
+          <div className="text-xl font-bold text-[#FF6B00] mt-1">
+            {avgApy > 0 ? `${avgApy.toFixed(1)}%` : "—"}
+          </div>
           <div className="text-[10px] text-[#00D084] mt-1">
             {avgApy > 0 ? `+${(avgApy * 0.2).toFixed(1)}% vs buy & hold` : "No data"}
           </div>
         </div>
         <div className="rounded-lg border border-[#232323] p-4">
           <div className="text-[10px] text-[#77717e] uppercase">Active Strategies</div>
-          <div className="text-xl font-bold text-white mt-1">{yieldData?.totalPositions ?? 0}</div>
+          <div className="text-xl font-bold text-white mt-1">
+            {totalPremium > 0 ? "1" : "0"}
+          </div>
           <div className="text-[10px] text-[#77717e] mt-1">vaults tracked</div>
         </div>
         <div className="rounded-lg border border-[#232323] p-4">
           <div className="text-[10px] text-[#77717e] uppercase">Available</div>
-          <div className="text-xl font-bold text-white mt-1">{totalPremium > 0 ? "Ready" : "—"}</div>
+          <div className="text-xl font-bold text-white mt-1">
+            {totalPremium > 0 ? "Ready" : "—"}
+          </div>
           <div className="text-[10px] text-[#77717e] mt-1">harvest premium</div>
         </div>
       </div>
@@ -820,128 +545,58 @@ export default function StocksView({
   onConnectWallet,
   onDisconnectWallet,
 }: StocksViewProps) {
-  const [activeTab, setActiveTab] = useState<TerminalTab>("all-screen");
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<StockTab>("stocks");
   const [assets, setAssets] = useState<SyntheticAsset[]>(SEED_ASSETS);
-  const [selectedAsset, setSelectedAsset] = useState<SyntheticAsset | null>(
-    SEED_ASSETS[0],
-  );
+  const [selectedAsset, setSelectedAsset] = useState<SyntheticAsset | null>(null);
   const [positions, setPositions] = useState<PositionContract[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const priceHistoryRef = useRef<
-    Map<string, { price: number; timestamp: number }[]>
-  >(new Map());
+  const safeSelected = selectedAsset || assets[0];
 
+  // Load positions from backend
   useEffect(() => {
-    loadRealPrices();
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(loadRealPrices, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (walletConnected && DEFAULT_VAULT !== "0x".padEnd(42, "0")) {
+    if (walletConnected && DEFAULT_VAULT !== "0x0000000000000000000000000000000000000000") {
       loadPositions();
     }
   }, [walletConnected]);
 
-  const loadRealPrices = async () => {
-    try {
-      const [stocks, prices] = await Promise.all([
-        listEquityStocks(),
-        listEquityPrices(),
-      ]);
-
-      if (prices.length > 0) {
-        setAssets((prev) =>
-          prev.map((asset) => {
-            const priceData = prices.find((p) => p.symbol === asset.symbol);
-            const stockData = stocks.find((s) => s.symbol === asset.symbol);
-            if (priceData && priceData.price > 0) {
-              const history = priceHistoryRef.current.get(asset.symbol) ?? [];
-              const now = Date.now();
-              const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
-              const oldPrice = history.find(
-                (h) => h.timestamp <= twentyFourHoursAgo,
-              );
-              const change24h =
-                oldPrice && oldPrice.price > 0
-                  ? Number(
-                      (
-                        ((priceData.price - oldPrice.price) / oldPrice.price) *
-                        100
-                      ).toFixed(2),
-                    )
-                  : asset.change24h;
-              history.push({ price: priceData.price, timestamp: now });
-              const cutoff = now - 48 * 60 * 60 * 1000;
-              priceHistoryRef.current.set(
-                asset.symbol,
-                history.filter((h) => h.timestamp > cutoff),
-              );
-              return {
-                ...asset,
-                price: priceData.price,
-                change24h,
-                contractAddress: stockData?.tokenAddress ?? asset.contractAddress,
-              };
-            }
-            return asset;
-          }),
-        );
-      }
-    } catch {
-      // Keep seed data
-    }
-  };
-
   const loadPositions = async () => {
     try {
       const data = await getEquityVaultOptions(DEFAULT_VAULT);
-      const mapped: PositionContract[] = (data.options ?? []).map(
-        (opt: EquityOptionPosition) => ({
-          id: `pos-${opt.optionId}`,
-          symbol: opt.symbol,
-          assetName: opt.symbol,
-          shortCode: opt.symbol.slice(0, 2).toUpperCase(),
-          strategyName: "Covered Call",
-          strikePrice: opt.strikePrice,
-          oracleSpot:
-            assets.find((a) => a.symbol === opt.symbol)?.price ?? 0,
-          strikeDistancePercent: 0,
-          lockedCollateral: opt.collateralLocked,
-          collateralUsdValue:
-            opt.collateralLocked *
-            (assets.find((a) => a.symbol === opt.symbol)?.price ?? 0),
-          harvestedEth: 0,
-          harvestedUsd: opt.premium,
-          cyclePercentElapsed: opt.progressPct ?? 0,
-          daysRemaining: Math.max(0, Math.ceil(opt.timeRemaining / 86400)),
-          totalCycleDays: 14,
-          expiryDateFormatted: new Date(opt.expiry * 1000).toUTCString(),
-          oracleFeedAddress: "—",
-          status:
-            opt.status === "ACTIVE"
-              ? "Safe (OTM)"
-              : "In The Money (ITM)",
-        }),
-      );
-      setPositions(mapped);
+      if (data?.options) {
+        setPositions(
+          data.options.map((p: EquityOptionPosition) => ({
+            id: p.optionId,
+            symbol: p.symbol,
+            assetName: p.symbol,
+            shortCode: p.symbol.slice(0, 2),
+            strategyName: p.strategy,
+            strikePrice: p.strikePrice,
+            oracleSpot: p.strikePrice * 0.95,
+            strikeDistancePercent: 5,
+            lockedCollateral: p.collateralLocked,
+            collateralUsdValue: p.collateralLocked * p.strikePrice,
+            harvestedEth: 0,
+            harvestedUsd: 0,
+            cyclePercentElapsed: p.progressPct,
+            daysRemaining: p.daysToExpiry,
+            totalCycleDays: 30,
+            expiryDateFormatted: p.expiryDate,
+            oracleFeedAddress: "",
+            status: p.status === "ACTIVE" ? "Safe (OTM)" : "In The Money (ITM)",
+          }))
+        );
+      }
     } catch {
-      // Acceptable
+      // API may not be running
     }
-  };
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
   };
 
   const handleExecuteTrade = async (details: TradeDetails) => {
     if (DEFAULT_VAULT === "0x0000000000000000000000000000000000000000") {
-      showToast("No vault configured. Set NEXT_PUBLIC_EQUITY_VAULT_ADDRESS to enable deposits.");
+      setToastMessage(
+        "No vault configured. Set NEXT_PUBLIC_EQUITY_VAULT_ADDRESS in .env to enable deposits and yield."
+      );
       return;
     }
 
@@ -950,49 +605,49 @@ export default function StocksView({
         DEFAULT_VAULT,
         details.asset.symbol,
         details.strategy.id,
-        details.collateralAmount,
+        details.collateralAmount
       );
 
-      // Reload positions from backend after successful write
       await loadPositions();
 
-      showToast(
-        `Deposit Confirmed: Locked ${details.collateralAmount} ${details.asset.symbol}. Earned +$${details.premiumUsd.toFixed(2)} upfront premium!`,
+      setToastMessage(
+        `Deposit Confirmed: Locked ${details.collateralAmount} ${details.asset.symbol}. Earned +$${details.premiumUsd.toFixed(2)} upfront premium!`
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Write failed";
-      showToast(`Error: ${msg}`);
+      setToastMessage(`Error: ${msg}`);
     }
-  };
-
-  const handleRollPosition = (pos: PositionContract) => {
-    showToast(
-      `Roll request submitted for ${pos.symbol} position.`,
-    );
   };
 
   const handleHarvestPremium = async () => {
     if (DEFAULT_VAULT === "0x0000000000000000000000000000000000000000") {
-      showToast("No vault configured. Set NEXT_PUBLIC_EQUITY_VAULT_ADDRESS to enable yield.");
+      setToastMessage(
+        "No vault configured. Set NEXT_PUBLIC_EQUITY_VAULT_ADDRESS in .env to enable yield."
+      );
       return;
     }
 
     try {
       await settleEquityOptions(DEFAULT_VAULT);
       await loadPositions();
-      showToast("Yield harvested and positions settled.");
+      setToastMessage("Yield harvested and positions settled.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Harvest failed";
-      showToast(`Error: ${msg}`);
+      setToastMessage(`Error: ${msg}`);
     }
   };
 
-  const safeSelected = selectedAsset ?? assets[0];
+  const handleRollPosition = (pos: PositionContract) => {
+    const asset = assets.find((a) => a.symbol === pos.symbol);
+    if (asset) {
+      setSelectedAsset(asset);
+      setActiveTab("vaults");
+    }
+  };
 
-  const tabs: { id: TerminalTab; label: string }[] = [
-    { id: "all-screen", label: "Terminal" },
+  const TABS: { id: StockTab; label: string }[] = [
     { id: "vaults", label: "Vaults" },
-    { id: "markets", label: "Stocks" },
+    { id: "stocks", label: "Stocks" },
     { id: "positions", label: "Positions" },
     { id: "yield", label: "Yield" },
   ];
@@ -1035,7 +690,7 @@ export default function StocksView({
             <h1 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#d7d0db]">
               Coinbase B20 Tokenized Stocks
             </h1>
-            <span className="h-1.5 w-1.5 rounded-full bg-market-green" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#00D084]" />
             <span className="font-mono text-[10px] text-[#827b88]">
               Base L2 · Chainlink Oracles
             </span>
@@ -1049,14 +704,14 @@ export default function StocksView({
               Connect Wallet
             </button>
           ) : (
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] text-[#00D084] flex items-center gap-1.5 font-mono">
-                <span className="w-1.5 h-1.5 bg-[#00D084] rounded-full animate-pulse" />
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] text-[#827b88] bg-[#161616] px-2 py-1 rounded">
                 {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
               </span>
               <button
                 onClick={() => onDisconnectWallet?.()}
-                className="text-[10px] text-[#77717e] hover:text-[#F04438] flex items-center gap-1 cursor-pointer"
+                className="p-1.5 rounded hover:bg-[#161616] transition-colors cursor-pointer"
+                title="Disconnect"
               >
                 <LogOut className="w-3 h-3" />
               </button>
@@ -1064,16 +719,16 @@ export default function StocksView({
           )}
         </div>
 
-        {/* Sub-tabs */}
-        <div className="mb-6 flex gap-1 overflow-x-auto border-b border-[#232323] pb-5">
-          {tabs.map((tab) => (
+        {/* Tab bar */}
+        <div className="mb-6 flex gap-1 overflow-x-auto border-b border-[#1a1a1a] pb-0">
+          {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-shrink-0 items-center gap-2 rounded px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
+              className={`flex flex-shrink-0 items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer border-b-2 -mb-px ${
                 activeTab === tab.id
-                  ? "bg-[#FF6B00]/10 text-[#FF6B00] border border-[#FF6B00]/30"
-                  : "text-[#77717e] hover:text-white"
+                  ? "border-[#FF6B00] text-[#FF6B00]"
+                  : "border-transparent text-[#77717e] hover:text-white"
               }`}
             >
               {tab.label}
@@ -1083,43 +738,42 @@ export default function StocksView({
       </div>
 
       {/* Content */}
-      <div>
-        {activeTab === "all-screen" && safeSelected && (
-          <TerminalView
-            assets={assets}
-            selectedAsset={safeSelected}
-            onSelectAsset={setSelectedAsset}
-            positions={positions}
-            onExecuteTrade={handleExecuteTrade}
-          />
-        )}
-        {activeTab === "markets" && (
-          <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
-            <StocksGrid
-              assets={assets}
-              onSelect={(a) => {
-                setSelectedAsset(a);
-                setActiveTab("vaults");
-              }}
-            />
+      {activeTab === "stocks" && (
+        <div className="mx-auto max-w-[1440px] px-4 md:px-7 lg:px-10">
+          <div className="rounded-lg border border-[#1a1a1a] overflow-hidden">
+            {assets.map((asset) => (
+              <StockCard
+                key={asset.symbol}
+                asset={asset}
+                onClick={() => {
+                  setSelectedAsset(asset);
+                  setActiveTab("vaults");
+                }}
+              />
+            ))}
           </div>
-        )}
-        {activeTab === "vaults" && safeSelected && (
-          <VaultDesk
-            asset={safeSelected}
-            onExecuteTrade={handleExecuteTrade}
-          />
-        )}
-        {activeTab === "positions" && (
-          <PositionsList
-            positions={positions}
-            onRoll={handleRollPosition}
-          />
-        )}
-        {activeTab === "yield" && (
-          <YieldPanel onHarvest={handleHarvestPremium} />
-        )}
-      </div>
+        </div>
+      )}
+
+      {activeTab === "vaults" && (
+        <VaultsTab
+          assets={assets}
+          selectedAsset={safeSelected}
+          onSelectAsset={setSelectedAsset}
+          onExecuteTrade={handleExecuteTrade}
+        />
+      )}
+
+      {activeTab === "positions" && (
+        <PositionsTab
+          positions={positions}
+          onRoll={handleRollPosition}
+        />
+      )}
+
+      {activeTab === "yield" && (
+        <YieldTab onHarvest={handleHarvestPremium} />
+      )}
     </main>
   );
 }
