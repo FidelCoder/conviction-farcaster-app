@@ -2176,9 +2176,7 @@ body {
 }
 
 body {
-  background: linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px), #090b0f;
-  background-size: 96px 96px;
+  background: var(--bg);
   color: var(--ink);
 }
 
@@ -3533,43 +3531,9 @@ body {
   background: #050507;
 }
 
-.site-backdrop::before {
-  position: absolute;
-  inset: -4rem;
-  background: linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    radial-gradient(circle at 21% 78%, rgba(45, 22, 87, 0.9) 0 1px, transparent 2px),
-    radial-gradient(circle at 76% 24%, rgba(128, 47, 20, 0.82) 0 1px, transparent 2px),
-    radial-gradient(circle at 58% 42%, rgba(255, 255, 255, 0.34) 0 1px, transparent 2px),
-    linear-gradient(135deg, rgba(45, 22, 87, 0.2), transparent 31%),
-    linear-gradient(315deg, rgba(128, 47, 20, 0.18), transparent 34%);
-  background-size:
-    34px 34px,
-    34px 34px,
-    148px 148px,
-    172px 172px,
-    214px 214px,
-    auto,
-    auto;
-  content: "";
-  opacity: 0.9;
-}
-
+.site-backdrop::before,
 .site-backdrop::after {
-  position: absolute;
-  top: 48%;
-  left: 50%;
-  content: "CM";
-  color: rgba(255, 255, 255, 0.18);
-  font-size: clamp(10rem, 24vw, 21rem);
-  font-weight: 950;
-  line-height: 0.8;
-  opacity: 0.3;
-  transform: translate(-50%, -50%);
-  filter: blur(18px);
-  text-shadow:
-    0 0 66px rgba(45, 22, 87, 0.76),
-    0 0 96px rgba(128, 47, 20, 0.38);
+  display: none;
 }
 
 .app-header,
@@ -7722,10 +7686,7 @@ main,
 .terminal-page {
   min-height: 100vh;
   padding: 5.5rem clamp(1.25rem, 3vw, 2.5rem) 7rem;
-  background-color: #0a0a0a;
-  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 32px 32px;
+  background-color: #080808;
   color: #e5e2e1;
 }
 

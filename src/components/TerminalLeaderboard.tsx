@@ -12,7 +12,7 @@ export function TerminalLeaderboard({ leaderboard }: TerminalLeaderboardProps) {
   const topTrader = leaderboard[0]?.handle ?? "No leader yet";
 
   return (
-    <main className="terminal-page terminal-account-page terminal-leaderboard-page bg-[#080808]!">
+    <main className="terminal-page terminal-account-page terminal-leaderboard-page">
       <section className="terminal-page-heading">
         <div>
           <p>Leaderboard</p>
