@@ -147,9 +147,7 @@ const STRATEGIES: CoveredCallStrategy[] = [
   },
 ];
 
-const DEFAULT_VAULT =
-  process.env.NEXT_PUBLIC_EQUITY_VAULT_ADDRESS ||
-  "0x0000000000000000000000000000000000000000";
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 // ---------------------------------------------------------------
 //  Props
@@ -592,7 +590,7 @@ function PositionsTab({
 //  Yield Tab
 // ---------------------------------------------------------------
 
-function YieldTab({ onHarvest }: { onHarvest: () => void }) {
+function YieldTab({ onHarvest, vaultAddress }: { onHarvest: () => void; vaultAddress: string }) {
   const [isHarvesting, setIsHarvesting] = useState(false);
   const [yieldData, setYieldData] = useState<{
     totalPremium: number;
@@ -605,7 +603,7 @@ function YieldTab({ onHarvest }: { onHarvest: () => void }) {
 
   const loadYield = async () => {
     try {
-      const data = await getEquityVaultYield(DEFAULT_VAULT);
+      const data = await getEquityVaultYield(vaultAddress);
       if (data) {
         setYieldData({
           totalPremium: data.totalYieldEarned ?? 0,
@@ -680,18 +678,29 @@ export default function StocksView({
   const [selectedAsset, setSelectedAsset] = useState<SyntheticAsset | null>(null);
   const [positions, setPositions] = useState<PositionContract[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [vaultAddress, setVaultAddress] = useState(ZERO_ADDRESS);
 
   const safeSelected = selectedAsset || assets[0];
 
+  // Fetch vault address from server-side API
   useEffect(() => {
-    if (walletConnected && DEFAULT_VAULT !== "0x".padEnd(42, "0")) {
+    fetch("/api/vault-config")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.vaultAddress) setVaultAddress(data.vaultAddress);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (walletConnected && vaultAddress !== ZERO_ADDRESS) {
       loadPositions();
     }
-  }, [walletConnected]);
+  }, [walletConnected, vaultAddress]);
 
   const loadPositions = async () => {
     try {
-      const data = await getEquityVaultOptions(DEFAULT_VAULT);
+      const data = await getEquityVaultOptions(vaultAddress);
       if (data?.options) {
         setPositions(
           data.options.map((p: EquityOptionPosition) => ({
@@ -720,12 +729,12 @@ export default function StocksView({
   };
 
   const handleExecuteTrade = async (details: TradeDetails) => {
-    if (DEFAULT_VAULT === "0x".padEnd(42, "0")) {
+    if (vaultAddress === ZERO_ADDRESS) {
       setToastMessage("No vault configured. Set NEXT_PUBLIC_EQUITY_VAULT_ADDRESS in .env.");
       return;
     }
     try {
-      await writeEquityOption(DEFAULT_VAULT, details.asset.symbol, details.strategy.id, details.collateralAmount);
+      await writeEquityOption(vaultAddress, details.asset.symbol, details.strategy.id, details.collateralAmount);
       await loadPositions();
       setToastMessage(`Locked ${details.collateralAmount} ${details.asset.symbol}. +$${details.premiumUsd.toFixed(2)} premium earned.`);
     } catch (err) {
@@ -734,12 +743,12 @@ export default function StocksView({
   };
 
   const handleHarvestPremium = async () => {
-    if (DEFAULT_VAULT === "0x".padEnd(42, "0")) {
+    if (vaultAddress === ZERO_ADDRESS) {
       setToastMessage("No vault configured.");
       return;
     }
     try {
-      await settleEquityOptions(DEFAULT_VAULT);
+      await settleEquityOptions(vaultAddress);
       await loadPositions();
       setToastMessage("Yield harvested and positions settled.");
     } catch (err) {
@@ -786,7 +795,7 @@ export default function StocksView({
 
       <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
         {/* Vault warning */}
-        {DEFAULT_VAULT === "0x".padEnd(42, "0") && walletConnected && (
+        {vaultAddress === ZERO_ADDRESS && walletConnected && (
           <div className="mb-4 rounded border border-[#FF6B00]/20 bg-[#FF6B00]/5 p-3">
             <span className="text-[11px] text-[#FF6B00]">
               No vault configured. Set <code className="font-bold">NEXT_PUBLIC_EQUITY_VAULT_ADDRESS</code> in .env.
@@ -913,7 +922,7 @@ export default function StocksView({
       )}
 
       {activeTab === "yield" && (
-        <YieldTab onHarvest={handleHarvestPremium} />
+        <YieldTab onHarvest={handleHarvestPremium} vaultAddress={vaultAddress} />
       )}
     </main>
   );
