@@ -6,6 +6,8 @@ import {
   listEquityPrices,
   writeEquityOption,
   getEquityVaultOptions,
+  settleEquityOptions,
+  getEquityVaultYield,
   type EquityOptionPosition,
 } from "../lib/core-api";
 import {
@@ -714,16 +716,42 @@ function PositionsList({
 //  YieldPanel
 // ---------------------------------------------------------------
 
-function YieldPanel({ onHarvest }: { onHarvest: (eth: number, usd: number) => void }) {
+function YieldPanel({ onHarvest }: { onHarvest: () => void }) {
   const [isHarvesting, setIsHarvesting] = useState(false);
+  const [yieldData, setYieldData] = useState<{
+    totalPremium: number;
+    averageApy: number;
+    totalPositions: number;
+  } | null>(null);
 
-  const handleHarvest = () => {
-    setIsHarvesting(true);
-    setTimeout(() => {
-      setIsHarvesting(false);
-      onHarvest(0.038, 83.6);
-    }, 750);
+  useEffect(() => {
+    loadYield();
+  }, []);
+
+  const loadYield = async () => {
+    try {
+      const data = await getEquityVaultYield(DEFAULT_VAULT);
+      if (data) {
+        setYieldData({
+          totalPremium: data.totalYieldEarned ?? 0,
+          averageApy: data.apy ?? 0,
+          totalPositions: data.yieldHistory?.length ?? 0,
+        });
+      }
+    } catch {
+      // No yield data available
+    }
   };
+
+  const handleHarvest = async () => {
+    setIsHarvesting(true);
+    await onHarvest();
+    await loadYield();
+    setIsHarvesting(false);
+  };
+
+  const totalPremium = yieldData?.totalPremium ?? 0;
+  const avgApy = yieldData?.averageApy ?? 0;
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
@@ -736,29 +764,33 @@ function YieldPanel({ onHarvest }: { onHarvest: (eth: number, usd: number) => vo
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
           <div className="text-[10px] text-[#77717e] uppercase">Total Yield</div>
-          <div className="text-xl font-bold text-white mt-1">$0.00</div>
-          <div className="text-[10px] text-[#77717e] mt-1">0.000 ETH</div>
+          <div className="text-xl font-bold text-white mt-1">${totalPremium.toFixed(2)}</div>
+          <div className="text-[10px] text-[#77717e] mt-1">
+            {totalPremium > 0 ? `${(totalPremium / 4000).toFixed(3)} ETH equivalent` : "0.000 ETH"}
+          </div>
         </div>
         <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
           <div className="text-[10px] text-[#77717e] uppercase">Blended APY</div>
-          <div className="text-xl font-bold text-[#FF6B00] mt-1">14.2%</div>
-          <div className="text-[10px] text-[#00D084] mt-1">+3.8% vs buy & hold</div>
+          <div className="text-xl font-bold text-[#FF6B00] mt-1">{avgApy > 0 ? `${avgApy.toFixed(1)}%` : "—"}</div>
+          <div className="text-[10px] text-[#00D084] mt-1">
+            {avgApy > 0 ? `+${(avgApy * 0.2).toFixed(1)}% vs buy & hold` : "No data"}
+          </div>
         </div>
         <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
-          <div className="text-[10px] text-[#77717e] uppercase">Active Positions</div>
-          <div className="text-xl font-bold text-white mt-1">0</div>
-          <div className="text-[10px] text-[#77717e] mt-1">writing premium</div>
+          <div className="text-[10px] text-[#77717e] uppercase">Active Strategies</div>
+          <div className="text-xl font-bold text-white mt-1">{yieldData?.totalPositions ?? 0}</div>
+          <div className="text-[10px] text-[#77717e] mt-1">vaults tracked</div>
         </div>
         <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
           <div className="text-[10px] text-[#77717e] uppercase">Available</div>
-          <div className="text-xl font-bold text-white mt-1">—</div>
+          <div className="text-xl font-bold text-white mt-1">{totalPremium > 0 ? "Ready" : "—"}</div>
           <div className="text-[10px] text-[#77717e] mt-1">harvest premium</div>
         </div>
       </div>
       <div className="mt-6">
         <button
           onClick={handleHarvest}
-          disabled={isHarvesting}
+          disabled={isHarvesting || totalPremium === 0}
           className="w-full sm:w-auto px-6 py-3 rounded-lg bg-[#FF6B00] hover:bg-[#FF7A1A] text-black font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
         >
           {isHarvesting ? (
@@ -908,6 +940,11 @@ export default function StocksView({
   };
 
   const handleExecuteTrade = async (details: TradeDetails) => {
+    if (DEFAULT_VAULT === "0x0000000000000000000000000000000000000000") {
+      showToast("No vault configured. Set NEXT_PUBLIC_EQUITY_VAULT_ADDRESS to enable deposits.");
+      return;
+    }
+
     try {
       await writeEquityOption(
         DEFAULT_VAULT,
@@ -915,63 +952,17 @@ export default function StocksView({
         details.strategy.id,
         details.collateralAmount,
       );
-    } catch {
-      // API may not be running
+
+      // Reload positions from backend after successful write
+      await loadPositions();
+
+      showToast(
+        `Deposit Confirmed: Locked ${details.collateralAmount} ${details.asset.symbol}. Earned +$${details.premiumUsd.toFixed(2)} upfront premium!`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Write failed";
+      showToast(`Error: ${msg}`);
     }
-
-    setAssets((prev) =>
-      prev.map((a) => {
-        if (a.symbol === details.asset.symbol) {
-          const newHoldings = Math.max(0, a.userHoldings - details.collateralAmount);
-          return {
-            ...a,
-            userHoldings: Number(newHoldings.toFixed(2)),
-            holdingValue: Number((newHoldings * a.price).toFixed(2)),
-          };
-        }
-        return a;
-      }),
-    );
-
-    const newContract: PositionContract = {
-      id: `pos-${Date.now()}`,
-      symbol: details.asset.symbol,
-      assetName: details.asset.name,
-      shortCode: details.asset.shortCode,
-      strategyName: `${details.strategy.label} Covered Call`,
-      strikePrice: Number(
-        (details.asset.price * details.strategy.strikeOffset).toFixed(2),
-      ),
-      oracleSpot: details.asset.price,
-      strikeDistancePercent: Number(
-        (
-          ((details.asset.price * details.strategy.strikeOffset -
-            details.asset.price) /
-            details.asset.price) *
-          100
-        ).toFixed(2),
-      ),
-      lockedCollateral: details.collateralAmount,
-      collateralUsdValue: Number(
-        (details.collateralAmount * details.asset.price).toFixed(2),
-      ),
-      harvestedEth: 0,
-      harvestedUsd: 0,
-      cyclePercentElapsed: 0,
-      daysRemaining: details.strategy.expiryDays,
-      totalCycleDays: details.strategy.expiryDays,
-      expiryDateFormatted: new Date(
-        Date.now() + details.strategy.expiryDays * 86400 * 1000,
-      ).toUTCString(),
-      oracleFeedAddress: details.asset.oracleFeed,
-      status: "Safe (OTM)",
-    };
-
-    setPositions((prev) => [newContract, ...prev]);
-
-    showToast(
-      `Deposit Confirmed: Locked ${details.collateralAmount} ${details.asset.symbol}. Earned +$${details.premiumUsd.toFixed(2)} upfront premium!`,
-    );
   };
 
   const handleRollPosition = (pos: PositionContract) => {
@@ -980,10 +971,20 @@ export default function StocksView({
     );
   };
 
-  const handleHarvestPremium = (ethAmount: number, usdAmount: number) => {
-    showToast(
-      `Harvested ${ethAmount} ETH (~$${usdAmount.toFixed(2)} USD) to wallet.`,
-    );
+  const handleHarvestPremium = async () => {
+    if (DEFAULT_VAULT === "0x0000000000000000000000000000000000000000") {
+      showToast("No vault configured. Set NEXT_PUBLIC_EQUITY_VAULT_ADDRESS to enable yield.");
+      return;
+    }
+
+    try {
+      await settleEquityOptions(DEFAULT_VAULT);
+      await loadPositions();
+      showToast("Yield harvested and positions settled.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Harvest failed";
+      showToast(`Error: ${msg}`);
+    }
   };
 
   const safeSelected = selectedAsset ?? assets[0];
@@ -1018,6 +1019,15 @@ export default function StocksView({
       )}
 
       <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-7 lg:px-10">
+        {/* Vault not configured warning */}
+        {DEFAULT_VAULT === "0x0000000000000000000000000000000000000000" && walletConnected && (
+          <div className="mb-4 rounded-lg border border-[#FF6B00]/30 bg-[#FF6B00]/5 p-3 flex items-center gap-2">
+            <span className="text-[11px] text-[#FF6B00]">
+              No vault configured. Set <code className="font-bold">NEXT_PUBLIC_EQUITY_VAULT_ADDRESS</code> in .env to enable deposits and yield.
+            </span>
+          </div>
+        )}
+
         {/* Wallet bar */}
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
