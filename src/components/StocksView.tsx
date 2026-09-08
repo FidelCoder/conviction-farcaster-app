@@ -182,7 +182,7 @@ function StocksGrid({
         <button
           key={asset.symbol}
           onClick={() => onSelect(asset)}
-          className="rounded-lg border border-[#232323] bg-[#161616] p-4 text-left transition-colors hover:border-[#FF6B00]/50 group"
+          className="rounded-lg border border-[#232323] p-4 text-left transition-colors hover:border-[#FF6B00]/50 group"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -282,14 +282,14 @@ function TerminalView({
           <div className="relative">
             <button
               onClick={() => setIsAssetDropdownOpen(!isAssetDropdownOpen)}
-              className="flex items-center gap-3 rounded-lg border border-[#232323] bg-[#161616] px-4 py-3 hover:border-[#FF6B00]/40 transition-colors cursor-pointer w-full"
+              className="flex items-center gap-3 rounded-lg border border-[#232323] px-4 py-3 hover:border-[#FF6B00]/40 transition-colors cursor-pointer w-full"
             >
               <span className="font-bold text-white">{selectedAsset.symbol}</span>
               <span className="text-[12px] text-[#77717e]">${selectedAsset.price.toFixed(2)}</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#77717e] ml-auto" />
             </button>
             {isAssetDropdownOpen && (
-              <div className="absolute top-full left-0 z-20 mt-1 w-full rounded-lg border border-[#232323] bg-[#161616] shadow-2xl max-h-60 overflow-y-auto">
+              <div className="absolute top-full left-0 z-20 mt-1 w-full rounded-lg border border-[#232323] shadow-2xl max-h-60 overflow-y-auto">
                 {assets.map((a) => (
                   <button
                     key={a.symbol}
@@ -317,19 +317,19 @@ function TerminalView({
 
           {/* Price cards */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg border border-[#232323] bg-[#161616] p-3">
+            <div className="rounded-lg border border-[#232323] p-3">
               <div className="text-[10px] text-[#77717e] uppercase">Spot Price</div>
               <div className="text-lg font-bold text-white mt-1">
                 ${selectedAsset.price.toFixed(2)}
               </div>
             </div>
-            <div className="rounded-lg border border-[#232323] bg-[#161616] p-3">
+            <div className="rounded-lg border border-[#232323] p-3">
               <div className="text-[10px] text-[#77717e] uppercase">Strike Price</div>
               <div className="text-lg font-bold text-[#FF6B00] mt-1">
                 ${strikePrice.toFixed(2)}
               </div>
             </div>
-            <div className="rounded-lg border border-[#232323] bg-[#161616] p-3">
+            <div className="rounded-lg border border-[#232323] p-3">
               <div className="text-[10px] text-[#77717e] uppercase">Est. Premium</div>
               <div className="text-lg font-bold text-[#00D084] mt-1">
                 ${premiumEstimate.toFixed(2)}
@@ -350,7 +350,7 @@ function TerminalView({
                   className={`flex-1 py-2.5 px-3 rounded-lg text-[11px] font-bold uppercase transition-colors cursor-pointer border ${
                     selectedStrategyId === s.id
                       ? s.riskClass + " bg-white/5"
-                      : "text-[#77717e] bg-[#161616] border-[#232323] hover:text-white"
+                      : "text-[#77717e] border-[#232323] hover:text-white"
                   }`}
                 >
                   <div>{s.label}</div>
@@ -371,7 +371,7 @@ function TerminalView({
               step="0.01"
               value={collateralAmount}
               onChange={(e) => setCollateralAmount(parseFloat(e.target.value) || 0)}
-              className="w-full rounded-lg border border-[#232323] bg-[#161616] px-4 py-3 text-white font-mono text-sm focus:border-[#FF6B00] focus:outline-none transition-colors"
+              className="w-full rounded-lg border border-[#232323] px-4 py-3 text-white font-mono text-sm focus:border-[#FF6B00] focus:outline-none transition-colors"
             />
           </div>
 
@@ -396,7 +396,7 @@ function TerminalView({
 
         {/* Right: Summary */}
         <div className="flex flex-col gap-4">
-          <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+          <div className="rounded-lg border border-[#232323] p-4">
             <div className="text-[10px] text-[#77717e] uppercase mb-3">Position Summary</div>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
@@ -432,7 +432,7 @@ function TerminalView({
 
           {/* Active positions */}
           {positions.length > 0 && (
-            <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+            <div className="rounded-lg border border-[#232323] p-4">
               <div className="text-[10px] text-[#77717e] uppercase mb-3">
                 Active Positions ({positions.length})
               </div>
@@ -503,7 +503,7 @@ function VaultDesk({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
         <div className="flex flex-col gap-4">
           {/* Asset info */}
-          <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+          <div className="rounded-lg border border-[#232323] p-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-white font-bold">{asset.name}</div>
@@ -533,7 +533,7 @@ function VaultDesk({
                   className={`flex-1 py-2.5 px-3 rounded-lg text-[11px] font-bold uppercase transition-colors cursor-pointer border ${
                     selectedStrategyId === s.id
                       ? s.riskClass + " bg-white/5"
-                      : "text-[#77717e] bg-[#161616] border-[#232323] hover:text-white"
+                      : "text-[#77717e] border-[#232323] hover:text-white"
                   }`}
                 >
                   <div>{s.label}</div>
@@ -554,7 +554,7 @@ function VaultDesk({
               step="0.01"
               value={collateralAmount}
               onChange={(e) => setCollateralAmount(parseFloat(e.target.value) || 0)}
-              className="w-full rounded-lg border border-[#232323] bg-[#161616] px-4 py-3 text-white font-mono text-sm focus:border-[#FF6B00] focus:outline-none transition-colors"
+              className="w-full rounded-lg border border-[#232323] px-4 py-3 text-white font-mono text-sm focus:border-[#FF6B00] focus:outline-none transition-colors"
             />
           </div>
 
@@ -578,7 +578,7 @@ function VaultDesk({
         </div>
 
         {/* Right: Summary */}
-        <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+        <div className="rounded-lg border border-[#232323] p-4">
           <div className="text-[10px] text-[#77717e] uppercase mb-3">Trade Summary</div>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -650,7 +650,7 @@ function PositionsList({
         {positions.map((pos) => (
           <div
             key={pos.id}
-            className="rounded-lg border border-[#232323] bg-[#161616] p-4"
+            className="rounded-lg border border-[#232323] p-4"
           >
             <div className="flex items-center justify-between">
               <div>
@@ -762,26 +762,26 @@ function YieldPanel({ onHarvest }: { onHarvest: () => void }) {
         </h2>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+        <div className="rounded-lg border border-[#232323] p-4">
           <div className="text-[10px] text-[#77717e] uppercase">Total Yield</div>
           <div className="text-xl font-bold text-white mt-1">${totalPremium.toFixed(2)}</div>
           <div className="text-[10px] text-[#77717e] mt-1">
             {totalPremium > 0 ? `${(totalPremium / 4000).toFixed(3)} ETH equivalent` : "0.000 ETH"}
           </div>
         </div>
-        <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+        <div className="rounded-lg border border-[#232323] p-4">
           <div className="text-[10px] text-[#77717e] uppercase">Blended APY</div>
           <div className="text-xl font-bold text-[#FF6B00] mt-1">{avgApy > 0 ? `${avgApy.toFixed(1)}%` : "—"}</div>
           <div className="text-[10px] text-[#00D084] mt-1">
             {avgApy > 0 ? `+${(avgApy * 0.2).toFixed(1)}% vs buy & hold` : "No data"}
           </div>
         </div>
-        <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+        <div className="rounded-lg border border-[#232323] p-4">
           <div className="text-[10px] text-[#77717e] uppercase">Active Strategies</div>
           <div className="text-xl font-bold text-white mt-1">{yieldData?.totalPositions ?? 0}</div>
           <div className="text-[10px] text-[#77717e] mt-1">vaults tracked</div>
         </div>
-        <div className="rounded-lg border border-[#232323] bg-[#161616] p-4">
+        <div className="rounded-lg border border-[#232323] p-4">
           <div className="text-[10px] text-[#77717e] uppercase">Available</div>
           <div className="text-xl font-bold text-white mt-1">{totalPremium > 0 ? "Ready" : "—"}</div>
           <div className="text-[10px] text-[#77717e] mt-1">harvest premium</div>
@@ -1001,7 +1001,7 @@ export default function StocksView({
     <main className="flex-1 bg-[#080808] pb-32 text-white">
       {/* Toast */}
       {toastMessage && (
-        <div className="fixed top-14 right-4 z-50 max-w-sm rounded-lg bg-[#161616] border border-[#FF6B00] p-3 shadow-2xl text-xs text-white flex items-start gap-2 animate-in fade-in duration-150">
+        <div className="fixed top-14 right-4 z-50 max-w-sm rounded-lg border border-[#FF6B00] p-3 shadow-2xl text-xs text-white flex items-start gap-2 animate-in fade-in duration-150">
           <CheckCircle2 className="w-4 h-4 text-[#00D084] shrink-0 mt-0.5" />
           <div className="flex-1">
             <span className="font-bold text-[#FF6B00] block text-[10px] uppercase">

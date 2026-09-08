@@ -224,7 +224,7 @@ export default function VaultsView({
             return (
               <div
                 key={vault.id}
-                className={`bg-surface-card border border-[#262626] rounded-lg flex flex-col relative overflow-hidden transition-all duration-300 ${
+                className={`border border-[#262626] rounded-lg flex flex-col relative overflow-hidden transition-all duration-300 ${
                   isPurple
                     ? "border-t-2 border-t-electric-purple"
                     : "border-t-2 border-t-deep-orange"
@@ -293,7 +293,7 @@ export default function VaultsView({
                     />
                   </div>
 
-                  <div className="rounded border border-[#262626] bg-[#0a0a0a] p-3 font-mono">
+                  <div className="rounded border border-[#262626] p-3 font-mono">
                     <div className="flex justify-between items-center gap-3 text-xs">
                       <span className="text-[#ccc3d8]/85">Your Vault Balance</span>
                       <span className="text-white font-bold text-sm">
@@ -308,7 +308,7 @@ export default function VaultsView({
                   </div>
                 </div>
 
-                <div className="bg-[#1b1a1a] p-3 border-t border-[#262626] grid grid-cols-2 gap-3">
+                <div className="p-3 border-t border-[#262626] grid grid-cols-2 gap-3">
                   <button
                     onClick={() => openDeposit(vault.id)}
                     className={`text-black py-2.5 rounded font-sans font-bold text-xs tracking-wider uppercase opacity-95 hover:opacity-100 transition-opacity cursor-pointer ${
@@ -339,7 +339,7 @@ export default function VaultsView({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in">
           <form
             onSubmit={handleDepositSubmit}
-            className="bg-[#161616] border border-[#262626] rounded-lg w-full max-w-xl p-5 relative animate-scale-up"
+            className="border border-[#262626] rounded-lg w-full max-w-xl p-5 relative animate-scale-up"
           >
             <button
               type="button"
@@ -362,7 +362,7 @@ export default function VaultsView({
             </div>
 
             <div className="grid gap-4 sm:grid-cols-[8rem_minmax(0,1fr)]">
-              <section className="rounded border border-[#262626] bg-[#0A0A0A] p-3">
+              <section className="rounded border border-[#262626] p-3">
                 {portfolio.connected && fundingAddress ? (
                   <>
                     <div className="mx-auto flex aspect-square w-full items-center justify-center rounded border border-[#262626] bg-white p-2">
@@ -411,7 +411,7 @@ export default function VaultsView({
                       value={transactionAmount}
                       onChange={(e) => setTransactionAmount(e.target.value)}
                       disabled={!portfolio.connected || !fundingAddress || isDepositing}
-                      className="w-full bg-[#0A0A0A] border border-[#262626] text-white rounded p-3 font-mono text-lg text-right focus:outline-none focus:border-deep-orange focus:ring-1 focus:ring-deep-orange/50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                      className="w-full border border-[#262626] text-white rounded p-3 font-mono text-lg text-right focus:outline-none focus:border-deep-orange focus:ring-1 focus:ring-deep-orange/50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                     />
                     <span className="absolute left-3 top-4 text-xs font-mono font-bold text-[#ccc3d8] italic">
                       {activeVault.asset}
@@ -456,7 +456,7 @@ export default function VaultsView({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
           <form
             onSubmit={handleWithdrawSubmit}
-            className="bg-[#161616] border border-[#262626] rounded-xl w-full max-w-md p-6 relative glow-orange"
+            className="border border-[#262626] rounded-xl w-full max-w-md p-6 relative glow-orange"
           >
             <h3 className="text-lg font-sans font-bold text-white mb-2">Withdraw Liquidity</h3>
             <p className="text-xs text-[#ccc3d8] mb-5">
@@ -476,7 +476,7 @@ export default function VaultsView({
                   placeholder="0.00"
                   value={transactionAmount}
                   onChange={(e) => setTransactionAmount(e.target.value)}
-                  className="w-full bg-[#0A0A0A] border border-[#262626] text-white rounded p-3 font-mono text-lg text-right focus:outline-none focus:border-deep-orange focus:ring-1 focus:ring-deep-orange/50 transition-colors"
+                  className="w-full border border-[#262626] text-white rounded p-3 font-mono text-lg text-right focus:outline-none focus:border-deep-orange focus:ring-1 focus:ring-deep-orange/50 transition-colors"
                 />
                 <span className="absolute left-3 top-4 text-xs font-mono font-bold text-[#ccc3d8] italic">
                   {activeVault.asset}
@@ -519,7 +519,7 @@ function MetricCard({
     tone === "green" ? "text-[#10B981]" : tone === "orange" ? "text-[#F97316]" : "text-white";
 
   return (
-    <div className="bg-surface-card border border-[#262626] rounded-lg p-5">
+    <div className="border border-[#262626] rounded-lg p-5">
       <div className="font-mono text-[10px] text-[#ccc3d8] mb-2 uppercase tracking-widest font-bold">
         {label}
       </div>
@@ -543,7 +543,7 @@ function VaultStat({ label, tone, value }: { label: string; tone?: "green"; valu
 
 function DepositMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-[#262626] bg-[#0A0A0A] p-3 font-mono">
+    <div className="rounded border border-[#262626] p-3 font-mono">
       <div className="text-[9px] uppercase tracking-widest text-[#ccc3d8]/60">{label}</div>
       <div className="mt-1 truncate text-sm font-bold text-white">{value}</div>
     </div>
@@ -552,7 +552,7 @@ function DepositMetric({ label, value }: { label: string; value: string }) {
 
 function TransactionHistory({ transactions }: { transactions: VaultDepositTransaction[] }) {
   return (
-    <section className="rounded-lg border border-[#262626] bg-[#161616] p-5">
+    <section className="rounded-lg border border-[#262626] p-5">
       <div className="mb-4">
         <h2 className="text-lg font-bold text-white">Vault Transaction History</h2>
         <p className="text-xs text-[#ccc3d8]/70">
@@ -560,13 +560,13 @@ function TransactionHistory({ transactions }: { transactions: VaultDepositTransa
         </p>
       </div>
       {transactions.length === 0 ? (
-        <div className="rounded border border-[#262626] bg-[#0A0A0A] p-4 text-xs text-[#ccc3d8]/70">
+        <div className="rounded border border-[#262626] p-4 text-xs text-[#ccc3d8]/70">
           No vault transactions yet.
         </div>
       ) : (
         <div className="grid gap-3">
           {transactions.map((tx) => (
-            <div key={tx.id} className="rounded border border-[#262626] bg-[#0A0A0A] p-3">
+            <div key={tx.id} className="rounded border border-[#262626] p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="font-mono text-sm font-bold text-white">
@@ -608,10 +608,10 @@ function RiskTable({ riskParameters }: { riskParameters: GlobalRiskParameter[] }
           Read-only limits reported by the Core execution service.
         </p>
       </div>
-      <div className="bg-[#161616] border border-[#262626] rounded-lg overflow-x-auto">
+      <div className="border border-[#262626] rounded-lg overflow-x-auto">
         <table className="w-full min-w-[42rem] text-left border-collapse">
           <thead>
-            <tr className="bg-[#1c1b1b] border-b border-[#262626]">
+            <tr className="border-b border-[#262626]">
               <th className="p-4 font-mono text-[10px] text-[#ccc3d8]/60 uppercase tracking-widest font-bold">
                 Parameter
               </th>
@@ -659,7 +659,7 @@ function DepositConfirmation({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in">
-      <section className="w-full max-w-md rounded-lg border border-[#262626] border-t-2 border-t-[#10B981] bg-[#161616] p-5 shadow-2xl animate-scale-up">
+      <section className="w-full max-w-md rounded-lg border border-[#262626] border-t-2 border-t-[#10B981] p-5 shadow-2xl animate-scale-up">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#10B981]">
@@ -710,7 +710,7 @@ function DepositConfirmation({
 
 function ConfirmationRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-[#262626] bg-[#0A0A0A] p-3">
+    <div className="rounded border border-[#262626] p-3">
       <dt className="font-mono text-[9px] uppercase tracking-widest text-[#ccc3d8]/60">{label}</dt>
       <dd className="mt-1 break-words font-mono text-xs font-bold text-white">{value}</dd>
     </div>

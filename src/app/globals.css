@@ -9260,8 +9260,7 @@ main,
   overflow: hidden;
   border: 1px solid #262626;
   border-radius: 8px;
-  background: rgba(22, 22, 22, 0.94);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
+  background: transparent;
 }
 
 .terminal-leaderboard-summary div {
@@ -9309,8 +9308,7 @@ main,
   gap: 1rem;
   border: 1px solid #262626;
   border-radius: 8px;
-  background: rgba(22, 22, 22, 0.94);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.2);
+  background: transparent;
   padding: 1rem;
 }
 
@@ -9359,7 +9357,7 @@ main,
   min-width: 0;
   border: 1px solid #262626;
   border-radius: 6px;
-  background: #0a0a0a;
+  background: transparent;
   padding: 0.55rem;
 }
 
